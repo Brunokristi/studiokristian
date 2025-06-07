@@ -5,6 +5,7 @@ export default {
     './resources/views/**/*.blade.php',
     './resources/js/**/*.js',
   ],
+  safelist: ['bg-accent', 'text-accent'],
   theme: {
     extend: {
       fontFamily: {
@@ -22,6 +23,14 @@ export default {
         'small': ['14px', '14px'],
         'tiny': ['12px', '12px'],
       },
+      utilities: {
+        '.backface-hidden': {
+          'backface-visibility': 'hidden',
+        },
+        '.rotate-y-180': {
+          transform: 'rotateY(180deg)',
+        }
+      }
     },
   },
   plugins: [],

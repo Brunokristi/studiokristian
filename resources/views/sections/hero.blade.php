@@ -35,13 +35,10 @@
         </div>
     </div>
 
-    <x-arrow-link href="/contact" color="blue">
+    <x-arrow-link href="/contact" color="accent">
         Lets build your next weapon
     </x-arrow-link>
 
-
-
-</div>
 
 </section>
 

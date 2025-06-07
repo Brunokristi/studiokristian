@@ -22,7 +22,7 @@
     <x-navbar />
 
     <main>
-        @include('sections.hero')
+        @yield('content')
     </main>
 </body>
 </html>

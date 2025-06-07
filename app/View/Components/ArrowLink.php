@@ -9,12 +9,11 @@ class ArrowLink extends Component
     public string $href;
     public string $color;
 
-    public function __construct(string $href, string $color = 'blue')
+    public function __construct(string $href, string $color = 'accent')
     {
         $this->href = $href;
         $this->color = $color;
     }
-
 
     public function render()
     {
