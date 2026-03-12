@@ -186,8 +186,8 @@ onUnmounted(() => {
 
 <style scoped>
 .business-card-scene {
-  width: min(92vw, 250px);
-  aspect-ratio: 1 / 1.5;
+  width: 250px;
+  height: 350px;
   perspective: 1400px;
   display: grid;
   place-items: center;

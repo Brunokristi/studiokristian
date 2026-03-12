@@ -4,10 +4,14 @@ import { useI18n } from 'vue-i18n';
 import Button from '../components/Button.vue';
 import GridLayout from '../components/GridLayout.vue';
 import BusinessCard from '../components/BusinessCard.vue';
+import Slideshow from '@/components/Slideshow.vue'
 
 const cardFront = '/assets/card_front.svg';
 const cardBack = '/assets/card_front.svg';
 const kaq_image = '/assets/kaq_logo.svg';
+const img1 = '/assets/card_front.svg';
+const img2 = '/assets/card_front.svg';
+const img3 = '/assets/card_front.svg';
 
 const { t } = useI18n();
 
@@ -43,6 +47,24 @@ const cards = [
   },
 ];
 
+const images = [
+  {
+    src: img1,
+    alt: 'Project preview one',
+    caption: 'Project one',
+  },
+  {
+    src: img2,
+    alt: 'Project preview two',
+    caption: 'Project two',
+  },
+  {
+    src: img3,
+    alt: 'Project preview three',
+    caption: 'Project three',
+  },
+]
+
 </script>
 
 <template>
@@ -61,6 +83,12 @@ const cards = [
         />
 
         <Button :text="t('home.recentProjects')" @click="openRecentProjects" />
+
+        <Slideshow
+            :images="images"
+            :autoplay="true"
+            :interval="5000"
+        />
 
 
 
