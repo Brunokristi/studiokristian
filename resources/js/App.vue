@@ -1,7 +1,25 @@
+<script setup>
+import { computed } from 'vue';
+import { RouterView, useRoute } from 'vue-router';
+import Navbar from './components/Navbar.vue';
+import Footer from './components/Footer.vue';
+import BottomNav from './components/BottomNav.vue';
+
+const route = useRoute();
+const theme = computed(() => route.meta.theme ?? 'dark');
+const footer = computed(() => route.meta.footer ?? true);
+
+const backgroundColor = computed(() => theme.value === 'light' ? 'bg-light' : 'bg-dark');
+
+</script>
+
 <template>
-    <div class="min-h-screen flex items-center justify-center bg-[#FDFDFC] dark:bg-[#0a0a0a]">
-        <h1 class="text-2xl font-semibold text-[#1b1b18] dark:text-[#EDEDEC]">
-            Hello from Vue!
-        </h1>
+    <div :class="[backgroundColor, 'min-h-screen flex flex-col']">
+        <Navbar :variant="theme" />
+        <main class="flex-1">
+            <RouterView />
+        </main>
+        <Footer v-if="footer" />
+        <BottomNav />
     </div>
 </template>

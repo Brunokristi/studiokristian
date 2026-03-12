@@ -5,3 +5,32 @@
 @source "../**/*.blade.php";
 @source "../**/*.js";
 @source "../**/*.vue";
+
+@theme {
+    --color-dark: #000000;
+    --color-light: #ffffff;
+    --color-accent: #133EB4;
+
+    --font-sans: 'Inter', sans-serif;
+    --font-mono: 'Space Mono', monospace;
+}
+
+@layer components {
+
+    /* Headings */
+    .h1 {
+        @apply text-sm font-bold leading-tight tracking-tight font-mono;
+    }
+
+    .h2 {
+        @apply text-3xl font-bold leading-snug tracking-tight font-mono uppercase text-center;
+    }
+
+    .h3 {
+        @apply text-sm font-bold leading-snug tracking-tight font-mono uppercase;
+    }
+
+    .p {
+        @apply text-sm font-light leading-snug tracking-tight font-sans;
+    }
+}
