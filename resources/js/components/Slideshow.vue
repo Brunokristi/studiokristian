@@ -121,14 +121,21 @@ onUnmounted(() => {
                 <i class="bi bi-arrows-angle-contract"></i>
             </button>
 
-            <div class="relative max-w-[300px] flex flex-col">
-                <div class="flex min-h-0 w-full flex-col">
+            <div class="relative flex flex-col w-full">
+              <div class="relative flex min-h-0 h-[400px] w-full flex-col overflow-hidden">
+                <transition :name="transitionName">
+                  <div
+                    v-if="currentImage"
+                    :key="`lightbox-${currentIndex}`"
+                    class="absolute inset-0"
+                  >
                     <img
-                        v-if="currentImage"
-                        :src="currentImage.src"
-                        :alt="currentImage.alt || ''"
-                      class="w-full h-[400px] object-contain"
+                      :src="currentImage.src"
+                      :alt="currentImage.alt || ''"
+                      class="w-full h-full object-cover"
                     />
+                  </div>
+                </transition>
                 </div>
 
                 <div class="flex justify-between w-full mt-2">

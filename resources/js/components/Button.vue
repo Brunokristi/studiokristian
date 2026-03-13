@@ -17,7 +17,7 @@ const emit = defineEmits(['click'])
 const buttonColor = computed(() =>
   props.variant === 'light' ? 'text-light' :
   props.variant === 'dark' ? 'text-dark' :
-  props.variant === 'color' ? 'text-accent' :
+  props.variant === 'accent' ? 'text-accent' :
   'text-dark'
 )
 </script>

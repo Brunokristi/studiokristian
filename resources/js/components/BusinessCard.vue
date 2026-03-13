@@ -73,11 +73,11 @@ function startIdleAnimation() {
   function animate(timestamp) {
     if (!startTime) startTime = timestamp
 
-    const t = (timestamp - startTime) / 1000
+    const t = (timestamp - startTime) / 5000
 
     if (!isDragging.value && !hasInteracted.value) {
-      idleX.value = Math.sin(t * 1.5) * 2.5
-      idleY.value = Math.cos(t * 1.5) * 3.5
+      idleX.value = Math.sin(t * 3.5) * 5.5
+      idleY.value = Math.cos(t * 5.5) * 6.5
     } else {
       idleX.value *= 0.9
       idleY.value *= 0.9

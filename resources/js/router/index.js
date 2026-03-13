@@ -1,5 +1,10 @@
 import { createRouter, createWebHistory } from 'vue-router';
 import Home from '../pages/Home.vue';
+import Nav from '../pages/Navigation.vue';
+import Portfolio from '../pages/Portfolio.vue';
+import Workflow from '../pages/Workflow.vue';
+import Pricing from '../pages/Pricing.vue';
+import Contact from '../pages/Contact.vue';
 
 const routes = [
     {
@@ -11,6 +16,51 @@ const routes = [
             footer: true,
         },
     },
+    {
+        path: '/nav',
+        name: 'nav',
+        component: Nav,
+        meta: {
+            theme: 'dark',
+            footer: false,
+        },
+    },
+    {
+        path: '/portfolio',
+        name: 'portfolio',
+        component: Portfolio,
+        meta: {
+            theme: 'light',
+            footer: true,
+        },
+    },
+    {
+        path: '/workflow',
+        name: 'workflow',
+        component: Workflow,
+        meta: {
+            theme: 'light',
+            footer: true,
+        },
+    },
+    {
+        path: '/pricing',
+        name: 'pricing',
+        component: Pricing,
+        meta: {
+            theme: 'light',
+            footer: true,
+        },
+    },
+    {
+        path: '/contact',
+        name: 'contact',
+        component: Contact,
+        meta: {
+            theme: 'dark',
+            footer: true,
+        },
+    }
 ];
 
 const router = createRouter({
