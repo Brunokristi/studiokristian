@@ -1,0 +1,108 @@
+<script setup lang="ts">
+import { onMounted, ref, watch } from 'vue';
+import { useI18n } from 'vue-i18n';
+import { useRoute } from 'vue-router';
+const { t } = useI18n();
+const route = useRoute();
+
+import Button from '../components/Button.vue';
+import Slideshow from '../components/Slideshow.vue';
+import Info from '../components/Info.vue';
+
+type ApiProject = {
+  name: string;
+  url: string;
+  summary: string | null;
+  images: Array<{ path: string; description: string | null }>;
+  features: Array<{ title: string; description: string }>;
+};
+
+const projectName = ref('');
+const images = ref([]);
+const items = ref([]);
+const isLoading = ref(true);
+
+async function loadProject() {
+  const url = route.params.url;
+  if (typeof url !== 'string' || !url) {
+    return;
+  }
+
+  isLoading.value = true;
+
+  try {
+    const response = await fetch(`/api/projects/${url}`);
+    if (!response.ok) {
+      throw new Error('Failed to load project');
+    }
+
+    const project: ApiProject = await response.json();
+    projectName.value = project.name;
+    images.value = project.images.map((image, index) => ({
+      src: image.path,
+      alt: image.description || `Project image ${index + 1}`,
+      caption: image.description || `Image ${index + 1}`,
+    }));
+    items.value = project.features.map((feature) => ({
+      heading: feature.title,
+      text: feature.description,
+    }));
+  } catch (error) {
+    console.error(error);
+    projectName.value = 'Project not found';
+    images.value = [];
+    items.value = [];
+  } finally {
+    isLoading.value = false;
+  }
+}
+
+const openRecentProjects = () => {
+  console.log(t('home.recentProjectsClicked'));
+};
+
+onMounted(() => {
+  loadProject();
+});
+
+watch(
+  () => route.params.url,
+  () => {
+    loadProject();
+  }
+);
+
+</script>
+
+<template>
+    <main class="py-5 flex flex-col gap-20">
+        <p v-if="isLoading" class="p">Loading project...</p>
+
+        <template v-else>
+        <Slideshow
+            :images="images"
+            :autoplay="true"
+            :interval="5000"
+        />
+
+        <h2 class="h2 text-accent">{{ projectName }}</h2>
+
+        <div>
+            <Info
+                v-for="(item, index) in items"
+                :key="index"
+                :heading="item.heading"
+                :text="item.text"
+            />
+        </div>
+
+        <Button
+            :text="t('home.recentProjects')"
+            variant="dark"
+            @click="openRecentProjects"
+        />
+        </template>
+    </main>
+</template>
+
+

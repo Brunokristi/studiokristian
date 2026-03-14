@@ -10,6 +10,10 @@ const props = defineProps({
     type: String,
     default: '',
   },
+  color: {
+    type: String,
+    default: 'dark',
+  },
 })
 
 const isOpen = ref(false)
@@ -21,15 +25,26 @@ function toggleOpen() {
 const iconClass = computed(() =>
   isOpen.value ? 'rotate-180' : 'rotate-0'
 )
+
+const headingColorClass = computed(() => {
+  if (props.color === 'light') return 'text-light'
+  if (props.color === 'accent') return 'text-accent'
+  return 'text-dark'
+})
 </script>
 
 <template>
   <div
     class="w-full border-t last:border-b transition-colors duration-300"
-    :class="isOpen ? 'bg-accent text-light border-light' : 'bg-transparent text-dark border-accent hover:bg-accent hover:text-light hover:border-light'"
+    :class="[
+      isOpen
+        ? 'bg-accent text-light border-light'
+        : 'bg-transparent border-accent hover:bg-accent hover:text-light hover:border-light',
+      !isOpen ? headingColorClass : ''
+    ]"
   >
     <button
-      class="w-full flex items-center justify-between gap-6 py-3 px-4 text-left"
+      class="w-full flex items-center justify-between gap-6 py-3 px-4 text-left cursor-pointer"
       @click="toggleOpen"
       :aria-expanded="isOpen"
     >

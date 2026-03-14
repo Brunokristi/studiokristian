@@ -15,9 +15,9 @@ const props = defineProps({
 const emit = defineEmits(['click'])
 
 const buttonColor = computed(() =>
-  props.variant === 'light' ? 'text-light' :
-  props.variant === 'dark' ? 'text-dark' :
-  props.variant === 'accent' ? 'text-accent' :
+  props.variant === 'light' ? 'text-light hover:text-accent' :
+  props.variant === 'dark' ? 'text-dark hover:text-accent' :
+  props.variant === 'accent' ? 'text-accent hover:text-light' :
   'text-dark'
 )
 </script>
@@ -26,7 +26,7 @@ const buttonColor = computed(() =>
     <div class="w-full flex justify-center">
     <button
       type="button"
-            class="group inline-flex flex-col items-start cursor-pointer"
+            class="group inline-flex flex-col items-start cursor-pointer transition-color duration-300"
             :class="buttonColor"
       @click="emit('click')"
         >

@@ -109,7 +109,7 @@ onUnmounted(() => {
     :class="isDarkBackground ? 'text-white' : 'text-black'"
   >
     <button
-      class="text-inherit"
+      class="text-inherit cursor-pointer"
       type="button"
       @click="toggleLanguage"
       :title="locale === 'en' ? 'Switch to Slovak' : 'Prepnut do anglictiny'"
@@ -119,7 +119,7 @@ onUnmounted(() => {
     </button>
 
     <button 
-      class="text-inherit"
+      class="text-inherit cursor-pointer"
       type="button"
       @click="openNavigation"
       :title="isOnNavPage ? 'Close navigation' : 'Open navigation'"

@@ -95,7 +95,7 @@ onUnmounted(() => {
                 aria-label="Open image fullscreen"
                 @click="openLightbox()"
               >
-                <i class="bi bi-arrows-angle-expand text-lg"></i>
+                <i class="bi bi-arrows-angle-expand text-dark"></i>
               </button>
             </div>
           </transition>
@@ -116,12 +116,7 @@ onUnmounted(() => {
     <teleport to="body">
       <transition name="fade">
         <div v-if="isLightboxOpen" class="fixed inset-0 z-[999] flex flex-col items-center justify-center bg-dark p-6">
-            
-            <button class="absolute top-4 right-4 z-20 text-accent cursor-pointer" aria-label="Close fullscreen gallery" @click="closeLightbox">
-                <i class="bi bi-arrows-angle-contract"></i>
-            </button>
-
-            <div class="relative flex flex-col w-full">
+            <div class="relative flex flex-col w-full max-w-[600px]">
               <div class="relative flex min-h-0 h-[400px] w-full flex-col overflow-hidden">
                 <transition :name="transitionName">
                   <div
@@ -134,16 +129,24 @@ onUnmounted(() => {
                       :alt="currentImage.alt || ''"
                       class="w-full h-full object-cover"
                     />
+                    
+                    <button
+                      class="absolute bottom-3 right-3 z-20 text-light cursor-pointer"
+                      aria-label="Close lightbox"
+                      @click="closeLightbox()"
+                    >
+                      <i class="bi bi-arrows-angle-contract text-accent"></i>
+                  </button>
                   </div>
                 </transition>
                 </div>
 
                 <div class="flex justify-between w-full mt-2">
-                    <button v-if="images.length > 1" class="flex h-12 w-12" aria-label="Previous image" @click="prev">
+                    <button v-if="images.length > 1" class="flex h-12 w-12 cursor-pointer" aria-label="Previous image" @click="prev">
                         <i class="bi bi-arrow-left text-accent"></i>
                     </button>
 
-                    <button v-if="images.length > 1" class="flex h-12 w-12 justify-end" aria-label="Next image" @click="next">
+                    <button v-if="images.length > 1" class="flex h-12 w-12 cursor-pointer justify-end" aria-label="Next image" @click="next">
                         <i class="bi bi-arrow-right text-accent"></i>
                     </button>
                 </div>

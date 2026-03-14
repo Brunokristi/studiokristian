@@ -30,7 +30,22 @@ const props = defineProps({
 })
 
 const tag = computed(() => (props.link ? RouterLink : 'article'))
-const hoverBgColor = computed(() => props.bgColor || 'bg-accent')
+const isHexColor = computed(() => /^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/.test(props.bgColor || ''))
+const hoverBgClass = computed(() => {
+  if (!props.bgColor || isHexColor.value) {
+    return 'bg-accent'
+  }
+
+  return props.bgColor
+})
+
+const hoverBgStyle = computed(() => {
+  if (!isHexColor.value) {
+    return undefined
+  }
+
+  return { backgroundColor: props.bgColor }
+})
 </script>
 
 <template>
@@ -42,7 +57,8 @@ const hoverBgColor = computed(() => props.bgColor || 'bg-accent')
   >
     <div
       class="absolute inset-0 opacity-0 transition-opacity duration-300 group-hover:opacity-100"
-      :class="hoverBgColor"
+      :class="hoverBgClass"
+      :style="hoverBgStyle"
     ></div>
 
     <div

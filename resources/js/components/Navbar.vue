@@ -14,15 +14,13 @@ const logoSrc = '/assets/logo.svg';
 </script>
 
 <template>
-    <nav class="w-full px-6 h-14 flex items-center justify-between sticky top-0 z-100">
-        <h1 :class="['h1', studioColor]">studio</h1>
+    <a class="w-full px-6 h-14 flex items-center justify-between sticky top-0 z-100" href="/">
+        <h1 :class="['h1', studioColor, 'w-50']">studio</h1>
 
-        <a href="/">
-            <img :src="logoSrc" alt="Studio Kristian Logo" class="h-4 w-auto" />
-        </a>
+        <img :src="logoSrc" alt="Studio Kristian Logo" class="h-4 w-auto" />
 
-        <h1 :class="['h1', kristianColor]">kristian</h1>
-    </nav>
+        <h1 :class="['h1', kristianColor, 'w-50', 'text-end']">kristian</h1>
+    </a>
 </template>
 
 

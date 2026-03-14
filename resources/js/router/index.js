@@ -2,6 +2,7 @@ import { createRouter, createWebHistory } from 'vue-router';
 import Home from '../pages/Home.vue';
 import Nav from '../pages/Navigation.vue';
 import Portfolio from '../pages/Portfolio.vue';
+import Project from '../pages/Project.vue';
 import Workflow from '../pages/Workflow.vue';
 import Pricing from '../pages/Pricing.vue';
 import Contact from '../pages/Contact.vue';
@@ -29,6 +30,15 @@ const routes = [
         path: '/portfolio',
         name: 'portfolio',
         component: Portfolio,
+        meta: {
+            theme: 'light',
+            footer: true,
+        },
+    },
+    {
+        path: '/portfolio/:url',
+        name: 'project',
+        component: Project,
         meta: {
             theme: 'light',
             footer: true,
