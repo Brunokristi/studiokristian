@@ -1,20 +1,16 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted } from 'vue'
-import { useI18n } from 'vue-i18n'
-import { useRouter } from 'vue-router'
 import Button from '../components/Button.vue'
 import Info from '../components/Info.vue'
 
+import { useI18n } from 'vue-i18n'
 const { t } = useI18n()
-const router = useRouter()
+
+import { useGlobalActions } from '../composables/useGlobalActions'
+const { openEmail, openMessage, openPhone, openWhatsApp } = useGlobalActions()
+
 const logoSrc = '/assets/logo_white.svg'
-
-function openRecentProjects() {
-  router.push({ name: 'portfolio' })
-}
-
 const seconds = ref(0)
-let timer: number | undefined
 
 const transcriptSource = `
 Lorem ipsum dolor sit amet, consectetur adipiscing elit. Donec vel sapien eget nunc efficitur efficitur.
@@ -23,6 +19,8 @@ Donec in nunc sed enim efficitur fermentum. Proin ut odio a metus efficitur tinc
 Donec sed nisl a enim efficitur fermentum. Donec sed nisl a enim efficitur fermentum.
 Vivamus gravida tortor sit amet augue ultrices, nec dapibus ligula vulputate.
 `
+
+let timer: number | undefined
 
 const items = [
   {
@@ -230,15 +228,27 @@ onUnmounted(() => {
 
     <section class="space-y-4 px-6" data-theme="dark">
       <Button
-        @click="openRecentProjects"
-        :text="t('home.recentProjects')"
+        :text="t('contact.email')"
         variant="light"
+        @click="openEmail"
       />
 
       <Button
-        :text="t('home.recentProjects')"
+        :text="t('contact.whatsapp')"
         variant="light"
-        @click="openRecentProjects"
+        @click="openWhatsApp"
+      />
+
+      <Button
+        :text="t('contact.message')"
+        variant="light"
+        @click="openMessage"
+      />
+
+      <Button
+        :text="t('contact.call')"
+        variant="light"
+        @click="openPhone"
       />
     </section>
   </main>

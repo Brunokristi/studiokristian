@@ -14,7 +14,12 @@ class ProjectImage extends Model
         'project_id',
         'path',
         'description',
+        'description_translations',
         'sort_order',
+    ];
+
+    protected $casts = [
+        'description_translations' => 'array',
     ];
 
     public function project(): BelongsTo

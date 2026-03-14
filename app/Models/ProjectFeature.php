@@ -13,8 +13,15 @@ class ProjectFeature extends Model
     protected $fillable = [
         'project_id',
         'title',
+        'title_translations',
         'description',
+        'description_translations',
         'sort_order',
+    ];
+
+    protected $casts = [
+        'title_translations' => 'array',
+        'description_translations' => 'array',
     ];
 
     public function project(): BelongsTo

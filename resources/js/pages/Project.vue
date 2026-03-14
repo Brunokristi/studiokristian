@@ -2,7 +2,7 @@
 import { onMounted, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useRoute } from 'vue-router';
-const { t } = useI18n();
+const { t, locale } = useI18n();
 const route = useRoute();
 
 import Button from '../components/Button.vue';
@@ -31,7 +31,7 @@ async function loadProject() {
   isLoading.value = true;
 
   try {
-    const response = await fetch(`/api/projects/${url}`);
+    const response = await fetch(`/api/projects/${url}?locale=${encodeURIComponent(locale.value)}`);
     if (!response.ok) {
       throw new Error('Failed to load project');
     }
@@ -67,6 +67,13 @@ onMounted(() => {
 
 watch(
   () => route.params.url,
+  () => {
+    loadProject();
+  }
+);
+
+watch(
+  () => locale.value,
   () => {
     loadProject();
   }

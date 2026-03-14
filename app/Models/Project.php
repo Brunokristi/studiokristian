@@ -12,10 +12,17 @@ class Project extends Model
 
     protected $fillable = [
         'name',
+        'name_translations',
         'url',
         'summary',
+        'summary_translations',
         'hex_color',
         'logo_path',
+    ];
+
+    protected $casts = [
+        'name_translations' => 'array',
+        'summary_translations' => 'array',
     ];
 
     public function images(): HasMany

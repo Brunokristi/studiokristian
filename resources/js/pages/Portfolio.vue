@@ -1,7 +1,9 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue';
+import { onMounted, ref, watch } from 'vue';
+import { useGlobalActions } from '../composables/useGlobalActions';
+const { openContacts } = useGlobalActions();
 import { useI18n } from 'vue-i18n';
-const { t } = useI18n();
+const { t, locale } = useI18n();
 
 import Button from '../components/Button.vue';
 import GridLayout from '../components/GridLayout.vue';
@@ -28,7 +30,7 @@ async function loadProjects() {
   isLoading.value = true;
 
   try {
-    const response = await fetch('/api/projects');
+    const response = await fetch(`/api/projects?locale=${encodeURIComponent(locale.value)}`);
     if (!response.ok) {
       throw new Error('Failed to load projects');
     }
@@ -49,24 +51,27 @@ async function loadProjects() {
   }
 }
 
-const openRecentProjects = () => {
-  console.log(t('home.recentProjectsClicked'));
-};
-
 onMounted(() => {
   loadProjects();
 });
+
+watch(
+  () => locale.value,
+  () => {
+    loadProjects();
+  }
+);
 
 </script>
 
 <template>
     <main class="py-5 flex flex-col gap-20" data-theme="light">
-      <p v-if="isLoading" class="p">Loading projects...</p>
+      <p v-if="isLoading" class="p">{{ t('portfolio.loading') }}</p>
       <GridLayout v-else :cards="cards" />
       <Button
-        :text="t('home.recentProjects')"
+        :text="t('portfolio.contact')"
         variant="dark"
-        @click="openRecentProjects"
+        @click="openContacts"
         />
     </main>
 </template>

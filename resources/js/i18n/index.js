@@ -2,6 +2,25 @@ import { createI18n } from 'vue-i18n';
 import en from './messages/en';
 import sk from './messages/sk';
 
+function collectKeys(obj, prefix = '') {
+    return Object.entries(obj).flatMap(([key, value]) => {
+        const currentKey = prefix ? `${prefix}.${key}` : key;
+
+        if (value && typeof value === 'object' && !Array.isArray(value)) {
+            return collectKeys(value, currentKey);
+        }
+
+        return [currentKey];
+    });
+}
+
+function findMissingKeys(sourceMessages, targetMessages) {
+    const sourceKeys = new Set(collectKeys(sourceMessages));
+    const targetKeys = new Set(collectKeys(targetMessages));
+
+    return [...sourceKeys].filter((key) => !targetKeys.has(key));
+}
+
 const supportedLocales = ['en', 'sk'];
 
 const browserLocale = (navigator.language || 'en').slice(0, 2).toLowerCase();
@@ -19,5 +38,13 @@ const i18n = createI18n({
         sk,
     },
 });
+
+if (import.meta.env.DEV) {
+    const missingInSk = findMissingKeys(en, sk);
+
+    if (missingInSk.length > 0) {
+        console.warn('Missing Slovak translation keys:', missingInSk);
+    }
+}
 
 export default i18n;

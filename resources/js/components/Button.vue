@@ -30,7 +30,7 @@ const buttonColor = computed(() =>
             :class="buttonColor"
       @click="emit('click')"
         >
-            <span class="font-mono text-sm font-bold">
+            <span class="font-mono text-sm font-bold lowercase">
             {{ props.text }}
             </span>
 
