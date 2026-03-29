@@ -3,7 +3,7 @@ import { useI18n } from 'vue-i18n';
 const { t, locale } = useI18n();
 
 import { useGlobalActions } from '../composables/useGlobalActions';
-const { openContacts, openRecentProjects, openWorkflow, openEmail } = useGlobalActions();
+const { openContacts, openRecentProjects, openWorkflow, openPrivacyPolicy } = useGlobalActions();
 
 const logoSrc = '/assets/logo_white.svg'
 const date = new Date().getFullYear()
@@ -33,17 +33,10 @@ const date = new Date().getFullYear()
 
           <div class="flex flex-col gap-4 items-start md:items-end">
             <button
-              @click="openContacts"
+              @click="openPrivacyPolicy"
               class="text-light hover:text-accent transition-colors duration-300"
             >
               <p class="p underline uppercase">{{ t('footer.privacy') }}</p>
-            </button>
-
-            <button
-              @click="openEmail"
-              class="text-light hover:text-accent transition-colors duration-300"
-            >
-              <p class="p underline uppercase">{{ t('footer.email') }}</p>
             </button>
           </div>
 
@@ -62,6 +55,7 @@ const date = new Date().getFullYear()
               class="text-light hover:text-accent transition-colors duration-300"
             >
               <p class="p underline uppercase">{{ t('footer.facebook') }}</p>
+            
             </a>
           </div>
 

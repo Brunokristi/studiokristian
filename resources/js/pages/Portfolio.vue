@@ -4,9 +4,15 @@ import { useGlobalActions } from '../composables/useGlobalActions';
 const { openContacts } = useGlobalActions();
 import { useI18n } from 'vue-i18n';
 const { t, locale } = useI18n();
+import { useSeoMeta } from '../composables/useSeoMeta';
 
 import Button from '../components/Button.vue';
 import GridLayout from '../components/GridLayout.vue';
+
+useSeoMeta({
+  title: () => t('seo.portfolio.title'),
+  description: () => t('seo.portfolio.description'),
+});
 
 type ApiProject = {
   name: string;

@@ -1,10 +1,16 @@
 <script setup lang="ts">
 import { useI18n } from 'vue-i18n';
 const { t } = useI18n();
+import { useSeoMeta } from '../composables/useSeoMeta';
 
 import Button from '../components/Button.vue';
 import Slideshow from '../components/Slideshow.vue';
 import Info from '../components/Info.vue';
+
+useSeoMeta({
+  title: () => t('seo.workflow.title'),
+  description: () => t('seo.workflow.description'),
+});
 
 const img1 = '/assets/img1.jpg';
 const img2 = '/assets/card_front.svg';
@@ -42,7 +48,7 @@ const items = [
 ];
 
 const openRecentProjects = () => {
-  console.log(t('home.recentProjectsClicked'));
+  window.location.href = '/portfolio';
 };
 
 </script>

@@ -6,6 +6,7 @@ import Project from '../pages/Project.vue';
 import Workflow from '../pages/Workflow.vue';
 import Pricing from '../pages/Pricing.vue';
 import Contact from '../pages/Contact.vue';
+import PrivacyPolicy from '../pages/PrivacyPolicy.vue';
 
 const routes = [
     {
@@ -70,7 +71,16 @@ const routes = [
             theme: 'dark',
             footer: true,
         },
-    }
+    },
+    {
+        path: '/privacy-policy',
+        name: 'privacy-policy',
+        component: PrivacyPolicy,
+        meta: {
+            theme: 'light',
+            footer: true,
+        },
+    },
 ];
 
 const router = createRouter({

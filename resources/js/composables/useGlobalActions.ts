@@ -15,6 +15,10 @@ export function useGlobalActions() {
         router.push({ name: 'workflow' });
     };
 
+    const openPrivacyPolicy = () => {
+        router.push({ name: 'privacy-policy' });
+    };
+
     const openVcard = () => {
         const link = document.createElement('a');
         link.href = '/vcard.vcf';
@@ -50,6 +54,7 @@ export function useGlobalActions() {
         openContacts,
         openRecentProjects,
         openWorkflow,
+        openPrivacyPolicy,
         openVcard,
         openEmail,
         openPhone,

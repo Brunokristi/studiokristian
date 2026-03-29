@@ -4,6 +4,7 @@ import { useI18n } from 'vue-i18n';
 import { useRoute } from 'vue-router';
 const { t, locale } = useI18n();
 const route = useRoute();
+import { useSeoMeta } from '../composables/useSeoMeta';
 
 import Button from '../components/Button.vue';
 import Slideshow from '../components/Slideshow.vue';
@@ -18,9 +19,21 @@ type ApiProject = {
 };
 
 const projectName = ref('');
+const projectSummary = ref('');
 const images = ref([]);
 const items = ref([]);
 const isLoading = ref(true);
+
+useSeoMeta({
+  title: () => {
+    const name = projectName.value.trim();
+    return name ? `${name} | Studio Kristian` : t('seo.project.title');
+  },
+  description: () => {
+    const summary = projectSummary.value.trim();
+    return summary || t('seo.project.description');
+  },
+});
 
 async function loadProject() {
   const url = route.params.url;
@@ -38,6 +51,7 @@ async function loadProject() {
 
     const project: ApiProject = await response.json();
     projectName.value = project.name;
+    projectSummary.value = project.summary || '';
     images.value = project.images.map((image, index) => ({
       src: image.path,
       alt: image.description || `Project image ${index + 1}`,
@@ -50,6 +64,7 @@ async function loadProject() {
   } catch (error) {
     console.error(error);
     projectName.value = 'Project not found';
+    projectSummary.value = '';
     images.value = [];
     items.value = [];
   } finally {

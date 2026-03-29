@@ -4,6 +4,7 @@ import { RouterView, useRoute } from 'vue-router';
 import Navbar from './components/Navbar.vue';
 import Footer from './components/Footer.vue';
 import BottomNav from './components/BottomNav.vue';
+import CookieConsent from './components/CookieConsent.vue';
 
 const route = useRoute();
 const theme = computed(() => route.meta.theme ?? 'dark');
@@ -21,5 +22,6 @@ const backgroundColor = computed(() => theme.value === 'light' ? 'bg-light' : 'b
         </main>
         <Footer v-if="footer" />
         <BottomNav />
+        <CookieConsent />
     </div>
 </template>

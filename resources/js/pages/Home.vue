@@ -109,7 +109,7 @@ watch(
           <h2 class="h2 text-light">{{ t('home.subtitle2') }}</h2>
           <p class="p uppercase text-light">{{ t('home.description2') }}</p>
           <Button
-            :text="t('home.recentProjects')"
+            :text="t('home.workflow')"
             variant="light"
             @click="openWorkflow"
             class="mt-12"

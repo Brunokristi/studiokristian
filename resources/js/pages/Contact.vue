@@ -5,57 +5,63 @@ import Info from '../components/Info.vue'
 
 import { useI18n } from 'vue-i18n'
 const { t } = useI18n()
+import { useSeoMeta } from '../composables/useSeoMeta'
 
 import { useGlobalActions } from '../composables/useGlobalActions'
 const { openEmail, openMessage, openPhone, openWhatsApp } = useGlobalActions()
 
+useSeoMeta({
+  title: () => t('seo.contact.title'),
+  description: () => t('seo.contact.description'),
+})
+
 const logoSrc = '/assets/logo_white.svg'
 const seconds = ref(0)
 
-const transcriptSource = `
-Lorem ipsum dolor sit amet, consectetur adipiscing elit. Donec vel sapien eget nunc efficitur efficitur.
-Sed at felis a enim efficitur convallis. Curabitur ac ligula id mi commodo efficitur.
-Donec in nunc sed enim efficitur fermentum. Proin ut odio a metus efficitur tincidunt.
-Donec sed nisl a enim efficitur fermentum. Donec sed nisl a enim efficitur fermentum.
-Vivamus gravida tortor sit amet augue ultrices, nec dapibus ligula vulputate.
-`
+const transcriptSource = computed(() => t('contactPage.transcript'))
 
 let timer: number | undefined
 
-const items = [
-  {
-    heading: 'What services do you offer?',
-    text: 'I create visual identities, websites and digital experiences.',
-    color: 'light',
-  },
-  {
-    heading: 'Do you work internationally?',
-    text: 'Yes, I work with clients from all around the world.',
-    color: 'light',
-  },
-  {
-    heading: 'What is your design process?',
-    text: 'My design process is collaborative and iterative, ensuring the best results for my clients.',
-    color: 'light',
-  },
-]
+const items = computed(() => [
+    {
+        heading: t('contactPage.items.0.heading'),
+        text: t('contactPage.items.0.text'),
+        color: 'light',
+    },
+    {
+        heading: t('contactPage.items.1.heading'),
+        text: t('contactPage.items.1.text'),
+        color: 'light',
+    },
+    {
+        heading: t('contactPage.items.2.heading'),
+        text: t('contactPage.items.2.text'),
+        color: 'light',
+    },
+])
 
-const transcriptWords = transcriptSource.trim().split(/\s+/)
+const transcriptWords = computed(() => transcriptSource.value.trim().split(/\s+/))
 const visibleWordCount = ref(0)
 let transcriptTimer: number | undefined
 
 const isTranscriptFinished = computed(() => {
-  return visibleWordCount.value >= transcriptWords.length
+    return visibleWordCount.value >= transcriptWords.value.length
 })
 
 const visibleTranscript = computed(() => {
-  return transcriptWords.slice(0, visibleWordCount.value).join(' ')
+    return transcriptWords.value.slice(0, visibleWordCount.value).join(' ')
 })
 
 const timeFormatted = computed(() => {
-  const mins = Math.floor(seconds.value / 60)
-  const secs = seconds.value % 60
-  return `${mins}:${secs.toString().padStart(2, '0')}`
+    const mins = Math.floor(seconds.value / 60)
+    const secs = seconds.value % 60
+    return `${mins}:${secs.toString().padStart(2, '0')}`
+})
+
+const callStatus = computed(() => {
+    return isTranscriptFinished.value
+        ? t('contactPage.callEnded', { time: timeFormatted.value })
+        : timeFormatted.value
 })
 
 const slider = ref<HTMLElement | null>(null)
@@ -68,81 +74,81 @@ const isCalling = ref(false)
 const knobSize = 40
 
 const maxDrag = computed(() => {
-  if (!slider.value) return 0
-  return slider.value.offsetWidth - knobSize - 8
+    if (!slider.value) return 0
+    return slider.value.offsetWidth - knobSize - 8
 })
 
 function startDrag(event: PointerEvent) {
-  if (isCalling.value || isTranscriptFinished.value) return
+    if (isCalling.value || isTranscriptFinished.value) return
 
-  isDragging.value = true
-  startX.value = event.clientX
-  startDragX.value = dragX.value
-  ;(event.currentTarget as HTMLElement)?.setPointerCapture?.(event.pointerId)
+    isDragging.value = true
+    startX.value = event.clientX
+    startDragX.value = dragX.value
+    ;(event.currentTarget as HTMLElement)?.setPointerCapture?.(event.pointerId)
 }
 
 function onDrag(event: PointerEvent) {
-  if (!isDragging.value || isCalling.value || isTranscriptFinished.value) return
+    if (!isDragging.value || isCalling.value || isTranscriptFinished.value) return
 
-  const delta = event.clientX - startX.value
-  const next = startDragX.value + delta
-  dragX.value = Math.max(0, Math.min(next, maxDrag.value))
+    const delta = event.clientX - startX.value
+    const next = startDragX.value + delta
+    dragX.value = Math.max(0, Math.min(next, maxDrag.value))
 }
 
 function endDrag() {
-  if (!isDragging.value) return
-  isDragging.value = false
+    if (!isDragging.value) return
+    isDragging.value = false
 
-  const threshold = maxDrag.value * 0.75
+    const threshold = maxDrag.value * 0.75
 
-  if (dragX.value >= threshold) {
-    dragX.value = maxDrag.value
-    makeCall()
-  } else {
-    dragX.value = 0
-  }
+    if (dragX.value >= threshold) {
+        dragX.value = maxDrag.value
+        makeCall()
+    } else {
+        dragX.value = 0
+    }
 }
 
 function makeCall() {
-  isCalling.value = true
-  window.location.href = 'tel:+421123456789'
+    isCalling.value = true
+    window.location.href = 'tel:+421123456789'
 }
 
 function hangUp() {
-  isCalling.value = false
-  dragX.value = 0
+    isCalling.value = false
+    dragX.value = 0
 }
 
 function startClock() {
-  timer = window.setInterval(() => {
-    if (!isTranscriptFinished.value) {
-      seconds.value++
-    } else if (timer) {
-      clearInterval(timer)
-    }
-  }, 1000)
+    timer = window.setInterval(() => {
+        if (!isTranscriptFinished.value) {
+            seconds.value++
+        } else if (timer) {
+            clearInterval(timer)
+        }
+    }, 1000)
 }
 
 function startTranscript() {
-  const tick = () => {
-    if (visibleWordCount.value < transcriptWords.length) {
-      visibleWordCount.value++
-      const nextDelay = 120 + Math.random() * 180
-      transcriptTimer = window.setTimeout(tick, nextDelay)
+    const tick = () => {
+        if (visibleWordCount.value < transcriptWords.value.length) {
+            visibleWordCount.value++
+            const nextDelay = 120 + Math.random() * 180
+            transcriptTimer = window.setTimeout(tick, nextDelay)
+        }
     }
-  }
 
-  tick()
+    tick()
 }
 
 onMounted(() => {
-  startClock()
-  startTranscript()
+    startClock()
+    startTranscript()
 })
 
 onUnmounted(() => {
-  if (timer) clearInterval(timer)
-  if (transcriptTimer) clearTimeout(transcriptTimer)
+    if (timer) clearInterval(timer)
+    if (transcriptTimer) clearTimeout(transcriptTimer)
 })
 </script>
 
@@ -156,9 +162,10 @@ onUnmounted(() => {
 
         <div class="flex flex-col p-3">
           <p class="p text-light">
-            {{ isTranscriptFinished ? `Hovor skončil (${timeFormatted})` : timeFormatted }}
+              {{ callStatus }}
           </p>
-          <h3 class="h3 uppercase text-light">Centrála SK</h3>
+
+          <h3 class="h3 uppercase text-light">{{ t('contactPage.title') }}</h3>
         </div>
       </div>
 
@@ -183,10 +190,10 @@ onUnmounted(() => {
         >
           <div class="absolute inset-0 flex items-center justify-center pointer-events-none">
             <p
-              class="p text-dark transition-opacity duration-300"
-              :class="isDragging ? 'opacity-60' : 'opacity-100'"
+                class="p text-dark transition-opacity duration-300"
+                :class="isDragging ? 'opacity-60' : 'opacity-100'"
             >
-              Potiahnutím zavolať
+                {{ t('contactPage.dragToCall') }}
             </p>
           </div>
 

@@ -11,6 +11,7 @@ const route = useRoute()
 const showToast = ref(false)
 const toastHeading = ref('Language changed')
 const toastText = ref('')
+const localeCode = computed(() => (locale.value === 'en' ? '译' : '译'))
 const isOnNavPage = computed(() => route.name === 'nav')
 const returnToPath = computed(() => {
   const from = route.query.from
@@ -108,15 +109,6 @@ onUnmounted(() => {
     class="flex flex-col fixed bottom-6 right-6 gap-2 transition-colors duration-500 z-100"
     :class="isDarkBackground ? 'text-white' : 'text-black'"
   >
-    <button
-      class="text-inherit cursor-pointer"
-      type="button"
-      @click="toggleLanguage"
-      :title="locale === 'en' ? 'Switch to Slovak' : 'Prepnut do anglictiny'"
-      :aria-label="locale === 'en' ? 'Switch to Slovak' : 'Prepnut do anglictiny'"
-    >
-      <i class="bi bi-translate text-inherit"></i>
-    </button>
 
     <button 
       class="text-inherit cursor-pointer"
@@ -126,6 +118,16 @@ onUnmounted(() => {
       :aria-label="isOnNavPage ? 'Close navigation' : 'Open navigation'"
     >
     <i :class="isOnNavPage ? 'bi bi-x-lg text-inherit' : 'bi bi-list text-inherit'"></i>
+    </button>
+
+    <button
+      class="text-inherit cursor-pointer"
+      type="button"
+      @click="toggleLanguage"
+      :title="locale === 'en' ? 'Switch to Slovak' : 'Switch to English'"
+      :aria-label="locale === 'en' ? 'Switch to Slovak' : 'Switch to English'"
+    >
+      <span class="p text-inherit tracking-widest">{{ localeCode }}</span>
     </button>
 
   </nav>
