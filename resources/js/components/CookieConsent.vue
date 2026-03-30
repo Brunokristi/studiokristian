@@ -30,59 +30,73 @@ function openPrivacyPage() {
 </script>
 
 <template>
-  <Transition name="cookie-slide">
-    <aside
-      v-if="isVisible"
-      class="fixed bottom-4 left-4 right-4 z-[120] bg-dark text-light border border-accent/40 rounded-xl p-4 md:p-5 shadow-[0_18px_50px_rgba(0,0,0,0.45)]"
-      data-theme="dark"
-      role="dialog"
-      aria-live="polite"
-      :aria-label="t('cookies.title')"
-    >
-      <div class="mx-auto max-w-4xl flex flex-col gap-3 md:gap-4">
-        <h3 class="h3 text-light">{{ t('cookies.title') }}</h3>
-        <p class="p text-light/90">
-          {{ t('cookies.text') }}
+  <teleport to="body">
+    <transition name="toast">
+      <div
+        v-if="isVisible"
+        class="fixed bottom-6 inset-x-0 z-50 w-[70vw] mx-auto border border-dark bg-light px-4 py-4 shadow-lg"
+        role="dialog"
+        aria-live="polite"
+        :aria-label="t('cookies.title')"
+      >
+        <button
+          class="absolute right-3 top-3 text-dark cursor-pointer"
+          aria-label="Close cookie consent"
+          @click="rejectCookies"
+        >
+          <i class="bi bi-x-lg"></i>
+        </button>
+        <div class="">
+          <h3 class="h3 mb-2">{{ t('cookies.title') }}</h3>
+          <p class="p">
+            {{ t('cookies.text') }}
+          </p>
+
           <button
             type="button"
-            class="underline underline-offset-2 text-accent hover:text-light transition-colors duration-200 ml-1"
+            class="p underline underline-offset-2 text-accent text-sm hover:text-dark transition-colors duration-200 mb-5"
             @click="openPrivacyPage"
-          >
+        >
             {{ t('cookies.learnMore') }}
-          </button>
-        </p>
+        </button>
 
-        <div class="flex flex-col sm:flex-row gap-2 sm:justify-end">
-          <button
-            type="button"
-            class="px-4 py-2 rounded-md border border-light/35 text-light hover:bg-light/10 transition-colors duration-200 font-mono text-xs uppercase tracking-wide"
-            @click="rejectCookies"
-          >
-            {{ t('cookies.reject') }}
-          </button>
-
-          <button
-            type="button"
-            class="px-4 py-2 rounded-md bg-accent text-light hover:brightness-110 transition-all duration-200 font-mono text-xs uppercase tracking-wide"
-            @click="acceptCookies"
-          >
-            {{ t('cookies.accept') }}
-          </button>
+          <div class="flex flex-col sm:flex-row gap-2">
+            <button
+              type="button"
+              class="px-4 py-2 border border-dark text-dark hover:bg-dark/10 transition-colors duration-200 font-mono text-xs uppercase tracking-wide cursor-pointer"
+              @click="rejectCookies"
+            >
+              {{ t('cookies.reject') }}
+            </button>
+            <button
+              type="button"
+              class="px-4 py-2 bg-accent text-light hover:brightness-110 transition-all duration-200 font-mono text-xs uppercase tracking-wide cursor-pointer"
+              @click="acceptCookies"
+            >
+              {{ t('cookies.accept') }}
+            </button>
+          </div>
         </div>
       </div>
-    </aside>
-  </Transition>
+    </transition>
+  </teleport>
 </template>
 
 <style scoped>
-.cookie-slide-enter-active,
-.cookie-slide-leave-active {
-  transition: all 240ms cubic-bezier(0.22, 1, 0.36, 1);
+.toast-enter-active,
+.toast-leave-active {
+  transition: opacity 0.3s ease, transform 0.3s ease;
 }
 
-.cookie-slide-enter-from,
-.cookie-slide-leave-to {
+.toast-enter-from,
+.toast-leave-to {
   opacity: 0;
-  transform: translateY(14px);
+  transform: translateY(24px);
+}
+
+.toast-enter-to,
+.toast-leave-from {
+  opacity: 1;
+  transform: translateY(0);
 }
 </style>

@@ -20,6 +20,7 @@ class ProjectController extends Controller
                 return [
                     'name' => $this->localizedValue($project->name_translations, $project->name, $locale),
                     'url' => $project->url,
+                    'live_url' => $project->live_url,
                     'summary' => $this->localizedValue($project->summary_translations, $project->summary, $locale),
                     'hex_color' => $project->hex_color,
                     'logo_path' => $project->logo_path,
@@ -45,6 +46,7 @@ class ProjectController extends Controller
         return response()->json([
             'name' => $this->localizedValue($project->name_translations, $project->name, $locale),
             'url' => $project->url,
+            'live_url' => $project->live_url,
             'summary' => $this->localizedValue($project->summary_translations, $project->summary, $locale),
             'hex_color' => $project->hex_color,
             'logo_path' => $project->logo_path,

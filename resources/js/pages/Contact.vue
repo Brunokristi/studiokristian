@@ -207,7 +207,7 @@ onUnmounted(() => {
               class="w-10 h-10 rounded-full bg-dark flex items-center justify-center pickup-knob-inner"
               :class="{ 'pickup-knob-inner-animated': !isDragging }"
             >
-              <i class="bi bi-telephone text-accent pickup-icon"></i>
+              <i class="bi bi-telephone text-accent"></i>
             </div>
           </div>
         </div>
@@ -218,7 +218,7 @@ onUnmounted(() => {
           class="h-12 w-12 rounded-full bg-accent text-dark flex items-center justify-center cursor-pointer"
           @click="hangUp"
         >
-          <i class="bi bi-telephone rotate-135"></i>
+          <i class="bi bi-telephone rotate-[135deg]"></i>
         </button>
       </div>
     </section>

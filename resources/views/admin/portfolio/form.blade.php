@@ -3,6 +3,8 @@
 
     $nameTranslations = $project?->name_translations ?? [];
     $summaryTranslations = $project?->summary_translations ?? [];
+    $oldImages = old('images', $images);
+    $oldFeatures = old('features', $features);
 @endphp
 <!DOCTYPE html>
 <html lang="en">
@@ -109,6 +111,66 @@
             background: rgba(218, 54, 51, .12);
         }
         .small { font-size: 12px; color: var(--muted); }
+        .list { display: flex; flex-direction: column; gap: 12px; }
+        .item {
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 12px;
+            background: #10161d;
+        }
+        .item-head {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        .ghost {
+            background: transparent;
+            border: 1px dashed var(--border);
+            color: var(--text);
+            border-radius: 8px;
+            padding: 8px 10px;
+            cursor: pointer;
+            font-weight: 600;
+        }
+        .remove-btn {
+            border: 1px solid #a4282d;
+            color: #ff938f;
+            background: transparent;
+            border-radius: 8px;
+            padding: 7px 10px;
+            cursor: pointer;
+            font-size: 12px;
+        }
+        .row-3 {
+            display: grid;
+            grid-template-columns: 1fr 1fr 120px;
+            gap: 10px;
+        }
+        .field-head {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 8px;
+        }
+        .translate-btn {
+            border: 1px solid var(--border);
+            background: #0e1a2c;
+            color: var(--text);
+            border-radius: 8px;
+            padding: 6px 9px;
+            cursor: pointer;
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: .04em;
+            font-weight: 700;
+        }
+        .translate-all {
+            margin-bottom: 12px;
+        }
+        @media (max-width: 900px) {
+            .row-3 { grid-template-columns: 1fr; }
+        }
     </style>
 </head>
 <body>
@@ -132,7 +194,7 @@
         </div>
     @endif
 
-    <form method="POST" action="{{ $isEdit ? route('admin.portfolio.update', $project) : route('admin.portfolio.store') }}">
+    <form method="POST" action="{{ $isEdit ? route('admin.portfolio.update', $project) : route('admin.portfolio.store') }}" enctype="multipart/form-data">
         @csrf
         @if($isEdit)
             @method('PUT')
@@ -140,92 +202,162 @@
 
         <div class="panel">
             <h2 class="section-title">Project Basics</h2>
+            <button type="button" class="translate-btn translate-all" id="translate-all">Translate all EN -> SK</button>
             <div class="row">
                 <div>
-                    <label for="name">Name (EN)</label>
-                    <input id="name" name="name" type="text" value="{{ old('name', $project?->name) }}" required>
+                    <div class="field-head">
+                        <label for="name">Name (EN)</label>
+                    </div>
+                    <input id="name" name="name" type="text" value="{{ old('name', $project?->name) }}" required data-translate-source>
                 </div>
                 <div>
-                    <label for="name_sk">Name (SK)</label>
-                    <input id="name_sk" name="name_sk" type="text" value="{{ old('name_sk', data_get($nameTranslations, 'sk', '')) }}">
+                    <div class="field-head">
+                        <label for="name_sk">Name (SK)</label>
+                        <button type="button" class="translate-btn" data-translate-pair="#name|#name_sk">Translate</button>
+                    </div>
+                    <input id="name_sk" name="name_sk" type="text" value="{{ old('name_sk', data_get($nameTranslations, 'sk', '')) }}" data-translate-target>
                 </div>
                 <div>
-                    <label for="url">URL slug</label>
+                    <label for="url">Internal slug</label>
                     <input id="url" name="url" type="text" value="{{ old('url', $project?->url) }}" placeholder="leave blank to auto-generate">
-                    <p class="helper">Use lowercase letters, numbers, and hyphens.</p>
+                    <p class="helper">Used for your internal route: /portfolio/your-slug</p>
+                </div>
+                <div>
+                    <label for="live_url">Live project URL</label>
+                    <input id="live_url" name="live_url" type="url" value="{{ old('live_url', $project?->live_url) }}" placeholder="https://project-domain.com">
+                    <p class="helper">This is the external website URL opened from portfolio cards.</p>
                 </div>
                 <div>
                     <label for="hex_color">Brand color</label>
                     <input id="hex_color" name="hex_color" type="text" value="{{ old('hex_color', $project?->hex_color) }}" placeholder="#133EB4">
                 </div>
                 <div style="grid-column: 1 / -1;">
-                    <label for="logo_path">Logo path</label>
-                    <input id="logo_path" name="logo_path" type="text" value="{{ old('logo_path', $project?->logo_path) }}" placeholder="/assets/logos/project.svg">
+                    <label for="logo_file">Logo upload</label>
+                    <input id="logo_file" name="logo_file" type="file" accept="image/*">
+                    <input type="hidden" name="existing_logo_path" value="{{ old('existing_logo_path', $project?->logo_path) }}">
+                    <p class="helper">Current logo: {{ old('existing_logo_path', $project?->logo_path ?? 'none') }}</p>
+                </div>
+                <div style="grid-column: 1 / -1;">
+                    <label for="logo_path">Manual logo path (optional fallback)</label>
+                    <input id="logo_path" name="logo_path" type="text" value="{{ old('logo_path') }}" placeholder="/assets/logos/project.svg">
                 </div>
                 <div>
-                    <label for="summary">Summary (EN)</label>
-                    <textarea id="summary" name="summary">{{ old('summary', $project?->summary) }}</textarea>
+                    <div class="field-head">
+                        <label for="summary">Summary (EN)</label>
+                    </div>
+                    <textarea id="summary" name="summary" data-translate-source>{{ old('summary', $project?->summary) }}</textarea>
                 </div>
                 <div>
-                    <label for="summary_sk">Summary (SK)</label>
-                    <textarea id="summary_sk" name="summary_sk">{{ old('summary_sk', data_get($summaryTranslations, 'sk', '')) }}</textarea>
+                    <div class="field-head">
+                        <label for="summary_sk">Summary (SK)</label>
+                        <button type="button" class="translate-btn" data-translate-pair="#summary|#summary_sk">Translate</button>
+                    </div>
+                    <textarea id="summary_sk" name="summary_sk" data-translate-target>{{ old('summary_sk', data_get($summaryTranslations, 'sk', '')) }}</textarea>
                 </div>
             </div>
         </div>
 
         <div class="panel">
             <h2 class="section-title">Images</h2>
-            <p class="small">Each row needs at least a path to be saved.</p>
-            @for($i = 0; $i < max(count(old('images', $images)), 6); $i++)
-                <div class="row-4">
-                    <div>
-                        <label>Path</label>
-                        <input name="images[{{ $i }}][path]" type="text" value="{{ old("images.$i.path", data_get($images, "$i.path", '')) }}" placeholder="/storage/projects/project-1.jpg">
+            <p class="small">Choose files from your computer. Files are stored automatically under a per-project folder.</p>
+            <div id="images-list" class="list">
+                @foreach($oldImages as $i => $image)
+                <div class="item" data-image-item>
+                    <div class="item-head">
+                        <strong>Image</strong>
+                        <button type="button" class="remove-btn" data-remove-image>Remove</button>
                     </div>
-                    <div>
-                        <label>Description (EN)</label>
-                        <input name="images[{{ $i }}][description]" type="text" value="{{ old("images.$i.description", data_get($images, "$i.description", '')) }}">
+
+                    <input type="hidden" name="images[{{ $i }}][existing_path]" value="{{ data_get($image, 'existing_path', data_get($image, 'path', '')) }}" data-image-existing>
+
+                    <div class="row-3">
+                        <div>
+                            <label>File upload</label>
+                            <input name="images[{{ $i }}][file]" type="file" accept="image/*">
+                        </div>
+                        <div>
+                            <div class="field-head">
+                                <label>Description (EN)</label>
+                            </div>
+                            <input name="images[{{ $i }}][description]" type="text" value="{{ data_get($image, 'description', '') }}" data-translate-source>
+                        </div>
+                        <div>
+                            <label>Sort</label>
+                            <input name="images[{{ $i }}][sort_order]" type="number" min="0" value="{{ data_get($image, 'sort_order', 0) }}">
+                        </div>
                     </div>
-                    <div>
-                        <label>Description (SK)</label>
-                        <input name="images[{{ $i }}][description_sk]" type="text" value="{{ old("images.$i.description_sk", data_get($images, "$i.description_sk", '')) }}">
-                    </div>
-                    <div>
-                        <label>Sort</label>
-                        <input name="images[{{ $i }}][sort_order]" type="number" min="0" value="{{ old("images.$i.sort_order", data_get($images, "$i.sort_order", 0)) }}">
+
+                    <div class="row">
+                        <div>
+                            <div class="field-head">
+                                <label>Description (SK)</label>
+                                <button type="button" class="translate-btn" data-translate-inline="image">Translate</button>
+                            </div>
+                            <input name="images[{{ $i }}][description_sk]" type="text" value="{{ data_get($image, 'description_sk', '') }}" placeholder="auto-translated if empty" data-translate-target>
+                        </div>
+                        <div>
+                            <label>Existing image path</label>
+                            <input type="text" value="{{ data_get($image, 'existing_path', data_get($image, 'path', '')) }}" readonly>
+                        </div>
                     </div>
                 </div>
-            @endfor
+                @endforeach
+            </div>
+
+            <button type="button" class="ghost" id="add-image">+ Add image</button>
         </div>
 
         <div class="panel">
             <h2 class="section-title">Features</h2>
-            <p class="small">A feature is saved only when both EN title and EN description are filled.</p>
-            @for($i = 0; $i < max(count(old('features', $features)), 8); $i++)
-                <div class="row-4">
-                    <div>
-                        <label>Title (EN)</label>
-                        <input name="features[{{ $i }}][title]" type="text" value="{{ old("features.$i.title", data_get($features, "$i.title", '')) }}">
+            <p class="small">No fixed count. Add as many feature blocks as you need.</p>
+            <div id="features-list" class="list">
+                @foreach($oldFeatures as $i => $feature)
+                <div class="item" data-feature-item>
+                    <div class="item-head">
+                        <strong>Feature</strong>
+                        <button type="button" class="remove-btn" data-remove-feature>Remove</button>
                     </div>
-                    <div>
-                        <label>Title (SK)</label>
-                        <input name="features[{{ $i }}][title_sk]" type="text" value="{{ old("features.$i.title_sk", data_get($features, "$i.title_sk", '')) }}">
+
+                    <div class="row-3">
+                        <div>
+                            <div class="field-head">
+                                <label>Title (EN)</label>
+                            </div>
+                            <input name="features[{{ $i }}][title]" type="text" value="{{ data_get($feature, 'title', '') }}" data-translate-source>
+                        </div>
+                        <div>
+                            <div class="field-head">
+                                <label>Title (SK)</label>
+                                <button type="button" class="translate-btn" data-translate-inline="feature-title">Translate</button>
+                            </div>
+                            <input name="features[{{ $i }}][title_sk]" type="text" value="{{ data_get($feature, 'title_sk', '') }}" placeholder="auto-translated if empty" data-translate-target>
+                        </div>
+                        <div>
+                            <label>Sort</label>
+                            <input name="features[{{ $i }}][sort_order]" type="number" min="0" value="{{ data_get($feature, 'sort_order', 0) }}">
+                        </div>
                     </div>
-                    <div>
-                        <label>Sort</label>
-                        <input name="features[{{ $i }}][sort_order]" type="number" min="0" value="{{ old("features.$i.sort_order", data_get($features, "$i.sort_order", 0)) }}">
-                    </div>
-                    <div></div>
-                    <div style="grid-column: 1 / span 2;">
-                        <label>Description (EN)</label>
-                        <textarea name="features[{{ $i }}][description]">{{ old("features.$i.description", data_get($features, "$i.description", '')) }}</textarea>
-                    </div>
-                    <div style="grid-column: 3 / span 2;">
-                        <label>Description (SK)</label>
-                        <textarea name="features[{{ $i }}][description_sk]">{{ old("features.$i.description_sk", data_get($features, "$i.description_sk", '')) }}</textarea>
+
+                    <div class="row">
+                        <div>
+                            <div class="field-head">
+                                <label>Description (EN)</label>
+                            </div>
+                            <textarea name="features[{{ $i }}][description]" data-translate-source>{{ data_get($feature, 'description', '') }}</textarea>
+                        </div>
+                        <div>
+                            <div class="field-head">
+                                <label>Description (SK)</label>
+                                <button type="button" class="translate-btn" data-translate-inline="feature-description">Translate</button>
+                            </div>
+                            <textarea name="features[{{ $i }}][description_sk]" placeholder="auto-translated if empty" data-translate-target>{{ data_get($feature, 'description_sk', '') }}</textarea>
+                        </div>
                     </div>
                 </div>
-            @endfor
+                @endforeach
+            </div>
+
+            <button type="button" class="ghost" id="add-feature">+ Add feature</button>
         </div>
 
         <div class="actions">
@@ -234,5 +366,256 @@
         </div>
     </form>
 </div>
+
+<template id="image-template">
+    <div class="item" data-image-item>
+        <div class="item-head">
+            <strong>Image</strong>
+            <button type="button" class="remove-btn" data-remove-image>Remove</button>
+        </div>
+
+        <input type="hidden" data-name="images[__INDEX__][existing_path]" value="" data-image-existing>
+
+        <div class="row-3">
+            <div>
+                <label>File upload</label>
+                <input data-name="images[__INDEX__][file]" type="file" accept="image/*">
+            </div>
+            <div>
+                <div class="field-head">
+                    <label>Description (EN)</label>
+                </div>
+                <input data-name="images[__INDEX__][description]" type="text" data-translate-source>
+            </div>
+            <div>
+                <label>Sort</label>
+                <input data-name="images[__INDEX__][sort_order]" type="number" min="0" value="0">
+            </div>
+        </div>
+
+        <div class="row">
+            <div>
+                <div class="field-head">
+                    <label>Description (SK)</label>
+                    <button type="button" class="translate-btn" data-translate-inline="image">Translate</button>
+                </div>
+                <input data-name="images[__INDEX__][description_sk]" type="text" placeholder="auto-translated if empty" data-translate-target>
+            </div>
+            <div>
+                <label>Existing image path</label>
+                <input type="text" value="(new upload)" readonly>
+            </div>
+        </div>
+    </div>
+</template>
+
+<template id="feature-template">
+    <div class="item" data-feature-item>
+        <div class="item-head">
+            <strong>Feature</strong>
+            <button type="button" class="remove-btn" data-remove-feature>Remove</button>
+        </div>
+
+        <div class="row-3">
+            <div>
+                <div class="field-head">
+                    <label>Title (EN)</label>
+                </div>
+                <input data-name="features[__INDEX__][title]" type="text" data-translate-source>
+            </div>
+            <div>
+                <div class="field-head">
+                    <label>Title (SK)</label>
+                    <button type="button" class="translate-btn" data-translate-inline="feature-title">Translate</button>
+                </div>
+                <input data-name="features[__INDEX__][title_sk]" type="text" placeholder="auto-translated if empty" data-translate-target>
+            </div>
+            <div>
+                <label>Sort</label>
+                <input data-name="features[__INDEX__][sort_order]" type="number" min="0" value="0">
+            </div>
+        </div>
+
+        <div class="row">
+            <div>
+                <div class="field-head">
+                    <label>Description (EN)</label>
+                </div>
+                <textarea data-name="features[__INDEX__][description]" data-translate-source></textarea>
+            </div>
+            <div>
+                <div class="field-head">
+                    <label>Description (SK)</label>
+                    <button type="button" class="translate-btn" data-translate-inline="feature-description">Translate</button>
+                </div>
+                <textarea data-name="features[__INDEX__][description_sk]" placeholder="auto-translated if empty" data-translate-target></textarea>
+            </div>
+        </div>
+    </div>
+</template>
+
+<script>
+    (() => {
+        const imagesList = document.getElementById('images-list');
+        const featuresList = document.getElementById('features-list');
+        const imageTemplate = document.getElementById('image-template');
+        const featureTemplate = document.getElementById('feature-template');
+        const addImageButton = document.getElementById('add-image');
+        const addFeatureButton = document.getElementById('add-feature');
+        const translateAllButton = document.getElementById('translate-all');
+        const csrfToken = '{{ csrf_token() }}';
+        const translateEndpoint = '{{ route('admin.portfolio.translate') }}';
+
+        let imageIndex = imagesList.querySelectorAll('[data-image-item]').length;
+        let featureIndex = featuresList.querySelectorAll('[data-feature-item]').length;
+
+        function bindRemoveButtons(container) {
+            container.querySelectorAll('[data-remove-image]').forEach((button) => {
+                button.addEventListener('click', () => {
+                    const item = button.closest('[data-image-item]');
+                    item?.remove();
+                });
+            });
+
+            container.querySelectorAll('[data-remove-feature]').forEach((button) => {
+                button.addEventListener('click', () => {
+                    const item = button.closest('[data-feature-item]');
+                    item?.remove();
+                });
+            });
+        }
+
+        async function translateText(text) {
+            if (!text || !text.trim()) {
+                return '';
+            }
+
+            const response = await fetch(translateEndpoint, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': csrfToken,
+                    'Accept': 'application/json',
+                },
+                body: JSON.stringify({ text }),
+            });
+
+            if (!response.ok) {
+                return text;
+            }
+
+            const payload = await response.json();
+            return typeof payload.translated === 'string' && payload.translated.trim() !== ''
+                ? payload.translated
+                : text;
+        }
+
+        async function translatePair(sourceEl, targetEl) {
+            if (!sourceEl || !targetEl) {
+                return;
+            }
+
+            const sourceText = sourceEl.value || sourceEl.textContent || '';
+            const translated = await translateText(sourceText);
+            targetEl.value = translated;
+        }
+
+        async function handleInlineTranslate(button) {
+            const item = button.closest('[data-image-item], [data-feature-item]');
+            if (!item) {
+                return;
+            }
+
+            if (button.dataset.translateInline === 'image') {
+                const source = item.querySelector('input[name*="[description]"]');
+                const target = item.querySelector('input[name*="[description_sk]"]');
+                await translatePair(source, target);
+                return;
+            }
+
+            if (button.dataset.translateInline === 'feature-title') {
+                const source = item.querySelector('input[name*="[title]"]');
+                const target = item.querySelector('input[name*="[title_sk]"]');
+                await translatePair(source, target);
+                return;
+            }
+
+            if (button.dataset.translateInline === 'feature-description') {
+                const source = item.querySelector('textarea[name*="[description]"]');
+                const target = item.querySelector('textarea[name*="[description_sk]"]');
+                await translatePair(source, target);
+            }
+        }
+
+        function applyInputNames(scope, index) {
+            scope.querySelectorAll('[data-name]').forEach((input) => {
+                input.setAttribute('name', input.getAttribute('data-name').replace('__INDEX__', index));
+            });
+        }
+
+        addImageButton.addEventListener('click', () => {
+            const fragment = imageTemplate.content.cloneNode(true);
+            const item = fragment.querySelector('[data-image-item]');
+            applyInputNames(item, imageIndex++);
+            bindRemoveButtons(item);
+            imagesList.appendChild(item);
+        });
+
+        addFeatureButton.addEventListener('click', () => {
+            const fragment = featureTemplate.content.cloneNode(true);
+            const item = fragment.querySelector('[data-feature-item]');
+            applyInputNames(item, featureIndex++);
+            bindRemoveButtons(item);
+            featuresList.appendChild(item);
+        });
+
+        translateAllButton.addEventListener('click', async () => {
+            translateAllButton.disabled = true;
+            translateAllButton.textContent = 'Translating...';
+
+            const pairs = [
+                ['#name', '#name_sk'],
+                ['#summary', '#summary_sk'],
+            ];
+
+            for (const [sourceSelector, targetSelector] of pairs) {
+                const source = document.querySelector(sourceSelector);
+                const target = document.querySelector(targetSelector);
+                await translatePair(source, target);
+            }
+
+            const inlineButtons = document.querySelectorAll('[data-translate-inline]');
+            for (const button of inlineButtons) {
+                await handleInlineTranslate(button);
+            }
+
+            translateAllButton.disabled = false;
+            translateAllButton.textContent = 'Translate all EN -> SK';
+        });
+
+        document.addEventListener('click', async (event) => {
+            const target = event.target;
+            if (!(target instanceof HTMLElement)) {
+                return;
+            }
+
+            const pairButton = target.closest('[data-translate-pair]');
+            if (pairButton instanceof HTMLElement) {
+                const [sourceSelector, targetSelector] = pairButton.dataset.translatePair.split('|');
+                const source = document.querySelector(sourceSelector);
+                const out = document.querySelector(targetSelector);
+                await translatePair(source, out);
+                return;
+            }
+
+            const inlineButton = target.closest('[data-translate-inline]');
+            if (inlineButton instanceof HTMLElement) {
+                await handleInlineTranslate(inlineButton);
+            }
+        });
+
+        bindRemoveButtons(document);
+    })();
+</script>
 </body>
 </html>

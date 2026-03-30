@@ -14,6 +14,7 @@ class Project extends Model
         'name',
         'name_translations',
         'url',
+        'live_url',
         'summary',
         'summary_translations',
         'hex_color',

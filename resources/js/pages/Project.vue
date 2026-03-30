@@ -16,13 +16,15 @@ type ApiProject = {
   summary: string | null;
   images: Array<{ path: string; description: string | null }>;
   features: Array<{ title: string; description: string }>;
+  live_url?: string | null;
 };
 
 const projectName = ref('');
 const projectSummary = ref('');
-const images = ref([]);
-const items = ref([]);
+const images = ref<{ src: string; alt: string; caption: string }[]>([]);
+const items = ref<{ heading: string; text: string }[]>([]);
 const isLoading = ref(true);
+const liveUrl = ref<string | null>(null);
 
 useSeoMeta({
   title: () => {
@@ -61,6 +63,7 @@ async function loadProject() {
       heading: feature.title,
       text: feature.description,
     }));
+    liveUrl.value = project.live_url || null;
   } catch (error) {
     console.error(error);
     projectName.value = 'Project not found';
@@ -73,7 +76,11 @@ async function loadProject() {
 }
 
 const openRecentProjects = () => {
-  console.log(t('home.recentProjectsClicked'));
+  if (liveUrl.value) {
+    window.open(liveUrl.value, '_blank');
+  } else {
+    console.log(t('home.recentProjectsClicked'));
+  }
 };
 
 onMounted(() => {

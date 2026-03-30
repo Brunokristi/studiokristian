@@ -1,19 +1,9 @@
-@import "tailwindcss";
+@import "bootstrap-icons/font/bootstrap-icons.css";
 
-@source "../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php";
-@source "../../storage/framework/views/*.php";
-@source "../**/*.blade.php";
-@source "../**/*.js";
-@source "../**/*.vue";
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
 
-@theme {
-    --color-dark: #000000;
-    --color-light: #ffffff;
-    --color-accent: #133EB4;
-
-    --font-sans: 'Inter', sans-serif;
-    --font-mono: 'Space Mono', monospace;
-}
 
 @layer components {
 

@@ -59,17 +59,33 @@ export default {
 
         items: [
             {
-                heading: 'What do you build?',
-                text: 'I build functional websites, custom systems and digital tools designed to help small businesses grow.',
+                heading: 'What What do you actually build?',
+                text: 'I build clean websites and custom systems designed to solve real business needs. From simple presentation pages to complex tools that automate workflows and save time.',
             },
             {
                 heading: 'Who do you work with?',
-                text: 'Mostly independent businesses, founders and entrepreneurs who want something clean, fast and built with purpose.',
+                text: 'I mostly work with small businesses, founders and independent projects that want something functional, clear and built to grow.',
             },
             {
-                heading: 'Can you help with automation and AI?',
-                text: 'Yes. I design systems that reduce manual work, simplify flows and use AI where it adds real value.',
+                heading: 'How long does it take?',
+                text: 'It depends on the scope. Simple websites can take as little as a week, while larger systems take longer. I always aim to keep the process efficient and focused.',
             },
+            {
+                heading: 'Do you also handle automation or AI?',
+                text: 'Yes. I design systems that reduce manual work and simplify workflows. If it makes sense, I integrate automation or AI to improve the process.',
+            },
+            {
+                heading: 'What happens after launch?',
+                text: 'I can help you improve and extend the project over time. Most projects evolve, and I design them to grow with your business.',
+            },
+            {
+                heading: 'How much does it cost?',
+                text: 'Every project is different, so pricing depends on what you need. I focus on building the right solution rather than fitting everything into a fixed package.',
+            },
+            {
+                heading: 'Do I need to know what I want exactly?',
+                text: 'Not necessarily. I can help you explore ideas and find the best solution for your needs. Just share what you have in mind, and we can work together to refine it.',
+            }
         ],
     },
 
@@ -79,7 +95,7 @@ export default {
             description: 'studio kristian builds clean websites, scalable systems, and practical automation to help businesses grow faster with less manual work.',
         },
         portfolio: {
-            title: 'Portfolio | studio kristian Projects',
+            title: 'Portfolio | studio kristian projects',
             description: 'Explore selected studio kristian web and system projects focused on performance, clarity, and measurable business impact.',
         },
         project: {

@@ -94,6 +94,7 @@
             <tr>
                 <th>Name</th>
                 <th>URL slug</th>
+                <th>Live URL</th>
                 <th>Images</th>
                 <th>Features</th>
                 <th>Updated</th>
@@ -105,6 +106,7 @@
                 <tr>
                     <td>{{ $project->name }}</td>
                     <td>/portfolio/{{ $project->url }}</td>
+                    <td>{{ $project->live_url ?: '—' }}</td>
                     <td>{{ $project->images_count }}</td>
                     <td>{{ $project->features_count }}</td>
                     <td>{{ optional($project->updated_at)->format('Y-m-d H:i') }}</td>
@@ -122,7 +124,7 @@
                 </tr>
             @empty
                 <tr>
-                    <td colspan="6" class="empty">No projects yet. Create your first one.</td>
+                    <td colspan="7" class="empty">No projects yet. Create your first one.</td>
                 </tr>
             @endforelse
             </tbody>

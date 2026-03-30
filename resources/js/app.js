@@ -1,15 +1,9 @@
 import './bootstrap';
-import 'bootstrap-icons/font/bootstrap-icons.css';
-import { createApp } from 'vue';
-import App from './App.vue';
-import router from './router';
-import i18n from './i18n';
-import { initializeAnalyticsIfConsented, trackPageViewIfConsented } from './composables/useAnalytics';
 
-initializeAnalyticsIfConsented();
+import Alpine from 'alpinejs';
 
-router.afterEach((to) => {
-    trackPageViewIfConsented(to.fullPath);
-});
+window.Alpine = Alpine;
 
-createApp(App).use(router).use(i18n).mount('#app');
+Alpine.start();
+
+import './main.js';

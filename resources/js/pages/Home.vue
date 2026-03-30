@@ -68,7 +68,7 @@ watch(
 </script>
 
 <template>
-    <main class="py-5 flex flex-col gap-30">
+    <main class="py-8 flex flex-col gap-[100px]">
       <section class="relative overflow-hidden flex justify-center h-[500px]" data-theme="dark">
         <img
           :src="bgUrl"
