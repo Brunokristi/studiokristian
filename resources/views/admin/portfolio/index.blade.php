@@ -78,8 +78,7 @@
 <div class="container">
     <div class="header">
         <div>
-            <h1 class="title">Portfolio Admin</h1>
-            <p class="subtle">Manage projects, feature blocks, and gallery images.</p>
+            <h1 class="title">Portfolio</h1>
         </div>
         <a class="button primary" href="{{ route('admin.portfolio.create') }}">Add project</a>
     </div>
@@ -93,11 +92,6 @@
             <thead>
             <tr>
                 <th>Name</th>
-                <th>URL slug</th>
-                <th>Live URL</th>
-                <th>Images</th>
-                <th>Features</th>
-                <th>Updated</th>
                 <th>Actions</th>
             </tr>
             </thead>
@@ -105,11 +99,6 @@
             @forelse($projects as $project)
                 <tr>
                     <td>{{ $project->name }}</td>
-                    <td>/portfolio/{{ $project->url }}</td>
-                    <td>{{ $project->live_url ?: '—' }}</td>
-                    <td>{{ $project->images_count }}</td>
-                    <td>{{ $project->features_count }}</td>
-                    <td>{{ optional($project->updated_at)->format('Y-m-d H:i') }}</td>
                     <td>
                         <div class="actions">
                             <a class="button" href="{{ route('admin.portfolio.edit', $project) }}">Edit</a>

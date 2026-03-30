@@ -178,9 +178,8 @@
     <div class="header">
         <div>
             <h1 class="title">{{ $isEdit ? 'Edit Project' : 'Create Project' }}</h1>
-            <p class="subtle">Manage translated text, images, and features for your portfolio page.</p>
         </div>
-        <a class="button" href="{{ route('admin.portfolio.index') }}">Back to list</a>
+        <a class="button" href="{{ route('admin.portfolio.index') }}">Back</a>
     </div>
 
     @if ($errors->any())
@@ -201,8 +200,7 @@
         @endif
 
         <div class="panel">
-            <h2 class="section-title">Project Basics</h2>
-            <button type="button" class="translate-btn translate-all" id="translate-all">Translate all EN -> SK</button>
+            <h2 class="section-title">Project</h2>
             <div class="row">
                 <div>
                     <div class="field-head">
@@ -213,19 +211,14 @@
                 <div>
                     <div class="field-head">
                         <label for="name_sk">Name (SK)</label>
-                        <button type="button" class="translate-btn" data-translate-pair="#name|#name_sk">Translate</button>
                     </div>
                     <input id="name_sk" name="name_sk" type="text" value="{{ old('name_sk', data_get($nameTranslations, 'sk', '')) }}" data-translate-target>
-                </div>
-                <div>
-                    <label for="url">Internal slug</label>
-                    <input id="url" name="url" type="text" value="{{ old('url', $project?->url) }}" placeholder="leave blank to auto-generate">
-                    <p class="helper">Used for your internal route: /portfolio/your-slug</p>
+                    <button type="button" class="translate-btn" data-translate-pair="#name|#name_sk">Translate</button>
+
                 </div>
                 <div>
                     <label for="live_url">Live project URL</label>
                     <input id="live_url" name="live_url" type="url" value="{{ old('live_url', $project?->live_url) }}" placeholder="https://project-domain.com">
-                    <p class="helper">This is the external website URL opened from portfolio cards.</p>
                 </div>
                 <div>
                     <label for="hex_color">Brand color</label>
@@ -237,19 +230,15 @@
                     <input type="hidden" name="existing_logo_path" value="{{ old('existing_logo_path', $project?->logo_path) }}">
                     <p class="helper">Current logo: {{ old('existing_logo_path', $project?->logo_path ?? 'none') }}</p>
                 </div>
-                <div style="grid-column: 1 / -1;">
-                    <label for="logo_path">Manual logo path (optional fallback)</label>
-                    <input id="logo_path" name="logo_path" type="text" value="{{ old('logo_path') }}" placeholder="/assets/logos/project.svg">
-                </div>
                 <div>
                     <div class="field-head">
-                        <label for="summary">Summary (EN)</label>
+                        <label for="summary">Description (EN)</label>
                     </div>
                     <textarea id="summary" name="summary" data-translate-source>{{ old('summary', $project?->summary) }}</textarea>
                 </div>
                 <div>
                     <div class="field-head">
-                        <label for="summary_sk">Summary (SK)</label>
+                        <label for="summary_sk">Description (SK)</label>
                         <button type="button" class="translate-btn" data-translate-pair="#summary|#summary_sk">Translate</button>
                     </div>
                     <textarea id="summary_sk" name="summary_sk" data-translate-target>{{ old('summary_sk', data_get($summaryTranslations, 'sk', '')) }}</textarea>
@@ -259,7 +248,6 @@
 
         <div class="panel">
             <h2 class="section-title">Images</h2>
-            <p class="small">Choose files from your computer. Files are stored automatically under a per-project folder.</p>
             <div id="images-list" class="list">
                 @foreach($oldImages as $i => $image)
                 <div class="item" data-image-item>
