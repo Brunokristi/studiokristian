@@ -4,7 +4,7 @@ import Button from '../components/Button.vue'
 import Info from '../components/Info.vue'
 
 import { useI18n } from 'vue-i18n'
-const { t } = useI18n()
+const { t, tm } = useI18n()
 import { useSeoMeta } from '../composables/useSeoMeta'
 
 import { useGlobalActions } from '../composables/useGlobalActions'
@@ -22,23 +22,19 @@ const transcriptSource = computed(() => t('contactPage.transcript'))
 
 let timer: number | undefined
 
-const items = computed(() => [
-    {
-        heading: t('contactPage.items.0.heading'),
-        text: t('contactPage.items.0.text'),
-        color: 'light',
-    },
-    {
-        heading: t('contactPage.items.1.heading'),
-        text: t('contactPage.items.1.text'),
-        color: 'light',
-    },
-    {
-        heading: t('contactPage.items.2.heading'),
-        text: t('contactPage.items.2.text'),
-        color: 'light',
-    },
-])
+type ContactInfoItem = {
+  heading: string
+  text: string
+}
+
+const items = computed(() => {
+  const localizedItems = tm('contactPage.items') as ContactInfoItem[]
+  return localizedItems.map((item) => ({
+    heading: item.heading,
+    text: item.text,
+    color: 'light',
+  }))
+})
 
 const transcriptWords = computed(() => transcriptSource.value.trim().split(/\s+/))
 const visibleWordCount = ref(0)

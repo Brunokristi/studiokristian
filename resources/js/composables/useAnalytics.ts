@@ -1,4 +1,4 @@
-import { hasAcceptedCookies } from './useCookieConsent';
+import { hasAcceptedAnalytics } from './useCookieConsent';
 
 declare global {
     interface Window {
@@ -66,7 +66,7 @@ export function disableAnalytics() {
 }
 
 export function initializeAnalyticsIfConsented() {
-    if (hasAcceptedCookies()) {
+    if (hasAcceptedAnalytics()) {
         enableAnalytics();
     } else {
         disableAnalytics();
@@ -74,7 +74,7 @@ export function initializeAnalyticsIfConsented() {
 }
 
 export function trackPageViewIfConsented(path?: string) {
-    if (!hasAcceptedCookies()) {
+    if (!hasAcceptedAnalytics()) {
         return;
     }
 

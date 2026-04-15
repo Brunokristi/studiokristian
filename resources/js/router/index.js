@@ -43,6 +43,7 @@ const routes = [
         meta: {
             theme: 'light',
             footer: true,
+            useLoader: true,
         },
     },
     {

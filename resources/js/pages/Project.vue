@@ -26,6 +26,24 @@ const items = ref<{ heading: string; text: string }[]>([]);
 const isLoading = ref(true);
 const liveUrl = ref<string | null>(null);
 
+function preloadImage(src: string): Promise<void> {
+  return new Promise((resolve) => {
+    const img = new Image();
+
+    img.onload = () => resolve();
+    img.onerror = () => resolve();
+    img.src = src;
+
+    if (img.complete) {
+      resolve();
+    }
+  });
+}
+
+async function preloadImages(sources: string[]) {
+  await Promise.all(sources.map((src) => preloadImage(src)));
+}
+
 useSeoMeta({
   title: () => {
     const name = projectName.value.trim();
@@ -52,13 +70,17 @@ async function loadProject() {
     }
 
     const project: ApiProject = await response.json();
-    projectName.value = project.name;
-    projectSummary.value = project.summary || '';
-    images.value = project.images.map((image, index) => ({
+    const mappedImages = project.images.map((image, index) => ({
       src: image.path,
       alt: image.description || `Project image ${index + 1}`,
       caption: image.description || `Image ${index + 1}`,
     }));
+
+    await preloadImages(mappedImages.map((image) => image.src));
+
+    projectName.value = project.name;
+    projectSummary.value = project.summary || '';
+    images.value = mappedImages;
     items.value = project.features.map((feature) => ({
       heading: feature.title,
       text: feature.description,

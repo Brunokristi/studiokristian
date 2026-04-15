@@ -1,16 +1,48 @@
-export type CookieConsentStatus = 'accepted' | 'rejected';
+export type CookieType = 'necessary' | 'analytics' | 'marketing';
+export type CookiePreferences = Record<CookieType, boolean>;
 
-const COOKIE_CONSENT_KEY = 'studio-cookie-consent';
+const COOKIE_PREFERENCES_KEY = 'studio-cookie-preferences';
+const COOKIE_CONSENT_STATUS_KEY = 'studio-cookie-consent-status';
 
-export function getCookieConsent(): CookieConsentStatus | null {
-    const value = localStorage.getItem(COOKIE_CONSENT_KEY);
-    return value === 'accepted' || value === 'rejected' ? value : null;
+const DEFAULT_PREFERENCES: CookiePreferences = {
+    necessary: true,
+    analytics: false,
+    marketing: false,
+};
+
+export function getCookiePreferences(): CookiePreferences | null {
+    try {
+        const value = localStorage.getItem(COOKIE_PREFERENCES_KEY);
+        if (value) {
+            return JSON.parse(value);
+        }
+    } catch (e) {
+        console.error('Failed to parse cookie preferences', e);
+    }
+    return null;
 }
 
-export function setCookieConsent(status: CookieConsentStatus) {
-    localStorage.setItem(COOKIE_CONSENT_KEY, status);
+export function setCookiePreferences(preferences: Partial<CookiePreferences>) {
+    const currentPrefs = getCookiePreferences() || DEFAULT_PREFERENCES;
+    const newPrefs = { ...currentPrefs, ...preferences };
+    localStorage.setItem(COOKIE_PREFERENCES_KEY, JSON.stringify(newPrefs));
+    localStorage.setItem(COOKIE_CONSENT_STATUS_KEY, 'set');
 }
 
-export function hasAcceptedCookies() {
-    return getCookieConsent() === 'accepted';
+export function getCookieConsentStatus() {
+    return localStorage.getItem(COOKIE_CONSENT_STATUS_KEY);
+}
+
+export function hasCookieConsentBeenSet(): boolean {
+    return getCookieConsentStatus() !== null;
+}
+
+export function isCookieTypeAllowed(cookieType: CookieType): boolean {
+    const prefs = getCookiePreferences();
+    if (!prefs) return false;
+    return prefs[cookieType] === true;
+}
+
+export function hasAcceptedAnalytics(): boolean {
+    return isCookieTypeAllowed('analytics');
 }

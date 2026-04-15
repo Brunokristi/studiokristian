@@ -58,17 +58,33 @@ export default {
 
         items: [
             {
-                heading: 'Čo tvoríš?',
-                text: 'Tvorím funkčné weby, vlastné systémy a digitálne riešenia navrhnuté tak, aby pomáhali malým firmám rásť.',
+                heading: 'What What do you actually build?',
+                text: 'I build clean websites and custom systems designed to solve real business needs. From simple presentation pages to complex tools that automate workflows and save time.',
             },
             {
-                heading: 'S kým spolupracuješ?',
-                text: 'Najčastejšie s menšími firmami, founder-mi a podnikateľmi, ktorí chcú niečo čisté, rýchle a postavené so zámerom.',
+                heading: 'Who do you work with?',
+                text: 'I mostly work with small businesses, founders and independent projects that want something functional, clear and built to grow.',
             },
             {
-                heading: 'Vieš pomôcť aj s automatizáciou a AI?',
-                text: 'Áno. Navrhujem systémy, ktoré znižujú manuálnu prácu, zjednodušujú procesy a využívajú AI tam, kde to má reálny prínos.',
+                heading: 'How long does it take?',
+                text: 'It depends on the scope. Simple websites can take as little as a week, while larger systems take longer. I always aim to keep the process efficient and focused.',
             },
+            {
+                heading: 'Do you also handle automation or AI?',
+                text: 'Yes. I design systems that reduce manual work and simplify workflows. If it makes sense, I integrate automation or AI to improve the process.',
+            },
+            {
+                heading: 'What happens after launch?',
+                text: 'I can help you improve and extend the project over time. Most projects evolve, and I design them to grow with your business.',
+            },
+            {
+                heading: 'How much does it cost?',
+                text: 'Every project is different, so pricing depends on what you need. I focus on building the right solution rather than fitting everything into a fixed package.',
+            },
+            {
+                heading: 'Do I need to know what I want exactly?',
+                text: 'Not necessarily. I can help you explore ideas and find the best solution for your needs. Just share what you have in mind, and we can work together to refine it.',
+            }
         ],
     },
 
@@ -116,5 +132,25 @@ export default {
         learnMore: 'Prečítať zásady ochrany súkromia',
         reject: 'Odmietnuť',
         accept: 'Prijať všetko',
+        policy: {
+            title: "Nastavenia Cookies",
+            necessary: "Nevyhnutné Cookies",
+            necessaryDesc: "Nevyhnutné pre fungovanie webu. Nemôžu byť vypnuté.",
+            necessaryList: "Session cookies, CSRF ochrana, voľby používateľa",
+            analytics: "Analytické Cookies",
+            analyticsDesc: "Pomáhajú nám pochopiť, ako používate web, aby sme ho mohli zlepšovať.",
+            analyticsList: "Google Analytics, zobrazenia stránok, sledovanie správania",
+            marketing: "Marketingové Cookies",
+            marketingDesc: "Používajú sa na sledovanie vašich záujmov a zobrazovanie relevantných reklám.",
+            marketingList: "Sledovanie konverzií, segmentácia publika, retargeting",
+            always: "Vždy Zapnuté",
+            allowed: "Povolené",
+            notAllowed: "Nepovolené",
+            canChangeAnytime: "Vaše voľby môžete zmeniť kedykoľvek.",
+            rejectAll: "Odmietnuť Všetko",
+            acceptAll: "Prijať Všetko",
+            save: "Uložiť Voľby",
+            cancel: "Zrušiť"
+        }
     },
 }

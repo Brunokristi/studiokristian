@@ -11,7 +11,7 @@ export default {
         description2: 'Fewer clicks, automated systems, smoother flows. AI where it actually makes sense.',
         workflow: 'From idea to system',
 
-        recentProjects: 'View projects',
+        recentProjects: 'view live',
 
         quote: 'A website should not just look good. It should work for you 24/7.',
 
@@ -41,6 +41,7 @@ export default {
         facebook: 'Facebook',
         instagram: 'Instagram',
         home: 'Home',
+        cookies: 'Cookies'
     },
 
     contact: {
@@ -133,5 +134,26 @@ export default {
         learnMore: 'Read privacy policy',
         reject: 'Reject',
         accept: 'Accept all',
+        policy: {
+            title: "Cookie Settings",
+            necessary: "Necessary Cookies",
+            necessaryDesc: "Essential for the site to function. These cannot be disabled.",
+            necessaryList: "Session cookies, CSRF protection, user preferences",
+            analytics: "Analytics Cookies",
+            analyticsDesc: "Help us understand how you use the site to improve your experience.",
+            analyticsList: "Google Analytics, page views, user behavior tracking",
+            marketing: "Marketing Cookies",
+            marketingDesc: "Used to track your interests and show you relevant ads.",
+            marketingList: "Conversion tracking, audience segmentation, retargeting",
+            always: "Always On",
+            allowed: "Allowed",
+            notAllowed: "Not Allowed",
+            canChangeAnytime: "You can change your preferences at any time.",
+            rejectAll: "Reject All",
+            acceptAll: "Accept All",
+            save: "Save Preferences",
+            cancel: "Cancel"
+        }
     },
+
 }

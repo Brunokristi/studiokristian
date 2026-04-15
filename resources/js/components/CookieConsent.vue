@@ -3,24 +3,24 @@ import { computed, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useRouter } from 'vue-router';
 import { disableAnalytics, enableAnalytics, trackPageViewIfConsented } from '../composables/useAnalytics';
-import { getCookieConsent, setCookieConsent } from '../composables/useCookieConsent';
+import { hasCookieConsentBeenSet, setCookiePreferences } from '../composables/useCookieConsent';
 
 const { t } = useI18n();
 const router = useRouter();
-const consent = ref(getCookieConsent());
+const consentSet = ref(hasCookieConsentBeenSet());
 
-const isVisible = computed(() => consent.value === null);
+const isVisible = computed(() => !consentSet.value);
 
 function acceptCookies() {
-  setCookieConsent('accepted');
-  consent.value = 'accepted';
+  setCookiePreferences({ necessary: true, analytics: true, marketing: false });
+  consentSet.value = true;
   enableAnalytics();
   trackPageViewIfConsented();
 }
 
 function rejectCookies() {
-  setCookieConsent('rejected');
-  consent.value = 'rejected';
+  setCookiePreferences({ necessary: true, analytics: false, marketing: false });
+  consentSet.value = true;
   disableAnalytics();
 }
 
