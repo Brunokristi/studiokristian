@@ -111,7 +111,7 @@ onUnmounted(() => {
   >
 
     <button 
-      class="text-inherit cursor-pointer"
+      class="text-inherit cursor-pointer text-xl md:text-base"
       type="button"
       @click="openNavigation"
       :title="isOnNavPage ? 'Close navigation' : 'Open navigation'"
@@ -121,7 +121,7 @@ onUnmounted(() => {
     </button>
 
     <button
-      class="text-inherit cursor-pointer"
+      class="text-inherit cursor-pointer text-xl md:text-base"
       type="button"
       @click="toggleLanguage"
       :title="locale === 'en' ? 'Switch to Slovak' : 'Switch to English'"

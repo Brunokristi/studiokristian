@@ -137,7 +137,7 @@ onUnmounted(() => {
             </button>
         </div>
         <button
-                class="cursor-pointer text-sm text-dark"
+                class="cursor-pointer text-dark"
                 aria-label="Open image fullscreen"
                 @click="openLightbox()"
             >

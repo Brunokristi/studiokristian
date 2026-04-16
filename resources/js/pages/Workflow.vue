@@ -1,56 +1,46 @@
 <script setup lang="ts">
+import { computed } from 'vue';
 import { useI18n } from 'vue-i18n';
-const { t } = useI18n();
 import { useSeoMeta } from '../composables/useSeoMeta';
 
 import Button from '../components/Button.vue';
 import Slideshow from '../components/Slideshow.vue';
 import Info from '../components/Info.vue';
 
+const { t, tm } = useI18n();
+
 useSeoMeta({
-  title: () => t('seo.workflow.title'),
-  description: () => t('seo.workflow.description'),
+    title: () => t('seo.workflow.title'),
+    description: () => t('seo.workflow.description'),
 });
 
 const img1 = '/assets/img1.jpg';
 const img2 = '/assets/card_front.svg';
 const img3 = '/assets/card_front.svg';
+
 const images = [
-  {
-    src: img1,
-    alt: 'Project preview one',
-    caption: 'Project one',
-  },
-  {
-    src: img2,
-    alt: 'Project preview two',
-    caption: 'Project two',
-  },
-  {
-    src: img3,
-    alt: 'Project preview three',
-    caption: 'Project three',
-  },
-]
-const items = [
-  {
-    heading: 'What services do you offer?',
-    text: 'I create visual identities, websites and digital experiences.',
-  },
-  {
-    heading: 'Do you work internationally?',
-    text: 'Yes, I work with clients from all around the world.',
-  },
-  {
-    heading: 'What is your design process?',
-    text: 'My design process is collaborative and iterative, ensuring the best results for my clients.',
-  },
+    {
+        src: img1,
+        alt: 'Project preview one',
+        caption: 'Project one',
+    },
+    {
+        src: img2,
+        alt: 'Project preview two',
+        caption: 'Project two',
+    },
+    {
+        src: img3,
+        alt: 'Project preview three',
+        caption: 'Project three',
+    },
 ];
 
-const openRecentProjects = () => {
-  window.location.href = '/portfolio';
-};
+const steps = computed(() => tm('workflowPage.steps') as { heading: string; text: string }[]);
 
+const openRecentProjects = () => {
+    window.location.href = '/portfolio';
+};
 </script>
 
 <template>
@@ -61,21 +51,19 @@ const openRecentProjects = () => {
             :interval="5000"
         />
 
-        <div>
+        <div class="flex flex-col">
             <Info
-                v-for="(item, index) in items"
+                v-for="(step, index) in steps"
                 :key="index"
-                :heading="item.heading"
-                :text="item.text"
+                :heading="step.heading"
+                :text="step.text"
             />
         </div>
 
         <Button
-            :text="t('home.recentProjects')"
+            :text="t('workflowPage.callToAction')"
             variant="dark"
             @click="openRecentProjects"
         />
     </main>
 </template>
-
-

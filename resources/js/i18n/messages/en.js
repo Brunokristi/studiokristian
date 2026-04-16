@@ -1,3 +1,5 @@
+import { viewDepthKey } from "vue-router";
+
 export default {
     home: {
         title: 'Websites that work. Systems that scale.',
@@ -11,7 +13,7 @@ export default {
         description2: 'Fewer clicks, automated systems, smoother flows. AI where it actually makes sense.',
         workflow: 'From idea to system',
 
-        recentProjects: 'view live',
+        recentProjects: 'more projects',
 
         quote: 'A website should not just look good. It should work for you 24/7.',
 
@@ -29,6 +31,7 @@ export default {
     portfolio: {
         contact: 'Let\'s build your project',
         loading: 'Loading projects...',
+        viewLive: 'View live',
     },
 
     footer: {
@@ -52,9 +55,9 @@ export default {
     },
 
     contactPage: {
-        title: 'Main line',
+        title: 'SK headquarters',
         callEnded: 'Call ended ({time})',
-        dragToCall: 'Slide to call',
+        dragToCall: 'Slide to contact',
 
         transcript: `Hey, thanks for reaching out. Usually the first thing I want to understand is what your business actually needs. Sometimes it is a simple website with strong structure and clean design. Sometimes it is a bigger system that saves time, removes manual work and makes the whole flow easier. I like to keep things minimal, clear and functional. Less noise, fewer clicks, better results. If it makes sense, I can also bring automation or AI into the process. So if you already have an idea, send it over. And if not, that is fine too. We can figure it out together.`,
 
@@ -154,6 +157,47 @@ export default {
             save: "Save Preferences",
             cancel: "Cancel"
         }
+    },
+    workflowPage: {
+        steps: [
+            {
+                heading: '1. Initial Discovery',
+                text: 'We start by understanding your goals, challenges and requirements, and explore the most suitable solutions together.',
+            },
+            {
+                heading: '2. Project Scope Definition',
+                text: 'We define the structure, features, timeline and overall direction of the project to ensure clarity from the beginning.',
+            },
+            {
+                heading: '3. Interactive Prototyping',
+                text: 'You can follow the design process in real time, review progress and provide feedback as the prototype evolves.',
+            },
+            {
+                heading: '4. Development',
+                text: 'The approved design is translated into a fully functional, high-quality website or application.',
+            },
+            {
+                heading: '5. Launch',
+                text: 'The project is deployed and made live, ensuring everything runs smoothly and reliably.',
+            },
+            {
+                heading: '6. Documentation Delivery',
+                text: 'You receive clear documentation to help you understand and manage the project moving forward.',
+            },
+            {
+                heading: '7. Handover & Training (if needed)',
+                text: 'If required, we provide guidance and training so you can confidently work with the final product.',
+            },
+            {
+                heading: '8. Maintenance & Monitoring',
+                text: 'We can continue to support the project by monitoring performance, usability and stability.',
+            },
+            {
+                heading: '9. Iterative Improvements (optional)',
+                text: 'Based on real usage and feedback, we refine and improve the project over time.',
+            },
+        ],
+        callToAction: 'Recent Projects',
     },
 
 }

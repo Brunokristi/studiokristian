@@ -148,7 +148,7 @@ watch(
         </div>
 
         <Button
-            :text="t('home.recentProjects')"
+            :text="t('portfolio.viewLive')"
             variant="dark"
             @click="openRecentProjects"
         />

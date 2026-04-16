@@ -8,11 +8,11 @@ const { t, tm } = useI18n()
 import { useSeoMeta } from '../composables/useSeoMeta'
 
 import { useGlobalActions } from '../composables/useGlobalActions'
-const { openEmail, openMessage, openPhone, openWhatsApp } = useGlobalActions()
+const { openEmail, openMessage, openWhatsApp } = useGlobalActions()
 
 useSeoMeta({
-  title: () => t('seo.contact.title'),
-  description: () => t('seo.contact.description'),
+    title: () => t('seo.contact.title'),
+    description: () => t('seo.contact.description'),
 })
 
 const logoSrc = '/assets/logo_white.svg'
@@ -23,18 +23,21 @@ const transcriptSource = computed(() => t('contactPage.transcript'))
 let timer: number | undefined
 
 type ContactInfoItem = {
-  heading: string
-  text: string
+    heading: string
+    text: string
 }
 
 const items = computed(() => {
-  const localizedItems = tm('contactPage.items') as ContactInfoItem[]
-  return localizedItems.map((item) => ({
-    heading: item.heading,
-    text: item.text,
-    color: 'light',
-  }))
+    const localizedItems = tm('contactPage.items') as ContactInfoItem[]
+    return localizedItems.map((item) => ({
+        heading: item.heading,
+        text: item.text,
+        color: 'light',
+    }))
 })
+
+const topItems = computed(() => items.value.slice(0, 3))
+const bottomItems = computed(() => items.value.slice(3))
 
 const transcriptWords = computed(() => transcriptSource.value.trim().split(/\s+/))
 const visibleWordCount = ref(0)
@@ -107,7 +110,7 @@ function endDrag() {
 
 function makeCall() {
     isCalling.value = true
-    window.location.href = 'tel:+421123456789'
+    openWhatsApp()
 }
 
 function hangUp() {
@@ -149,149 +152,151 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <main class="py-5 flex flex-col gap-20" data-theme="dark">
-    <section class="flex flex-col gap-10 h-[calc(100vh-150px)] w-full max-w-[400px] mx-auto px-6">
-      <div class="flex items-center gap-4">
-        <div class="bg-accent rounded-full w-16 h-16 flex items-center justify-center">
-          <img :src="logoSrc" alt="Title image" class="w-10" />
-        </div>
+    <main class="py-5 flex flex-col gap-20" data-theme="dark">
+        <section class="flex flex-col gap-10 h-[calc(100vh-150px)] w-full max-w-[400px] mx-auto px-6">
+            <div class="flex items-center gap-4">
+                <div class="bg-accent rounded-full w-16 h-16 flex items-center justify-center">
+                    <img :src="logoSrc" alt="Title image" class="w-10" />
+                </div>
 
-        <div class="flex flex-col p-3">
-          <p class="p text-light">
-              {{ callStatus }}
-          </p>
+                <div class="flex flex-col p-3">
+                    <p class="p text-light">
+                        {{ callStatus }}
+                    </p>
 
-          <h3 class="h3 uppercase text-light">{{ t('contactPage.title') }}</h3>
-        </div>
-      </div>
-
-      <div class="relative flex-1 min-h-0 overflow-hidden">
-        <div class="absolute inset-x-0 top-0 h-[25rem] z-10 pointer-events-none transcript-fade"></div>
-
-        <div class="h-full flex items-end overflow-hidden">
-          <p class="p text-light whitespace-pre-wrap leading-7">
-            {{ visibleTranscript }}
-          </p>
-        </div>
-      </div>
-
-      <div v-if="!isCalling" class="px-8">
-        <div
-          ref="slider"
-          class="relative h-12 bg-accent rounded-full overflow-hidden select-none shrink-0 pickup-track "
-          @pointermove="onDrag"
-          @pointerup="endDrag"
-          @pointercancel="endDrag"
-          @pointerleave="endDrag"
-        >
-          <div class="absolute inset-0 flex items-center justify-center pointer-events-none">
-            <p
-                class="p text-dark transition-opacity duration-300"
-                :class="isDragging ? 'opacity-60' : 'opacity-100'"
-            >
-                {{ t('contactPage.dragToCall') }}
-            </p>
-          </div>
-
-          <div
-            class="absolute top-1 left-1 w-10 h-10 cursor-grab active:cursor-grabbing transition-transform duration-200 z-20"
-            :class="{ 'transition-none': isDragging }"
-            :style="{ transform: `translateX(${dragX}px)` }"
-            @pointerdown="startDrag"
-          >
-            <div
-              class="w-10 h-10 rounded-full bg-dark flex items-center justify-center pickup-knob-inner"
-              :class="{ 'pickup-knob-inner-animated': !isDragging }"
-            >
-              <i class="bi bi-telephone text-accent"></i>
+                    <h3 class="h3 uppercase text-light">{{ t('contactPage.title') }}</h3>
+                </div>
             </div>
-          </div>
-        </div>
-      </div>
 
-      <div v-else-if="isCalling" class="flex flex-col items-center gap-4">
-        <button
-          class="h-12 w-12 rounded-full bg-accent text-dark flex items-center justify-center cursor-pointer"
-          @click="hangUp"
-        >
-          <i class="bi bi-telephone rotate-[135deg]"></i>
-        </button>
-      </div>
-    </section>
+            <div class="relative flex-1 min-h-0 overflow-hidden">
+                <div class="absolute inset-x-0 top-0 h-[25rem] z-10 pointer-events-none transcript-fade"></div>
 
-    <section data-theme="dark">
-      <Info
-        v-for="(item, index) in items"
-        :key="index"
-        :heading="item.heading"
-        :text="item.text"
-        :color="item.color"
-      />
-    </section>
+                <div class="h-full flex items-end overflow-hidden">
+                    <p class="p text-light whitespace-pre-wrap leading-7">
+                        {{ visibleTranscript }}
+                    </p>
+                </div>
+            </div>
 
-    <section class="space-y-4 px-6" data-theme="dark">
-      <Button
-        :text="t('contact.email')"
-        variant="light"
-        @click="openEmail"
-      />
+            <div v-if="!isCalling" class="px-8">
+                <div
+                    ref="slider"
+                    class="relative h-12 bg-accent rounded-full overflow-hidden select-none shrink-0 pickup-track"
+                    @pointermove="onDrag"
+                    @pointerup="endDrag"
+                    @pointercancel="endDrag"
+                    @pointerleave="endDrag"
+                >
+                    <div class="absolute inset-0 flex items-center justify-center pointer-events-none">
+                        <p
+                            class="p text-dark transition-opacity duration-300"
+                            :class="isDragging ? 'opacity-60' : 'opacity-100'"
+                        >
+                            {{ t('contactPage.dragToCall') }}
+                        </p>
+                    </div>
 
-      <Button
-        :text="t('contact.whatsapp')"
-        variant="light"
-        @click="openWhatsApp"
-      />
+                    <div
+                        class="absolute top-1 left-1 w-10 h-10 cursor-grab active:cursor-grabbing transition-transform duration-200 z-20"
+                        :class="{ 'transition-none': isDragging }"
+                        :style="{ transform: `translateX(${dragX}px)` }"
+                        @pointerdown="startDrag"
+                    >
+                        <div
+                            class="w-10 h-10 rounded-full bg-dark flex items-center justify-center pickup-knob-inner"
+                            :class="{ 'pickup-knob-inner-animated': !isDragging }"
+                        >
+                            <i class="bi bi-telephone text-accent"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
 
-      <Button
-        :text="t('contact.message')"
-        variant="light"
-        @click="openMessage"
-      />
+            <div v-else class="flex flex-col items-center gap-4">
+                <button
+                    class="h-12 w-12 rounded-full bg-accent text-dark flex items-center justify-center cursor-pointer"
+                    @click="hangUp"
+                >
+                    <i class="bi bi-telephone rotate-[135deg]"></i>
+                </button>
+            </div>
+        </section>
 
-      <Button
-        :text="t('contact.call')"
-        variant="light"
-        @click="openPhone"
-      />
-    </section>
-  </main>
+        <section data-theme="dark">
+            <Info
+                v-for="(item, index) in topItems"
+                :key="`top-${index}`"
+                :heading="item.heading"
+                :text="item.text"
+                :color="item.color"
+            />
+        </section>
+
+        <section class="space-y-4 px-6" data-theme="dark">
+            <Button
+                :text="t('contact.email')"
+                variant="light"
+                @click="openEmail"
+            />
+
+            <Button
+                :text="t('contact.whatsapp')"
+                variant="light"
+                @click="openWhatsApp"
+            />
+
+            <Button
+                :text="t('contact.message')"
+                variant="light"
+                @click="openMessage"
+            />
+        </section>
+
+        <section data-theme="dark">
+            <Info
+                v-for="(item, index) in bottomItems"
+                :key="`bottom-${index}`"
+                :heading="item.heading"
+                :text="item.text"
+                :color="item.color"
+            />
+        </section>
+    </main>
 </template>
 
 <style>
 .transcript-fade {
-  background: linear-gradient(
-    to bottom,
-    rgba(0, 0, 0, 1) 20%,
-    rgba(0, 0, 0, 0.92) 40%,
-    rgba(0, 0, 0, 0.55) 70%,
-    rgba(0, 0, 0, 0) 90%
-  );
+    background: linear-gradient(
+        to bottom,
+        rgba(0, 0, 0, 1) 20%,
+        rgba(0, 0, 0, 0.92) 40%,
+        rgba(0, 0, 0, 0.55) 70%,
+        rgba(0, 0, 0, 0) 90%
+    );
 }
 
-
 .pickup-knob-inner-animated {
-  animation: pickupKnobNudge 5s cubic-bezier(0.22, 1, 0.36, 1) infinite;
+    animation: pickupKnobNudge 5s cubic-bezier(0.22, 1, 0.36, 1) infinite;
 }
 
 @keyframes pickupKnobNudge {
-  0%
-  {
-    transform: translateX(0);
-  }
-  20% {
-    transform: translateX(10px) ;
-  }
-  40% {
-    transform: translateX(0px);
-  }
-  60% {
-    transform: translateX(10px);
-  }
-  80% {
-    transform: translateX(0px);
-  }
-  100% {
-    transform: translateX(0px);
-  }
+    0% {
+        transform: translateX(0);
+    }
+    20% {
+        transform: translateX(10px);
+    }
+    40% {
+        transform: translateX(0px);
+    }
+    60% {
+        transform: translateX(10px);
+    }
+    80% {
+        transform: translateX(0px);
+    }
+    100% {
+        transform: translateX(0px);
+    }
 }
 </style>

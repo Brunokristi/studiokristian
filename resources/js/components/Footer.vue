@@ -50,7 +50,7 @@ const date = new Date().getFullYear()
             </a>
 
             <a
-              href="https://www.instagram.com/studiokristian/"
+              href="https://www.facebook.com/profile.php?id=61574392799883"
               target="_blank"
               class="text-light hover:text-accent transition-colors duration-300"
             >

@@ -1,20 +1,23 @@
+import { viewDepthKey } from "vue-router";
+
 export default {
     home: {
-        title: 'Weby, ktoré fungujú. Systémy, ktoré rastú.',
-        description: 'Čisté, rýchle weby a smart systémy vytvorené pre rast tvojho biznisu — bez zbytočností.',
-        callToAction: 'Začať projekt',
+        title: 'Webstránky, ktoré fungujú. Systémy, ktoré rastú.',
+        description: 'Čisté weby a inteligentné systémy vytvorené na rast vášho biznisu.',
+        callToAction: 'Poďme tvoriť spolu',
 
-        subtitle1: 'Menej dizajnu. Viac výsledkov.',
-        description1: 'Minimalistické a modulárne weby navrhnuté na výkon. Bez zbytočnej komplexnosti. Len čistá štruktúra, rýchlosť a jasný cieľ.',
+        subtitle1: 'Menej dizajnu. Väčší efekt.',
+        description1: 'Minimalistické, modulárne weby navrhnuté pre výkon. Čistá štruktúra, rýchle načítanie a jasná cesta k výsledkom.',
 
-        subtitle2: 'Navrhnuté tak, aby šetrili čas',
-        description2: 'Od jednoduchých webov až po automatizované systémy. Menej klikov, plynulejšie procesy a AI tam, kde má zmysel.',
+        subtitle2: 'Vytvorené na šetrenie času, nie jeho plytvanie',
+        description2: 'Menej klikov, automatizované systémy, plynulejšie procesy. AI tam, kde to dáva zmysel.',
+        workflow: 'Od nápadu k systému',
 
-        recentProjects: 'Zobraziť projekty',
+        recentProjects: 'ďalšie projekty',
 
-        quote: 'Web nemá len dobre vyzerať. Má pracovať za teba — 24/7.',
+        quote: 'Webstránka by nemala len dobre vyzerať. Mala by pre vás pracovať 24/7.',
 
-        contact: 'Kontakt',
+        contact: 'Kontaktujt',
         vcard: 'Uložiť kontakt',
     },
 
@@ -26,88 +29,90 @@ export default {
     },
 
     portfolio: {
-        contact: 'Poďme vytvoriť tvoj projekt',
+        contact: 'Poďme vytvoriť váš projekt',
         loading: 'Načítavam projekty...',
+        viewLive: 'Zobraziť naživo',
     },
 
     footer: {
         portfolio: 'Projekty',
         contact: 'Kontakt',
         workflow: 'Proces',
-        privacy: 'Ochrana údajov',
+        privacy: 'Ochrana súkromia',
         email: 'Email',
-        copyright: 'Studio Kristian. Všetky práva vyhradené.',
+        copyright: 'studio kristian. Všetky práva vyhradené.',
         facebook: 'Facebook',
         instagram: 'Instagram',
         home: 'Domov',
+        cookies: 'Cookies'
     },
 
     contact: {
         email: 'Email',
         whatsapp: 'WhatsApp',
-        message: 'Správa',
+        message: 'Poslať správu',
         call: 'Zavolať',
     },
 
     contactPage: {
-        title: 'Centrála SK',
-        callEnded: 'Hovor skončil ({time})',
-        dragToCall: 'Potiahnutím zavolať',
+        title: 'SK headquarters',
+        callEnded: 'Hovor ukončený ({time})',
+        dragToCall: 'Kontaktujte potiahnutím',
 
-        transcript: `Ahoj, vďaka, že si sa ozval. Na začiatku ma vždy najviac zaujíma, čo tvoj biznis naozaj potrebuje. Niekedy je to jednoduchý web s čistou štruktúrou a silným vizuálom. Niekedy je to väčší systém, ktorý šetrí čas, odbúrava manuálnu prácu a zjednodušuje celý proces. Mám rád veci, ktoré sú minimalistické, prehľadné a funkčné. Menej chaosu, menej klikov, lepší výsledok. Keď to dáva zmysel, viem do toho zapojiť aj automatizáciu alebo AI. Takže ak už máš konkrétnu predstavu, pošli ju. A ak nie, vôbec nevadí. Vymyslíme to spolu.`,
+        transcript: `Ahoj, vďaka že ste sa ozvali. Väčšinou sa najskôr snažím pochopiť, čo váš biznis skutočne potrebuje. Niekedy je to jednoduchá webstránka s pevnou štruktúrou a čistým dizajnom. Niekedy je to väčší systém, ktorý šetrí čas, odstraňuje manuálnu prácu a zjednodušuje celý proces. Snažím sa udržať veci minimalistické, prehľadné a funkčné. Menej chaosu, menej klikov, lepšie výsledky. Ak to dáva zmysel, viem do procesu zapojiť aj automatizáciu alebo AI. Ak už máte predstavu, pošlite ju. A ak nie, to je v poriadku. Spolu na to prídeme.`,
 
         items: [
             {
-                heading: 'What What do you actually build?',
-                text: 'I build clean websites and custom systems designed to solve real business needs. From simple presentation pages to complex tools that automate workflows and save time.',
+                heading: 'Čo vlastne tvoríš?',
+                text: 'Tvorím čisté webstránky a vlastné systémy navrhnuté na riešenie reálnych potrieb biznisu. Od jednoduchých prezentačných stránok až po komplexné nástroje, ktoré automatizujú procesy a šetria čas.',
             },
             {
-                heading: 'Who do you work with?',
-                text: 'I mostly work with small businesses, founders and independent projects that want something functional, clear and built to grow.',
+                heading: 'S kým spolupracuješ?',
+                text: 'Najčastejšie spolupracujem s malými firmami, zakladateľmi a nezávislými projektmi, ktoré chcú funkčné, prehľadné riešenie pripravené na rast.',
             },
             {
-                heading: 'How long does it take?',
-                text: 'It depends on the scope. Simple websites can take as little as a week, while larger systems take longer. I always aim to keep the process efficient and focused.',
+                heading: 'Ako dlho to trvá?',
+                text: 'Záleží od rozsahu. Jednoduché weby môžu byť hotové už za týždeň, väčšie systémy trvajú dlhšie. Vždy sa snažím, aby bol proces efektívny a sústredený.',
             },
             {
-                heading: 'Do you also handle automation or AI?',
-                text: 'Yes. I design systems that reduce manual work and simplify workflows. If it makes sense, I integrate automation or AI to improve the process.',
+                heading: 'Riešiš aj automatizáciu alebo AI?',
+                text: 'Áno. Navrhujem systémy, ktoré znižujú manuálnu prácu a zjednodušujú procesy. Ak to dáva zmysel, integrujem automatizáciu alebo AI.',
             },
             {
-                heading: 'What happens after launch?',
-                text: 'I can help you improve and extend the project over time. Most projects evolve, and I design them to grow with your business.',
+                heading: 'Čo sa deje po spustení?',
+                text: 'Projekt vieme ďalej rozvíjať a zlepšovať. Väčšina projektov sa časom vyvíja a ja ich navrhujem tak, aby rástli spolu s vaším biznisom.',
             },
             {
-                heading: 'How much does it cost?',
-                text: 'Every project is different, so pricing depends on what you need. I focus on building the right solution rather than fitting everything into a fixed package.',
+                heading: 'Koľko to stojí?',
+                text: 'Každý projekt je iný, preto cena závisí od vašich potrieb. Sústreďujem sa na správne riešenie, nie na univerzálne balíky.',
             },
             {
-                heading: 'Do I need to know what I want exactly?',
-                text: 'Not necessarily. I can help you explore ideas and find the best solution for your needs. Just share what you have in mind, and we can work together to refine it.',
+                heading: 'Musím presne vedieť, čo chcem?',
+                text: 'Nie nutne. Pomôžem vám preskúmať možnosti a nájsť najlepšie riešenie. Stačí sa podeliť o vašu predstavu a spoločne ju doladíme.',
             }
         ],
     },
 
     seo: {
         home: {
-            title: 'Studio Kristian | Weby a systémy pre rast biznisu',
-            description: 'Studio Kristian tvorí čisté weby, škálovateľné systémy a praktickú automatizáciu, ktoré pomáhajú firmám rásť s menšou manuálnou prácou.',
+            title: 'studio kristian | Webstránky a systémy pre rast biznisu',
+            description: 'studio kristian tvorí čisté weby, škálovateľné systémy a praktickú automatizáciu, ktoré pomáhajú firmám rásť rýchlejšie s menším množstvom manuálnej práce.',
         },
         portfolio: {
-            title: 'Projekty | Studio Kristian',
-            description: 'Pozrite si vybrané webové a systémové projekty Studio Kristian zamerané na výkon, prehľadnosť a merateľný dopad na biznis.',
+            title: 'Portfólio | projekty studio kristian',
+            description: 'Pozrite si vybrané projekty studio kristian zamerané na výkon, prehľadnosť a reálny biznisový dopad.',
         },
         project: {
-            title: 'Projekt | Studio Kristian',
-            description: 'Objavte detaily projektu, kľúčové rozhodnutia a implementačné riešenia od Studio Kristian.',
+            title: 'Projekt | studio kristian',
+            description: 'Objavte detaily projektov, rozhodnutia v procese a implementačné riešenia od studio kristian.',
         },
         workflow: {
-            title: 'Proces | Od nápadu k systému | Studio Kristian',
-            description: 'Zistite, ako Studio Kristian mení nápady na funkčné digitálne systémy cez jasný, spolupracujúci proces orientovaný na výsledky.',
+            title: 'Proces | Od nápadu k systému | studio kristian',
+            description: 'Pozrite sa, ako studio kristian mení nápady na funkčné digitálne systémy cez jasný a spolupracujúci proces.',
         },
         contact: {
-            title: 'Kontakt | Studio Kristian',
-            description: 'Spojte sa so Studio Kristian a porozprávajme sa o webe, systémoch, automatizácii a praktických riešeniach pre váš biznis.',
+            title: 'Kontakt | studio kristian',
+            description: 'Kontaktujte studio kristian a preberme webstránky, systémy, automatizáciu a praktické riešenia pre váš biznis.',
         },
     },
 
@@ -115,42 +120,84 @@ export default {
         title: 'Ochrana súkromia',
         lastUpdated: 'Naposledy aktualizované: 29. marec 2026',
         sectionOverviewTitle: 'Prehľad',
-        sectionOverviewText: 'Túto webovú stránku prevádzkuje Studio Kristian. Rešpektujeme vaše súkromie a zhromažďujeme iba obmedzené údaje, ktoré pomáhajú udržať web stabilný, bezpečný a užitočný.',
+        sectionOverviewText: 'Táto webstránka je prevádzkovaná štúdiom studio kristian. Rešpektujeme vaše súkromie a zhromažďujeme len minimálne údaje potrebné na fungovanie stránky.',
         sectionCookiesTitle: 'Cookies',
-        sectionCookiesText: 'Táto webová stránka používa cookies. Niektoré cookies sú potrebné pre základnú funkčnosť. Ďalšie cookies nám pomáhajú pochopiť, ako návštevníci používajú web, aby sme mohli zlepšovať obsah, štruktúru a výkon.',
+        sectionCookiesText: 'Táto stránka používa cookies. Niektoré sú nevyhnutné pre fungovanie, iné nám pomáhajú zlepšovať obsah a výkon stránky.',
         sectionAnalyticsTitle: 'Google Analytics',
-        sectionAnalyticsText: 'Používame Google Analytics na meranie návštevnosti, zobrazení stránok a trendov správania. Tieto údaje sú agregované a priamo vás neidentifikujú. Cieľom je zlepšovať používateľskú skúsenosť a postupne robiť web lepším.',
+        sectionAnalyticsText: 'Používame Google Analytics na meranie návštevnosti a správania používateľov. Dáta sú agregované a neslúžia na vašu identifikáciu.',
         sectionControlTitle: 'Vaše možnosti',
-        sectionControlText: 'Cookies môžete spravovať alebo vymazať v nastaveniach svojho prehliadača. Ak chcete, môžete tiež použiť nástroje alebo rozšírenia prehliadača na blokovanie analytického merania.',
+        sectionControlText: 'Cookies môžete spravovať alebo vymazať v nastaveniach prehliadača. Môžete tiež blokovať analytiku pomocou rozšírení.',
         sectionContactTitle: 'Kontakt',
-        sectionContactText: 'Ak máte otázky k týmto zásadám alebo k spracovaniu údajov, kontaktujte nás cez kontaktnú stránku na tomto webe.',
+        sectionContactText: 'Ak máte otázky, kontaktujte nás cez kontaktnú stránku.',
     },
 
     cookies: {
         title: 'Cookies a analytika',
-        text: 'Používame cookies a Google Analytics na pochopenie návštevnosti a zlepšovanie tohto webu. Analytické cookies môžete prijať alebo odmietnuť.',
-        learnMore: 'Prečítať zásady ochrany súkromia',
+        text: 'Používame cookies a Google Analytics na zlepšenie tejto stránky. Môžete ich prijať alebo odmietnuť.',
+        learnMore: 'Zobraziť zásady ochrany súkromia',
         reject: 'Odmietnuť',
         accept: 'Prijať všetko',
         policy: {
-            title: "Nastavenia Cookies",
-            necessary: "Nevyhnutné Cookies",
-            necessaryDesc: "Nevyhnutné pre fungovanie webu. Nemôžu byť vypnuté.",
-            necessaryList: "Session cookies, CSRF ochrana, voľby používateľa",
-            analytics: "Analytické Cookies",
-            analyticsDesc: "Pomáhajú nám pochopiť, ako používate web, aby sme ho mohli zlepšovať.",
-            analyticsList: "Google Analytics, zobrazenia stránok, sledovanie správania",
-            marketing: "Marketingové Cookies",
-            marketingDesc: "Používajú sa na sledovanie vašich záujmov a zobrazovanie relevantných reklám.",
-            marketingList: "Sledovanie konverzií, segmentácia publika, retargeting",
-            always: "Vždy Zapnuté",
+            title: "Nastavenia cookies",
+            necessary: "Nevyhnutné cookies",
+            necessaryDesc: "Potrebné pre fungovanie stránky.",
+            necessaryList: "Session cookies, CSRF ochrana, preferencie",
+            analytics: "Analytické cookies",
+            analyticsDesc: "Pomáhajú zlepšiť používateľský zážitok.",
+            analyticsList: "Google Analytics, zobrazenia stránok, správanie používateľov",
+            marketing: "Marketingové cookies",
+            marketingDesc: "Používajú sa na zobrazovanie relevantnej reklamy.",
+            marketingList: "Konverzie, segmentácia publika, remarketing",
+            always: "Vždy zapnuté",
             allowed: "Povolené",
             notAllowed: "Nepovolené",
-            canChangeAnytime: "Vaše voľby môžete zmeniť kedykoľvek.",
-            rejectAll: "Odmietnuť Všetko",
-            acceptAll: "Prijať Všetko",
-            save: "Uložiť Voľby",
+            canChangeAnytime: "Nastavenia môžete kedykoľvek zmeniť.",
+            rejectAll: "Odmietnuť všetko",
+            acceptAll: "Prijať všetko",
+            save: "Uložiť nastavenia",
             cancel: "Zrušiť"
         }
+    },
+
+    workflowPage: {
+        steps: [
+            {
+                heading: '1. Úvodná analýza',
+                text: 'Začíname pochopením vašich cieľov, výziev a potrieb a spoločne hľadáme najvhodnejšie riešenia.',
+            },
+            {
+                heading: '2. Definovanie rozsahu projektu',
+                text: 'Stanovíme štruktúru, funkcie, časový plán a smerovanie projektu, aby bolo všetko jasné od začiatku.',
+            },
+            {
+                heading: '3. Interaktívny prototyp',
+                text: 'Môžete sledovať návrh v reálnom čase, kontrolovať priebeh a dávať spätnú väzbu počas vývoja prototypu.',
+            },
+            {
+                heading: '4. Vývoj',
+                text: 'Schválený návrh prevediem do plne funkčnej a kvalitnej webstránky alebo aplikácie.',
+            },
+            {
+                heading: '5. Spustenie',
+                text: 'Projekt nasadíme a uvedieme do prevádzky s dôrazom na spoľahlivosť a bezproblémový chod.',
+            },
+            {
+                heading: '6. Dokumentácia',
+                text: 'Dostanete prehľadnú dokumentáciu, ktorá vám pomôže projekt pochopiť a spravovať.',
+            },
+            {
+                heading: '7. Odovzdanie a zaškolenie (ak je potrebné)',
+                text: 'V prípade potreby vás zaškolím, aby ste vedeli s projektom pracovať samostatne.',
+            },
+            {
+                heading: '8. Údržba a monitoring',
+                text: 'Projekt môžeme ďalej sledovať a zlepšovať z pohľadu výkonu, použiteľnosti a stability.',
+            },
+            {
+                heading: '9. Iteratívne zlepšovanie (voliteľné)',
+                text: 'Na základe reálneho používania projekt postupne vylepšujeme.',
+            },
+        ],
+        callToAction: 'Projekty',
     },
 }
