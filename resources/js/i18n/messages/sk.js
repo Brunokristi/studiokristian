@@ -198,6 +198,28 @@ export default {
                 text: 'Na základe reálneho používania projekt postupne vylepšujeme.',
             },
         ],
+        images: [
+            {
+                alt: 'Náhľad návrhu vo Figme',
+                caption: 'Sledujte návrh v reálnom čase',
+            },
+            {
+                alt: 'Implementácia projektu',
+                caption: 'Vývoj webstránky alebo aplikácie',
+            },
+            {
+                alt: 'Úvodné stretnutie k projektu',
+                caption: 'Na začiatku si prejdeme detaily projektu a vaše požiadavky',
+            },
+            {
+                alt: 'Spustený projekt',
+                caption: 'Projekt je spustený a dostupný online',
+            },
+            {
+                alt: 'Analytika a monitoring',
+                caption: 'Monitorovanie a podpora po spustení projektu',
+            },
+        ],
         callToAction: 'Projekty',
     },
 }

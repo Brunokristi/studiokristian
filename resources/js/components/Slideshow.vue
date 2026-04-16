@@ -153,14 +153,14 @@ onUnmounted(() => {
                 class="fixed inset-0 z-[999] flex items-center justify-center bg-dark p-6"
             >
                 <div class="flex h-full w-full items-center justify-center">
-                    <div class="inline-block">
+                    <div class="inline-block max-w-[95vw] md:max-w-[25vw] relative">
                         <div class="relative inline-block overflow-hidden">
                             <!-- bottom image -->
                             <img
                                 v-if="displayImage"
                                 :src="displayImage.src"
                                 :alt="displayImage.alt || ''"
-                                class="block m-auto max-h-[90vh] max-w-[95vw] object-contain"
+                                class="block m-auto object-contain"
                             />
 
                             <!-- top animated image -->
@@ -170,7 +170,7 @@ onUnmounted(() => {
                                     :key="`lightbox-${currentIndex}`"
                                     :src="currentImage.src"
                                     :alt="currentImage.alt || ''"
-                                    class="absolute inset-0 m-auto max-h-[90vh] max-w-[95vw] object-contain"
+                                    class="absolute inset-0 m-auto object-contain"
                                 />
                             </transition>
 
@@ -179,19 +179,25 @@ onUnmounted(() => {
                                 v-if="currentImage && currentIndex === displayIndex"
                                 :src="currentImage.src"
                                 :alt="currentImage.alt || ''"
-                                class="absolute inset-0 m-auto max-h-[90vh] max-w-[95vw] object-contain"
+                                class="absolute inset-0 m-auto object-contain"
                             />
                         </div>
 
-                        <div class="mt-2 flex justify-between">
+                        <div class="mt-2 flex justify-between items-center"> ">
                             <button
                                 v-if="images.length > 1"
                                 class="flex h-12 w-12 cursor-pointer items-center justify-start"
                                 aria-label="Previous image"
                                 @click="prev"
                             >
-                                <i class="bi bi-arrow-left text-light"></i>
+                                <i class="bi bi-arrow-left text-accent"></i>
                             </button>
+
+                            <div class="flex items-center justify-center h-full">
+                                <p class="p text-center uppercase text-light">
+                                    {{ currentImage?.caption || currentImage?.alt || '' }}
+                                </p>
+                            </div>
 
                             <button
                                 v-if="images.length > 1"
@@ -199,18 +205,16 @@ onUnmounted(() => {
                                 aria-label="Next image"
                                 @click="next"
                             >
-                                <i class="bi bi-arrow-right text-light"></i>
+                                <i class="bi bi-arrow-right text-accent"></i>
                             </button>
                         </div>
 
-                        <p class="p text-center uppercase text-light">
-                            {{ currentImage?.caption || currentImage?.alt || '' }}
-                        </p>
+                        
                     </div>
                 </div>
 
                 <button
-                    class="absolute right-6 top-6 cursor-pointer text-light"
+                    class="absolute right-6 top-6 cursor-pointer text-accent"
                     aria-label="Close lightbox"
                     @click="closeLightbox"
                 >

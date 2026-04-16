@@ -14,27 +14,20 @@ useSeoMeta({
     description: () => t('seo.workflow.description'),
 });
 
-const img1 = '/assets/img1.jpg';
-const img2 = '/assets/card_front.svg';
-const img3 = '/assets/card_front.svg';
+const img1 = '/assets/26.png';
+const img2 = '/assets/27.png';
+const img3 = '/assets/28.png';
+const img4 = '/assets/29.png';
+const img5 = '/assets/30.png';
 
-const images = [
-    {
-        src: img1,
-        alt: 'Project preview one',
-        caption: 'Project one',
-    },
-    {
-        src: img2,
-        alt: 'Project preview two',
-        caption: 'Project two',
-    },
-    {
-        src: img3,
-        alt: 'Project preview three',
-        caption: 'Project three',
-    },
-];
+
+const images = computed(() =>
+    (tm('workflowPage.images') as { alt: string; caption: string }[]).map((img, index) => ({
+        src: [img1, img2, img3, img4, img5][index],
+        alt: img.alt,
+        caption: img.caption,
+    }))
+)
 
 const steps = computed(() => tm('workflowPage.steps') as { heading: string; text: string }[]);
 

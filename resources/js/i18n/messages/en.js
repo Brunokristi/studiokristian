@@ -197,6 +197,28 @@ export default {
                 text: 'Based on real usage and feedback, we refine and improve the project over time.',
             },
         ],
+        images: [
+            {
+                alt: 'Figma design preview',
+                caption: 'Follow the design process in real time',
+            },
+            {
+                alt: 'Project implementation',
+                caption: 'Development of the website or application',
+            },
+            {
+                alt: 'Project discovery meeting',
+                caption: 'We start by defining the project details and your requirements',
+            },
+            {
+                alt: 'Live deployed project',
+                caption: 'Project launched and publicly available',
+            },
+            {
+                alt: 'Analytics and performance monitoring',
+                caption: 'Monitoring and support after launch',
+            },
+        ],
         callToAction: 'Recent Projects',
     },
 

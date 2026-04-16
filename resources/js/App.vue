@@ -273,7 +273,6 @@ onBeforeUnmount(() => {
 .app-shell {
     position: relative;
     min-height: 100vh;
-    overflow: hidden;
 }
 
 .page-shell {
@@ -289,8 +288,8 @@ onBeforeUnmount(() => {
 
 .page-shell--visible {
     opacity: 1;
-    transform: scale(1);
-    filter: blur(0);
+    transform: none;
+    filter: none;
 }
 
 .loader-screen {
