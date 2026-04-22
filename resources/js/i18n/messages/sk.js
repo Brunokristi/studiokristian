@@ -3,13 +3,13 @@ import { viewDepthKey } from "vue-router";
 export default {
     home: {
         title: 'Webstránky, ktoré fungujú. Systémy, ktoré rastú.',
-        description: 'Čisté weby a inteligentné systémy vytvorené na rast vášho biznisu.',
+        description: 'Čisté weby a inteligentné systémy nvrhnuté pre rast vášho biznisu.',
         callToAction: 'Poďme tvoriť spolu',
 
         subtitle1: 'Menej dizajnu. Väčší efekt.',
         description1: 'Minimalistické, modulárne weby navrhnuté pre výkon. Čistá štruktúra, rýchle načítanie a jasná cesta k výsledkom.',
 
-        subtitle2: 'Vytvorené na šetrenie času, nie jeho plytvanie',
+        subtitle2: 'Systémy, ktoré šetria čas, nie ho plytvajú.',
         description2: 'Menej klikov, automatizované systémy, plynulejšie procesy. AI tam, kde to dáva zmysel.',
         workflow: 'Od nápadu k systému',
 
@@ -51,15 +51,16 @@ export default {
         email: 'Email',
         whatsapp: 'WhatsApp',
         message: 'Poslať správu',
-        call: 'Zavolať',
+        instagram: 'Instagram',
+        messenger: 'Messenger',
     },
 
     contactPage: {
         title: 'SK headquarters',
         callEnded: 'Hovor ukončený ({time})',
-        dragToCall: 'Kontaktujte potiahnutím',
+        dragToCall: 'Kontaktuj potiahnutím',
 
-        transcript: `Ahoj, vďaka že ste sa ozvali. Väčšinou sa najskôr snažím pochopiť, čo váš biznis skutočne potrebuje. Niekedy je to jednoduchá webstránka s pevnou štruktúrou a čistým dizajnom. Niekedy je to väčší systém, ktorý šetrí čas, odstraňuje manuálnu prácu a zjednodušuje celý proces. Snažím sa udržať veci minimalistické, prehľadné a funkčné. Menej chaosu, menej klikov, lepšie výsledky. Ak to dáva zmysel, viem do procesu zapojiť aj automatizáciu alebo AI. Ak už máte predstavu, pošlite ju. A ak nie, to je v poriadku. Spolu na to prídeme.`,
+        transcript: `Ahoj, vďaka za tvoj záujem. Väčšinou sa najskôr snažím pochopiť, čo skutočne potrebuješ. Niekedy je to jednoduchá webstránka s pevnou štruktúrou a čistým dizajnom. Niekedy je to väčší systém, ktorý šetrí čas, odstraňuje manuálnu prácu a zjednodušuje celý proces. Snažím sa udržať veci minimalistické, prehľadné a funkčné. Menej chaosu, menej klikov, lepšie výsledky. Ak to dáva zmysel, viem do procesu zapojiť aj automatizáciu alebo AI. Ak už máš nejakú predstavu, ozvi sa mi. A ak nie, to je v poriadku. Spolu na to prídeme.`,
 
         items: [
             {
@@ -112,7 +113,7 @@ export default {
         },
         contact: {
             title: 'Kontakt | studio kristian',
-            description: 'Kontaktujte studio kristian a preberme webstránky, systémy, automatizáciu a praktické riešenia pre váš biznis.',
+            description: 'Kontaktujte studio kristian a preberieme webstránky, systémy, automatizáciu a praktické riešenia pre váš biznis.',
         },
     },
 
@@ -120,20 +121,18 @@ export default {
         title: 'Ochrana súkromia',
         lastUpdated: 'Naposledy aktualizované: 29. marec 2026',
         sectionOverviewTitle: 'Prehľad',
-        sectionOverviewText: 'Táto webstránka je prevádzkovaná štúdiom studio kristian. Rešpektujeme vaše súkromie a zhromažďujeme len minimálne údaje potrebné na fungovanie stránky.',
+        sectionOverviewText: 'Táto webstránka je prevádzkovaná studio kristian. Rešpektujeme tvoje súkromie a zhromažďujeme len minimálne údaje potrebné na fungovanie stránky.',
         sectionCookiesTitle: 'Cookies',
         sectionCookiesText: 'Táto stránka používa cookies. Niektoré sú nevyhnutné pre fungovanie, iné nám pomáhajú zlepšovať obsah a výkon stránky.',
         sectionAnalyticsTitle: 'Google Analytics',
         sectionAnalyticsText: 'Používame Google Analytics na meranie návštevnosti a správania používateľov. Dáta sú agregované a neslúžia na vašu identifikáciu.',
         sectionControlTitle: 'Vaše možnosti',
-        sectionControlText: 'Cookies môžete spravovať alebo vymazať v nastaveniach prehliadača. Môžete tiež blokovať analytiku pomocou rozšírení.',
-        sectionContactTitle: 'Kontakt',
-        sectionContactText: 'Ak máte otázky, kontaktujte nás cez kontaktnú stránku.',
+        sectionControlText: 'Cookies môžeš spravovať alebo vymazať v nastaveniach prehliadača. Môžeš tiež blokovať analytiku pomocou rozšírení.',
     },
 
     cookies: {
         title: 'Cookies a analytika',
-        text: 'Používame cookies a Google Analytics na zlepšenie tejto stránky. Môžete ich prijať alebo odmietnuť.',
+        text: 'Stránka používa cookies a Google Analytics na zlepšovanie. Môžeš ich prijať alebo odmietnuť.',
         learnMore: 'Zobraziť zásady ochrany súkromia',
         reject: 'Odmietnuť',
         accept: 'Prijať všetko',
@@ -163,15 +162,15 @@ export default {
         steps: [
             {
                 heading: '1. Úvodná analýza',
-                text: 'Začíname pochopením vašich cieľov, výziev a potrieb a spoločne hľadáme najvhodnejšie riešenia.',
+                text: 'Začínam pochopením tvojich cieľov, výziev a potrieb a spoločne hľadáme najvhodnejšie riešenia.',
             },
             {
                 heading: '2. Definovanie rozsahu projektu',
-                text: 'Stanovíme štruktúru, funkcie, časový plán a smerovanie projektu, aby bolo všetko jasné od začiatku.',
+                text: 'Stanovím štruktúru, funkcie, časový plán a smerovanie projektu, aby bolo všetko jasné od začiatku.',
             },
             {
                 heading: '3. Interaktívny prototyp',
-                text: 'Môžete sledovať návrh v reálnom čase, kontrolovať priebeh a dávať spätnú väzbu počas vývoja prototypu.',
+                text: 'Môžeš sledovať návrh v reálnom čase, kontrolovať priebeh a dávať spätnú väzbu počas vývoja prototypu.',
             },
             {
                 heading: '4. Vývoj',
@@ -179,15 +178,15 @@ export default {
             },
             {
                 heading: '5. Spustenie',
-                text: 'Projekt nasadíme a uvedieme do prevádzky s dôrazom na spoľahlivosť a bezproblémový chod.',
+                text: 'Projekt nasadím a uvediem do prevádzky s dôrazom na spoľahlivosť a bezproblémový chod.',
             },
             {
                 heading: '6. Dokumentácia',
-                text: 'Dostanete prehľadnú dokumentáciu, ktorá vám pomôže projekt pochopiť a spravovať.',
+                text: 'Dostaneš prehľadnú dokumentáciu, ktorá vám pomôže projekt pochopiť a spravovať.',
             },
             {
                 heading: '7. Odovzdanie a zaškolenie (ak je potrebné)',
-                text: 'V prípade potreby vás zaškolím, aby ste vedeli s projektom pracovať samostatne.',
+                text: 'V prípade potreby zaškolím teba aj tvoj tím, aby ste vedeli s projektom pracovať samostatne.',
             },
             {
                 heading: '8. Údržba a monitoring',
@@ -200,16 +199,16 @@ export default {
         ],
         images: [
             {
+                alt: 'Úvodné stretnutie k projektu',
+                caption: 'Na začiatku si prejdeme detaily projektu a tvoje požiadavky',
+            },
+            {
                 alt: 'Náhľad návrhu vo Figme',
-                caption: 'Sledujte návrh v reálnom čase',
+                caption: 'Sleduj návrh v reálnom čase',
             },
             {
                 alt: 'Implementácia projektu',
                 caption: 'Vývoj webstránky alebo aplikácie',
-            },
-            {
-                alt: 'Úvodné stretnutie k projektu',
-                caption: 'Na začiatku si prejdeme detaily projektu a vaše požiadavky',
             },
             {
                 alt: 'Spustený projekt',

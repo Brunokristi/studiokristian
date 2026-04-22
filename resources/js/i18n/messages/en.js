@@ -51,7 +51,8 @@ export default {
         email: 'Email',
         whatsapp: 'WhatsApp',
         message: 'Send message',
-        call: 'Call',
+        instagram: 'Instagram',
+        messenger: 'Messenger',
     },
 
     contactPage: {

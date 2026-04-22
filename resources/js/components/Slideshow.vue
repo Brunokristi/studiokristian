@@ -153,14 +153,14 @@ onUnmounted(() => {
                 class="fixed inset-0 z-[999] flex items-center justify-center bg-dark p-6"
             >
                 <div class="flex h-full w-full items-center justify-center">
-                    <div class="inline-block max-w-[95vw] md:max-w-[25vw] relative">
-                        <div class="relative inline-block overflow-hidden">
+                    <div class="relative w-full max-w-[95vw] md:max-w-[25vw]">
+                        <div class="relative w-full overflow-hidden">
                             <!-- bottom image -->
                             <img
                                 v-if="displayImage"
                                 :src="displayImage.src"
                                 :alt="displayImage.alt || ''"
-                                class="block m-auto object-contain"
+                                class="block h-auto w-full object-contain"
                             />
 
                             <!-- top animated image -->
@@ -170,7 +170,7 @@ onUnmounted(() => {
                                     :key="`lightbox-${currentIndex}`"
                                     :src="currentImage.src"
                                     :alt="currentImage.alt || ''"
-                                    class="absolute inset-0 m-auto object-contain"
+                                    class="absolute inset-0 h-auto w-full object-contain"
                                 />
                             </transition>
 
@@ -179,11 +179,11 @@ onUnmounted(() => {
                                 v-if="currentImage && currentIndex === displayIndex"
                                 :src="currentImage.src"
                                 :alt="currentImage.alt || ''"
-                                class="absolute inset-0 m-auto object-contain"
+                                class="absolute inset-0 h-auto w-full object-contain"
                             />
                         </div>
 
-                        <div class="mt-2 flex justify-between items-center"> ">
+                        <div class="mt-2 flex w-full items-center justify-between">
                             <button
                                 v-if="images.length > 1"
                                 class="flex h-12 w-12 cursor-pointer items-center justify-start"

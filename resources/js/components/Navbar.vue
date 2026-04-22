@@ -14,7 +14,7 @@ const logoSrc = '/assets/logo.svg';
 </script>
 
 <template>
-    <a class="w-full px-6 h-14 flex items-center justify-between sticky top-0 z-50" href="/">
+    <a class="fixed top-0 inset-x-0 w-full px-6 h-14 flex items-center justify-between z-[10000]" href="/">
         <h1 :class="['h1', studioColor, 'w-50']">studio</h1>
 
         <img :src="logoSrc" alt="Studio Kristian Logo" class="h-4 w-auto" />

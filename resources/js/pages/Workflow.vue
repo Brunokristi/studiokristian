@@ -14,9 +14,9 @@ useSeoMeta({
     description: () => t('seo.workflow.description'),
 });
 
-const img1 = '/assets/26.png';
-const img2 = '/assets/27.png';
-const img3 = '/assets/28.png';
+const img1 = '/assets/28.png';
+const img2 = '/assets/26.png';
+const img3 = '/assets/27.png';
 const img4 = '/assets/29.png';
 const img5 = '/assets/30.png';
 

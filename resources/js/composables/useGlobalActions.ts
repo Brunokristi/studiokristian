@@ -50,6 +50,14 @@ export function useGlobalActions() {
         window.open(url, '_blank');
     }
 
+    const openInstagram = () => {
+        window.open('https://www.instagram.com/studiokristian/', '_blank');
+    }
+
+    const openMessenger = () => {
+        window.open('https://m.me/studiokristian', '_blank');
+    }
+
     return {
         openContacts,
         openRecentProjects,
@@ -60,5 +68,7 @@ export function useGlobalActions() {
         openPhone,
         openWhatsApp,
         openMessage,
+        openInstagram,
+        openMessenger,
     };
 }

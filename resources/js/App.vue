@@ -84,7 +84,7 @@ onBeforeUnmount(() => {
         >
             <div class="min-h-screen flex flex-col">
                 <Navbar :variant="theme" />
-                <main class="flex-1">
+                <main class="flex-1 pt-14">
                     <RouterView />
                 </main>
                 <Footer v-if="footer" />

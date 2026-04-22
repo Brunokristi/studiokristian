@@ -8,7 +8,7 @@ const { t, tm } = useI18n()
 import { useSeoMeta } from '../composables/useSeoMeta'
 
 import { useGlobalActions } from '../composables/useGlobalActions'
-const { openEmail, openMessage, openWhatsApp } = useGlobalActions()
+const { openEmail, openMessage, openWhatsApp, openInstagram, openMessenger } = useGlobalActions()
 
 useSeoMeta({
     title: () => t('seo.contact.title'),
@@ -250,6 +250,18 @@ onUnmounted(() => {
                 variant="light"
                 @click="openMessage"
             />
+            <Button
+                :text="t('contact.instagram')"
+                variant="light"
+                @click="openInstagram"
+            />
+            <Button
+                :text="t('contact.messenger')"
+                variant="light"
+                @click="openMessenger"
+            />
+
+
         </section>
 
         <section data-theme="dark">

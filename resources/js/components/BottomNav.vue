@@ -106,7 +106,7 @@ onUnmounted(() => {
   />
 
   <nav
-    class="flex flex-col fixed bottom-6 right-6 gap-2 transition-colors duration-500 z-100"
+    class="flex flex-col fixed bottom-6 right-6 gap-2 transition-colors duration-500 z-[1000]"
     :class="isDarkBackground ? 'text-white' : 'text-black'"
   >
 
