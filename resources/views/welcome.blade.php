@@ -10,6 +10,30 @@
         <link rel="preconnect" href="https://fonts.googleapis.com">
         <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
         <link href="https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&family=Space+Mono:ital,wght@0,400;0,700;1,400;1,700&display=swap" rel="stylesheet">        
+
+        @php($gaMeasurementId = env('VITE_GA_MEASUREMENT_ID'))
+        @if ($gaMeasurementId)
+            <script>
+                window.__GA_MEASUREMENT_ID = @json($gaMeasurementId);
+                window.dataLayer = window.dataLayer || [];
+                function gtag(){dataLayer.push(arguments);}
+                gtag('consent', 'default', {
+                    ad_storage: 'denied',
+                    analytics_storage: 'denied',
+                    functionality_storage: 'granted',
+                    personalization_storage: 'denied',
+                    security_storage: 'granted',
+                });
+            </script>
+            <script async src="https://www.googletagmanager.com/gtag/js?id={{ $gaMeasurementId }}"></script>
+            <script>
+                gtag('js', new Date());
+                gtag('config', '{{ $gaMeasurementId }}', {
+                    anonymize_ip: true,
+                    send_page_view: false,
+                });
+            </script>
+        @endif
         
         @vite(['resources/css/app.css', 'resources/js/app.js'])
     </head>

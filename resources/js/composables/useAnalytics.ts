@@ -5,11 +5,11 @@ declare global {
         dataLayer: unknown[];
         gtag?: (...args: unknown[]) => void;
         __studioGaInitialized?: boolean;
-        [key: `ga-disable-${string}`]: boolean | undefined;
+        __GA_MEASUREMENT_ID?: string;
     }
 }
 
-const GA_MEASUREMENT_ID = import.meta.env.VITE_GA_MEASUREMENT_ID;
+const GA_MEASUREMENT_ID = window.__GA_MEASUREMENT_ID ?? '';
 
 function hasMeasurementId() {
     return typeof GA_MEASUREMENT_ID === 'string' && GA_MEASUREMENT_ID.trim().length > 0;
@@ -22,12 +22,35 @@ function ensureGtagBase() {
     };
 }
 
-function setGaDisabled(disabled: boolean) {
+function hasGoogleTagScript() {
     if (!hasMeasurementId()) {
+        return false;
+    }
+
+    return Array.from(document.scripts).some((script) => script.src.includes(`gtag/js?id=${GA_MEASUREMENT_ID}`));
+}
+
+function loadGoogleTagScript() {
+    if (!hasMeasurementId() || hasGoogleTagScript()) {
         return;
     }
 
-    window[`ga-disable-${GA_MEASUREMENT_ID}`] = disabled;
+    const script = document.createElement('script');
+    script.async = true;
+    script.src = `https://www.googletagmanager.com/gtag/js?id=${GA_MEASUREMENT_ID}`;
+    document.head.appendChild(script);
+}
+
+function setConsent(analyticsGranted: boolean) {
+    ensureGtagBase();
+
+    window.gtag?.('consent', 'update', {
+        ad_storage: 'denied',
+        analytics_storage: analyticsGranted ? 'granted' : 'denied',
+        functionality_storage: 'granted',
+        personalization_storage: 'denied',
+        security_storage: 'granted',
+    });
 }
 
 export function enableAnalytics() {
@@ -35,20 +58,11 @@ export function enableAnalytics() {
         return false;
     }
 
-    setGaDisabled(false);
+    ensureGtagBase();
+    loadGoogleTagScript();
+    setConsent(true);
 
     if (!window.__studioGaInitialized) {
-        const scriptExists = document.querySelector(`script[data-ga-id="${GA_MEASUREMENT_ID}"]`);
-
-        if (!scriptExists) {
-            const script = document.createElement('script');
-            script.async = true;
-            script.src = `https://www.googletagmanager.com/gtag/js?id=${GA_MEASUREMENT_ID}`;
-            script.dataset.gaId = GA_MEASUREMENT_ID;
-            document.head.appendChild(script);
-        }
-
-        ensureGtagBase();
         window.gtag?.('js', new Date());
         window.gtag?.('config', GA_MEASUREMENT_ID, {
             anonymize_ip: true,
@@ -62,10 +76,23 @@ export function enableAnalytics() {
 }
 
 export function disableAnalytics() {
-    setGaDisabled(true);
+    if (!hasMeasurementId()) {
+        return;
+    }
+
+    ensureGtagBase();
+    loadGoogleTagScript();
+    setConsent(false);
 }
 
 export function initializeAnalyticsIfConsented() {
+    if (!hasMeasurementId()) {
+        return;
+    }
+
+    ensureGtagBase();
+    loadGoogleTagScript();
+
     if (hasAcceptedAnalytics()) {
         enableAnalytics();
     } else {
