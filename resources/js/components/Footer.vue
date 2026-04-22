@@ -3,7 +3,7 @@ import { useI18n } from 'vue-i18n';
 const { t, locale } = useI18n();
 
 import { useGlobalActions } from '../composables/useGlobalActions';
-const { openContacts, openRecentProjects, openWorkflow, openPrivacyPolicy } = useGlobalActions();
+const { openContacts, openRecentProjects, openWorkflow, openPrivacyPolicy, openInstagram, openMessenger } = useGlobalActions();
 
 const logoSrc = '/assets/logo_white.svg'
 const date = new Date().getFullYear()
@@ -41,22 +41,19 @@ const date = new Date().getFullYear()
           </div>
 
           <div class="flex flex-col gap-4 items-end">
-            <a
-              href="https://www.instagram.com/studiokristian/"
-              target="_blank"
+            <button
+              @click="openInstagram"
               class="text-light hover:text-accent transition-colors duration-300"
             >
               <p class="p underline uppercase">{{ t('footer.instagram') }}</p>
-            </a>
+            </button>
 
-            <a
-              href="https://www.facebook.com/profile.php?id=61574392799883"
-              target="_blank"
+            <button
+              @click="openMessenger"
               class="text-light hover:text-accent transition-colors duration-300"
             >
               <p class="p underline uppercase">{{ t('footer.facebook') }}</p>
-            
-            </a>
+            </button>
           </div>
 
           <div class="flex flex-col gap-4 items-start md:items-end">

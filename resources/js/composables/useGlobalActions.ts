@@ -55,7 +55,7 @@ export function useGlobalActions() {
     }
 
     const openMessenger = () => {
-        window.open('https://m.me/studiokristian', '_blank');
+        window.open('https://www.facebook.com/profile.php?id=61574392799883', '_blank');
     }
 
     return {
