@@ -209,17 +209,19 @@ onUnmounted(() => {
                             </button>
                         </div>
 
+                        <button
+                            class="cursor-pointer text-accent flex justify-end w-full"
+                            aria-label="Close lightbox"
+                            @click="closeLightbox"
+                        >
+                            <i class="bi bi-arrows-angle-contract"></i>
+                        </button>
+
                         
                     </div>
                 </div>
 
-                <button
-                    class="absolute right-6 top-6 cursor-pointer text-accent"
-                    aria-label="Close lightbox"
-                    @click="closeLightbox"
-                >
-                    <i class="bi bi-arrows-angle-contract"></i>
-                </button>
+                
             </div>
         </transition>
     </teleport>
