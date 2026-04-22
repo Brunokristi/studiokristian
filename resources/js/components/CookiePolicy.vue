@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue';
 import { useI18n } from 'vue-i18n';
-import { disableAnalytics, enableAnalytics } from '../composables/useAnalytics';
+import { disableAnalytics, enableAnalytics, trackPageViewIfConsented } from '../composables/useAnalytics';
 import { getCookiePreferences, setCookiePreferences, type CookiePreferences } from '../composables/useCookieConsent';
 
 const { t } = useI18n();
@@ -40,6 +40,7 @@ function savePreferences() {
     
     if (preferences.value.analytics) {
         enableAnalytics();
+        trackPageViewIfConsented();
     } else {
         disableAnalytics();
     }
