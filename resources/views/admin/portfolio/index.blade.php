@@ -80,7 +80,10 @@
         <div>
             <h1 class="title">Portfolio</h1>
         </div>
-        <a class="button primary" href="{{ route('admin.portfolio.create') }}">Add project</a>
+        <div class="actions">
+            <a class="button" href="{{ route('admin.client-portal.index') }}">Client Portal</a>
+            <a class="button primary" href="{{ route('admin.portfolio.create') }}">Add project</a>
+        </div>
     </div>
 
     @if (session('status'))

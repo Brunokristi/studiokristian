@@ -3,7 +3,9 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Models\Company;
 use App\Models\Project;
+use App\Models\ServiceProduct;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -54,6 +56,8 @@ class PortfolioAdminController extends Controller
     {
         return view('admin.portfolio.form', [
             'project' => null,
+            'companies' => Company::query()->where('status', 'active')->orderBy('name')->get(),
+            'serviceProducts' => ServiceProduct::query()->where('active', true)->orderBy('name')->get(),
             'images' => [['path' => '', 'existing_path' => '', 'description' => '', 'description_sk' => '', 'sort_order' => 0]],
             'features' => [['title' => '', 'title_sk' => '', 'description' => '', 'description_sk' => '', 'sort_order' => 0]],
         ]);
@@ -71,6 +75,9 @@ class PortfolioAdminController extends Controller
             $summarySk = $this->resolveSlovakText($summaryEn, $data['summary_sk'] ?? null);
 
             $project = Project::create([
+                'company_id' => $data['company_id'] ?? null,
+                'service_product_id' => $data['service_product_id'] ?? null,
+                'portal_status' => $data['portal_status'] ?? 'active',
                 'name' => $data['name'],
                 'name_translations' => $this->translationArray($data['name'], $nameSk),
                 'url' => $slug,
@@ -130,6 +137,8 @@ class PortfolioAdminController extends Controller
 
         return view('admin.portfolio.form', [
             'project' => $project,
+            'companies' => Company::query()->where('status', 'active')->orderBy('name')->get(),
+            'serviceProducts' => ServiceProduct::query()->where('active', true)->orderBy('name')->get(),
             'images' => $images,
             'features' => $features,
         ]);
@@ -147,6 +156,9 @@ class PortfolioAdminController extends Controller
             $summarySk = $this->resolveSlovakText($summaryEn, $data['summary_sk'] ?? null);
 
             $project->update([
+                'company_id' => $data['company_id'] ?? null,
+                'service_product_id' => $data['service_product_id'] ?? null,
+                'portal_status' => $data['portal_status'] ?? 'active',
                 'name' => $data['name'],
                 'name_translations' => $this->translationArray($data['name'], $nameSk),
                 'url' => $slug,
@@ -178,6 +190,9 @@ class PortfolioAdminController extends Controller
     private function validatedData(Request $request, ?int $projectId = null): array
     {
         return $request->validate([
+            'company_id' => ['nullable', 'exists:companies,id'],
+            'service_product_id' => ['nullable', 'exists:service_products,id'],
+            'portal_status' => ['nullable', 'in:active,on_hold,completed,archived'],
             'name' => ['required', 'string', 'max:255'],
             'name_sk' => ['nullable', 'string', 'max:255'],
             'url' => ['nullable', 'string', 'max:255'],

@@ -1,0 +1,4 @@
+<!DOCTYPE html><html lang="sk"><head><meta charset="utf-8"><style>
+@page { margin: 26mm 22mm; } body { font-family: DejaVu Sans, sans-serif; color: #171717; font-size: 10pt; line-height: 1.55; }
+header { border-bottom: 1px solid #bbb; margin-bottom: 24px; padding-bottom: 12px; } h1 { font-size: 20pt; margin: 0 0 6px; } .meta { color: #666; font-size: 9pt; }
+</style></head><body><header><h1>{{ $contract->title }}</h1><div class="meta">Verzia {{ $contract->version }}@if($contract->number) · {{ $contract->number }}@endif</div></header><main>{!! nl2br(e($contract->rendered_content)) !!}</main></body></html>

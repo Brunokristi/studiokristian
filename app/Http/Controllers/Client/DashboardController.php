@@ -1,0 +1,25 @@
+<?php
+
+namespace App\Http\Controllers\Client;
+
+use App\Http\Controllers\Controller;
+use Illuminate\Http\Request;
+use Illuminate\View\View;
+
+class DashboardController extends Controller
+{
+    public function __invoke(Request $request): View
+    {
+        $contact = $request->user();
+        $projects = $contact->projects()
+            ->where('projects.company_id', $contact->company_id)
+            ->whereNull('archived_at')
+            ->with('serviceProduct')
+            ->withCount([
+                'contracts as pending_contracts_count' => fn ($query) => $query->whereIn('status', ['sent', 'viewed']),
+                'priceOffers as pending_offers_count' => fn ($query) => $query->whereIn('status', ['sent', 'viewed']),
+            ])->get();
+
+        return view('client.dashboard', ['projects' => $projects]);
+    }
+}

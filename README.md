@@ -7,6 +7,23 @@
 <a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
 </p>
 
+## Studio Kristian Administration
+
+Create the initial administrator by setting `ADMIN_NAME`, `ADMIN_EMAIL`, and a unique strong `ADMIN_PASSWORD` in the local environment, then run:
+
+```shell
+php artisan db:seed --class=AdminUserSeeder
+```
+
+The password must contain at least 12 characters with upper- and lowercase letters, a number, and a symbol. Remove `ADMIN_PASSWORD` from the runtime environment after seeding. The seeder is idempotent and does not contain fallback credentials.
+
+After signing in at `/login`:
+
+- `/admin/portfolio` manages public portfolio projects, translations, project images, features, branding, and client/service-product assignment.
+- `/admin/client-portal` manages client companies and contacts, portal permissions, Service Products, project service accounts, credential references, contract templates, immutable versions, version diffs, and project contract generation.
+
+The general marketing copy in Vue page components is currently source-controlled content rather than CMS-managed content.
+
 ## About Laravel
 
 Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:

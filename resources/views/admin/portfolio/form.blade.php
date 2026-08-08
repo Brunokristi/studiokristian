@@ -73,7 +73,7 @@
             text-transform: uppercase;
             letter-spacing: .04em;
         }
-        input, textarea {
+        input, textarea, select {
             width: 100%;
             border: 1px solid var(--border);
             border-radius: 8px;
@@ -201,6 +201,34 @@
 
         <div class="panel">
             <h2 class="section-title">Project</h2>
+            <div class="row" style="margin-bottom: 12px;">
+                <div>
+                    <label for="company_id">Client company</label>
+                    <select id="company_id" name="company_id">
+                        <option value="">Portfolio only / no client</option>
+                        @foreach($companies as $company)
+                            <option value="{{ $company->id }}" @selected((string) old('company_id', $project?->company_id) === (string) $company->id)>{{ $company->name }}</option>
+                        @endforeach
+                    </select>
+                </div>
+                <div>
+                    <label for="service_product_id">Service Product</label>
+                    <select id="service_product_id" name="service_product_id">
+                        <option value="">Not assigned</option>
+                        @foreach($serviceProducts as $product)
+                            <option value="{{ $product->id }}" @selected((string) old('service_product_id', $project?->service_product_id) === (string) $product->id)>{{ $product->name }}</option>
+                        @endforeach
+                    </select>
+                </div>
+                <div>
+                    <label for="portal_status">Portal status</label>
+                    <select id="portal_status" name="portal_status">
+                        @foreach(['active' => 'Active', 'on_hold' => 'On hold', 'completed' => 'Completed', 'archived' => 'Archived'] as $value => $label)
+                            <option value="{{ $value }}" @selected(old('portal_status', $project?->portal_status ?? 'active') === $value)>{{ $label }}</option>
+                        @endforeach
+                    </select>
+                </div>
+            </div>
             <div class="row">
                 <div>
                     <div class="field-head">
