@@ -15,7 +15,7 @@ class StaffWorkspaceController extends Controller
 {
     public function index(Request $request): View
     {
-        return view('staff.app');
+        return view('apps.staff');
     }
 
     public function projects(Request $request): JsonResponse

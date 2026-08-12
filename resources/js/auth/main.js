@@ -1,4 +1,11 @@
 import { createApp } from 'vue'
-import StaffLogin from './StaffLogin.vue'
+import ClientLogin from './pages/ClientLogin.vue'
+import StaffLogin from './pages/StaffLogin.vue'
 
-createApp(StaffLogin).mount('#staff-login')
+if (document.querySelector('#staff-login')) {
+	createApp(StaffLogin).mount('#staff-login')
+}
+
+if (document.querySelector('#client-login')) {
+	createApp(ClientLogin).mount('#client-login')
+}

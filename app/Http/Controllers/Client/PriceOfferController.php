@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Client;
 
 use App\Http\Controllers\Controller;
 use App\Models\PriceOffer;
+use App\Services\ClientPortalViewData;
 use App\Services\PriceOfferAcceptanceService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -13,12 +14,16 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class PriceOfferController extends Controller
 {
-    public function show(PriceOffer $offer): View
+    public function show(Request $request, PriceOffer $offer, ClientPortalViewData $viewData): View
     {
         $this->authorize('view', $offer);
         if ($offer->status === 'sent') { $offer->update(['status' => 'viewed']); }
 
-        return view('client.offers.show', ['offer' => $offer->fresh()->load(['project.company', 'items', 'acceptance'])]);
+        $offer = $offer->fresh()->load(['project.company', 'items', 'acceptance']);
+
+        return view('apps.client', [
+            'clientPage' => $viewData->offer($request, $request->user(), $offer),
+        ]);
     }
 
     public function accept(Request $request, PriceOffer $offer, PriceOfferAcceptanceService $service): RedirectResponse

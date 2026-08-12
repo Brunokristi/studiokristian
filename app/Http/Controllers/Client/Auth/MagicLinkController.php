@@ -20,7 +20,7 @@ class MagicLinkController extends Controller
 {
     public function create(): View
     {
-        return view('client.auth.login');
+        return view('apps.auth-client');
     }
 
     public function store(Request $request): RedirectResponse|JsonResponse

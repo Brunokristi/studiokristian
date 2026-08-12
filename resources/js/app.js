@@ -7,21 +7,21 @@ window.Alpine = Alpine;
 Alpine.start();
 
 if (document.querySelector('#app')) {
-    import('./main.js');
+    import('./public/main.js');
 }
 
 if (document.querySelector('#client-portal-admin')) {
-    import('./admin/client-portal/main.js');
+    import('./backoffice/admin/main.js');
 }
 
 if (document.querySelector('#staff-workspace')) {
-    import('./staff/main.js');
+    import('./backoffice/staff/main.js');
 }
 
-if (document.querySelector('#staff-login')) {
+if (document.querySelector('#client-backoffice')) {
+    import('./backoffice/client/main.js');
+}
+
+if (document.querySelector('#staff-login') || document.querySelector('#client-login')) {
     import('./auth/main.js');
-}
-
-if (document.querySelector('#client-login')) {
-    import('./client/auth/main.js');
 }

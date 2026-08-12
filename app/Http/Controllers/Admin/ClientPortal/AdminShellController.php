@@ -9,6 +9,6 @@ class AdminShellController extends Controller
 {
     public function __invoke(): View
     {
-        return view('admin.client-portal.app');
+        return view('apps.admin');
     }
 }

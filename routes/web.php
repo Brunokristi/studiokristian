@@ -35,7 +35,7 @@ Route::prefix('api')->group(function () {
 
 // Home
 Route::get('/', function () {
-    return view('welcome');
+    return view('apps.public');
 });
 
 Route::prefix('client')->name('client.')->group(function () {
@@ -178,5 +178,5 @@ Route::prefix('admin/client-portal')->middleware(['auth', 'admin'])->name('admin
 require __DIR__.'/auth.php';
 // Catch-all route for SPA (must be last)
 Route::get('/{any}', function () {
-    return view('welcome');
+    return view('apps.public');
 })->where('any', '^(?!api|admin|storage).*$');

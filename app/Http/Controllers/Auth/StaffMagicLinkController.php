@@ -17,7 +17,7 @@ use Illuminate\View\View;
 
 class StaffMagicLinkController extends Controller
 {
-    public function create(): View { return view('auth.login'); }
+    public function create(): View { return view('apps.auth-staff'); }
 
     public function store(Request $request): RedirectResponse|JsonResponse
     {

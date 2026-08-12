@@ -17,7 +17,7 @@
             <td align="center">
                 <h1
                     style="
-                        margin: 0 0 20px 0;
+                        margin: 0 0 24px 0;
                         color: #000000;
                         font-family: 'Space Mono', 'Courier New', Courier, monospace;
                         font-size: 30px;
@@ -37,8 +37,9 @@
                         color: #000000;
                         font-family: 'Inter', Arial, Helvetica, sans-serif;
                         font-size: 14px;
-                        font-weight: 400;
+                        font-weight: 300;
                         line-height: 1.6;
+                        text-transform: uppercase;
                     "
                 >
                     Hello {{ $recipientName }},
@@ -52,8 +53,9 @@
                         color: #000000;
                         font-family: 'Inter', Arial, Helvetica, sans-serif;
                         font-size: 14px;
-                        font-weight: 400;
+                        font-weight: 300;
                         line-height: 1.6;
+                        text-transform: uppercase;
                     "
                 >
                     Use the secure one-time link below to sign in to your workspace.
@@ -61,6 +63,7 @@
                 </p>
 
 
+                <!-- Button -->
                 <table
                     role="presentation"
                     cellspacing="0"
@@ -73,29 +76,27 @@
                     "
                 >
                     <tr>
-                        <td align="center">
+                        <td
+                            align="center"
+                            style="
+                                border: 1px solid #000000;
+                            "
+                        >
                             <a
                                 href="{{ $actionUrl }}"
                                 style="
                                     display: inline-block;
+                                    padding: 13px 22px;
                                     color: #000000;
                                     font-family: 'Space Mono', 'Courier New', Courier, monospace;
-                                    font-size: 13px;
+                                    font-size: 12px;
                                     font-weight: 700;
                                     line-height: 1.4;
                                     text-decoration: none;
-                                    text-transform: lowercase;
+                                    text-transform: uppercase;
                                 "
                             >
-                                <span
-                                    style="
-                                        display: inline-block;
-                                        padding: 0 0 6px 0;
-                                        border-bottom: 2px solid #000000;
-                                    "
-                                >
-                                    sign in to workspace&nbsp;&nbsp;&rarr;
-                                </span>
+                                Sign in to workspace
                             </a>
                         </td>
                     </tr>
@@ -109,11 +110,13 @@
                         color: #777777;
                         font-family: 'Inter', Arial, Helvetica, sans-serif;
                         font-size: 11px;
-                        font-weight: 400;
+                        font-weight: 300;
                         line-height: 1.6;
+                        text-transform: uppercase;
                     "
                 >
-                    If you did not request this link, you can safely ignore this email.
+                    If you did not request this link,
+                    you can safely ignore this email.
                 </p>
             </td>
         </tr>

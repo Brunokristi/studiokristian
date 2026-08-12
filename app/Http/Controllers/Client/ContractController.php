@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Client;
 use App\Http\Controllers\Controller;
 use App\Models\ContractInstance;
 use App\Services\AuditLogger;
+use App\Services\ClientPortalViewData;
 use App\Services\ContractAcceptanceService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -14,7 +15,7 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class ContractController extends Controller
 {
-    public function show(Request $request, ContractInstance $contract, AuditLogger $audit): View
+    public function show(Request $request, ContractInstance $contract, AuditLogger $audit, ClientPortalViewData $viewData): View
     {
         $this->authorize('view', $contract);
 
@@ -23,8 +24,10 @@ class ContractController extends Controller
             $audit->record('contract.viewed', $request->user(), $contract, $contract->project->company_id, $contract->project_id, request: $request);
         }
 
-        return view('client.contracts.show', [
-            'contract' => $contract->fresh()->load(['project.company', 'acceptance']),
+        $contract = $contract->fresh()->load(['project.company', 'acceptance']);
+
+        return view('apps.client', [
+            'clientPage' => $viewData->contract($request, $request->user(), $contract),
         ]);
     }
 

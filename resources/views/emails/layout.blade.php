@@ -27,29 +27,29 @@
         @font-face {
             font-family: 'Inter';
             font-style: normal;
-            font-weight: 400;
-            src: url('{{ asset('fonts/Inter/static/Inter_18pt-Regular.ttf') }}') format('truetype');
+            font-weight: 300;
+            src: url('{{ rtrim(config('app.mail_asset_url'), '/') }}/fonts/Inter/static/Inter_18pt-Light.ttf') format('truetype');
         }
 
         @font-face {
             font-family: 'Inter';
             font-style: normal;
             font-weight: 700;
-            src: url('{{ asset('fonts/Inter/static/Inter_18pt-Bold.ttf') }}') format('truetype');
+            src: url('{{ rtrim(config('app.mail_asset_url'), '/') }}/fonts/Inter/static/Inter_18pt-Bold.ttf') format('truetype');
         }
 
         @font-face {
             font-family: 'Space Mono';
             font-style: normal;
             font-weight: 400;
-            src: url('{{ asset('fonts/Space_Mono/SpaceMono-Regular.ttf') }}') format('truetype');
+            src: url('{{ rtrim(config('app.mail_asset_url'), '/') }}/fonts/Space_Mono/SpaceMono-Regular.ttf') format('truetype');
         }
 
         @font-face {
             font-family: 'Space Mono';
             font-style: normal;
             font-weight: 700;
-            src: url('{{ asset('fonts/Space_Mono/SpaceMono-Bold.ttf') }}') format('truetype');
+            src: url('{{ rtrim(config('app.mail_asset_url'), '/') }}/fonts/Space_Mono/SpaceMono-Bold.ttf') format('truetype');
         }
     </style>
     <!--<![endif]-->
@@ -236,7 +236,7 @@
                                 color: #000000;
                                 font-family: 'Inter', Helvetica, sans-serif;
                                 font-size: 14px;
-                                font-weight: 400;
+                                font-weight: 300;
                                 line-height: 1.65;
                             "
                         >
@@ -305,7 +305,7 @@
                                             color: #ffffff;
                                             font-family: 'Inter', Arial, Helvetica, sans-serif;
                                             font-size: 11px;
-                                            font-weight: 400;
+                                            font-weight: 300;
                                             line-height: 1.5;
                                             text-transform: uppercase;
                                         "
@@ -326,7 +326,7 @@
                                                 color: #ffffff;
                                                 font-family: 'Inter', Arial, Helvetica, sans-serif;
                                                 font-size: 11px;
-                                                font-weight: 400;
+                                                font-weight: 300;
                                                 line-height: 1.5;
                                                 text-decoration: underline;
                                                 text-transform: uppercase;
