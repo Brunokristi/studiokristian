@@ -64,7 +64,7 @@ class ContractService
             'client.ico' => $project->company->registration_number,
             'client.dic' => $project->company->tax_number,
             'client.ic_dph' => $project->company->vat_number,
-            'client.address' => $project->company->registered_address,
+            'client.address' => $project->company->address,
             'project.name' => $project->name,
             'document.version' => $version->version,
             'document.date' => now()->toDateString(),

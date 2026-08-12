@@ -7,7 +7,9 @@ use App\Models\Company;
 use App\Models\Project;
 use App\Models\ServiceProduct;
 use App\Models\User;
+use App\Notifications\ClientContactInvitationNotification;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Notification;
 use Tests\TestCase;
 
 class ClientPortalAdminFoundationTest extends TestCase
@@ -74,6 +76,31 @@ class ClientPortalAdminFoundationTest extends TestCase
             ->assertJsonCount(1, 'data');
     }
 
+    public function test_admin_creates_a_company_with_one_canonical_address(): void
+    {
+        $response = $this->actingAs($this->admin())
+            ->postJson('/admin/client-portal/api/clients', [
+                'name' => 'Addressed Company',
+                'address' => 'Hlavná 1, 811 01 Bratislava, Slovakia',
+                'display_name' => 'Legacy trading name',
+                'billing_address' => 'Legacy billing address',
+                'billing_details' => 'Legacy billing details',
+                'status' => 'active',
+            ])
+            ->assertCreated()
+            ->assertJsonPath('data.name', 'Addressed Company')
+            ->assertJsonPath('data.address', 'Hlavná 1, 811 01 Bratislava, Slovakia')
+            ->assertJsonMissingPath('data.display_name')
+            ->assertJsonMissingPath('data.billing_address')
+            ->assertJsonMissingPath('data.billing_details');
+
+        $this->assertDatabaseHas('companies', [
+            'id' => $response->json('data.id'),
+            'name' => 'Addressed Company',
+            'address' => 'Hlavná 1, 811 01 Bratislava, Slovakia',
+        ]);
+    }
+
     public function test_contact_access_is_normalized_when_deactivated_and_client_can_be_archived(): void
     {
         $company = Company::query()->create(['name' => 'Lifecycle Client']);
@@ -109,6 +136,52 @@ class ClientPortalAdminFoundationTest extends TestCase
 
         $this->assertSame('archived', $company->fresh()->status);
         $this->assertNotNull($company->fresh()->archived_at);
+    }
+
+    public function test_admin_creating_portal_contact_sends_invitation_email(): void
+    {
+        Notification::fake();
+
+        $company = Company::query()->create(['name' => 'Invite Contact Client']);
+
+        $this->actingAs($this->admin())
+            ->postJson("/admin/client-portal/api/clients/{$company->id}/contacts", [
+                'first_name' => 'Nina',
+                'last_name' => 'Invitee',
+                'email' => 'nina@example.test',
+                'phone' => '+421900000000',
+                'position' => 'Manager',
+                'active' => true,
+                'can_access_portal' => true,
+                'can_accept_documents' => false,
+            ])
+            ->assertCreated();
+
+        $contact = ClientContact::query()->where('email', 'nina@example.test')->firstOrFail();
+
+        Notification::assertSentTo($contact, ClientContactInvitationNotification::class);
+    }
+
+    public function test_admin_can_delete_a_contact_from_the_same_company(): void
+    {
+        $company = Company::query()->create(['name' => 'Delete Contact Client']);
+        $contact = ClientContact::query()->create([
+            'company_id' => $company->id,
+            'first_name' => 'Delete',
+            'last_name' => 'Me',
+            'email' => 'delete.me@example.test',
+            'active' => true,
+            'can_access_portal' => true,
+            'can_accept_documents' => false,
+        ]);
+
+        $this->actingAs($this->admin())
+            ->deleteJson("/admin/client-portal/api/clients/{$company->id}/contacts/{$contact->id}")
+            ->assertNoContent();
+
+        $this->assertDatabaseMissing('client_contacts', [
+            'id' => $contact->id,
+        ]);
     }
 
     public function test_project_rejects_a_contact_from_another_company(): void

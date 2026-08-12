@@ -8,7 +8,6 @@ import {
 
 
 import {
-    RouterLink,
     useRouter
 } from 'vue-router'
 
@@ -17,9 +16,11 @@ import api, {
     errorMessage
 } from '../composables/useAdminApi'
 
-import AdminStatusBadge from '@admin/components/AdminStatusBadge.vue'
 
-import Button from '@shared/components/Button.vue'
+import AdminPageHeader from '@admin/components/AdminPageHeader.vue'
+import AdminTable from '@admin/components/AdminDataTable.vue'
+
+import Tag from '@shared/components/Tag.vue'
 import Toast from '@shared/components/Toast.vue'
 
 
@@ -47,6 +48,14 @@ const showErrorToast =
     ref(false)
 
 
+const projectSearch =
+    ref('')
+
+
+const clientSearch =
+    ref('')
+
+
 const summary =
     computed(() => [
         {
@@ -71,6 +80,142 @@ const summary =
     ])
 
 
+const projectColumns = [
+    {
+        key: 'name',
+        label: 'Project'
+    },
+
+    {
+        key: 'company',
+        label: 'Client'
+    },
+
+    {
+        key: 'service_product',
+        label: 'Service'
+    },
+
+    {
+        key: 'status',
+        label: 'Status'
+    }
+]
+
+
+const clientColumns = [
+    {
+        key: 'display_label',
+        label: 'Client'
+    },
+
+    {
+        key: 'contacts_count',
+        label: 'Contacts'
+    },
+
+    {
+        key: 'projects_count',
+        label: 'Projects'
+    },
+
+    {
+        key: 'status',
+        label: 'Status'
+    }
+]
+
+
+const filteredProjects =
+    computed(() => {
+        const query =
+            projectSearch.value
+                .trim()
+                .toLowerCase()
+
+
+        if (!query) {
+            return data.value
+                .recent_projects
+        }
+
+
+        return data.value
+            .recent_projects
+            .filter(
+                project => {
+                    const values = [
+                        project.name,
+                        project.company?.name,
+                        project.service_product?.name,
+                        project.status
+                    ]
+
+
+                    return values
+                        .filter(Boolean)
+                        .some(
+                            value =>
+                                String(
+                                    value
+                                )
+                                    .toLowerCase()
+                                    .includes(
+                                        query
+                                    )
+                        )
+                }
+            )
+    })
+
+
+const filteredClients =
+    computed(() => {
+        const query =
+            clientSearch.value
+                .trim()
+                .toLowerCase()
+
+
+        if (!query) {
+            return data.value
+                .recent_clients
+        }
+
+
+        return data.value
+            .recent_clients
+            .filter(
+                client => {
+                    const values = [
+                        client.display_label,
+                        client.status,
+                        client.contacts_count,
+                        client.projects_count
+                    ]
+
+
+                    return values
+                        .filter(
+                            value =>
+                                value !== null &&
+                                value !== undefined
+                        )
+                        .some(
+                            value =>
+                                String(
+                                    value
+                                )
+                                    .toLowerCase()
+                                    .includes(
+                                        query
+                                    )
+                        )
+                }
+            )
+    })
+
+
 function showError(
     message
 ) {
@@ -89,30 +234,28 @@ function showError(
 }
 
 
-function createServiceProduct() {
+function openProject(
+    project
+) {
     router.push({
-        name:
-            'service-products.index',
+        name: 'projects.show',
 
-        query: {
-            create: 1
+        params: {
+            id: project.id
         }
     })
 }
 
 
-function createProject() {
+function openClient(
+    client
+) {
     router.push({
-        name:
-            'projects.create'
-    })
-}
+        name: 'clients.show',
 
-
-function createClient() {
-    router.push({
-        name:
-            'clients.create'
+        params: {
+            id: client.id
+        }
     })
 }
 
@@ -149,7 +292,8 @@ onMounted(
     <div
         class="
             w-full
-            space-y-14
+            space-y-12
+            lg:space-y-14
         "
     >
         <Toast
@@ -160,104 +304,21 @@ onMounted(
         />
 
 
-        <!-- Header -->
-        <header
-            class="
-                space-y-8
-                border-b
-                border-accent
-                pb-8
-            "
-        >
-            <div
-                class="
-                    max-w-3xl
-                    space-y-3
-                "
-            >
-                <p
-                    class="
-                        h3
-                        text-accent
-                    "
-                >
-                    Admin dashboard
-                </p>
-
-
-                <h1
-                    class="
-                        h2
-                        text-left
-                    "
-                >
-                    Client Portal
-                </h1>
-
-
-                <p
-                    class="
-                        p
-                        max-w-2xl
-                        uppercase
-                    "
-                >
-                    Companies, contacts, projects and the services you sell.
-                </p>
-            </div>
-
-
-            <!-- Actions -->
-            <div
-                class="
-                    grid
-                    gap-6
-                    sm:grid-cols-3
-                    lg:max-w-3xl
-                "
-            >
-                <Button
-                    text="new service product"
-                    align="left"
-                    @click="
-                        createServiceProduct
-                    "
-                />
-
-
-                <Button
-                    text="new project"
-                    align="left"
-                    @click="
-                        createProject
-                    "
-                />
-
-
-                <Button
-                    text="new client"
-                    variant="accent"
-                    align="left"
-                    @click="
-                        createClient
-                    "
-                />
-            </div>
-        </header>
+        <!-- Page header -->
+        <AdminPageHeader
+            title="Overview"
+            :breadcrumbs="[
+                {
+                    label: 'Dashboard'
+                }
+            ]"
+        />
 
 
         <!-- Summary -->
         <section
             aria-label="Summary"
-            class="
-                space-y-4
-            "
         >
-            <h2 class="h3">
-                Overview
-            </h2>
-
-
             <div
                 class="
                     grid
@@ -279,21 +340,18 @@ onMounted(
                     "
                     class="
                         flex
-                        min-h-36
+                        min-h-32
                         flex-col
                         justify-between
                         bg-light
-                        p-5
-                        sm:min-h-44
-                        sm:p-6
+                        p-4
+                        sm:min-h-40
+                        sm:p-5
+                        lg:min-h-44
+                        lg:p-6
                     "
                 >
-                    <p
-                        class="
-                            h3
-                            text-dark
-                        "
-                    >
+                    <p class="h3">
                         {{ item.label }}
                     </p>
 
@@ -321,440 +379,167 @@ onMounted(
         </section>
 
 
-        <!-- Recent content -->
-        <div
-            class="
-                grid
-                gap-12
-                xl:grid-cols-2
-                xl:gap-px
-                xl:border
-                xl:border-accent
-                xl:bg-accent
+        <!-- Recent projects -->
+        <AdminTable
+            v-model:search="
+                projectSearch
+            "
+            title="Recent projects"
+            search-placeholder="Search projects"
+            :columns="
+                projectColumns
+            "
+            :rows="
+                filteredProjects
+            "
+            :loading="
+                loading
+            "
+            empty-title="No projects found."
+            empty-text="Projects you create will appear here."
+            @row-click="
+                openProject
             "
         >
-            <!-- Projects -->
-            <section
-                class="
-                    bg-light
-                    xl:p-6
-                "
+            <template
+                #cell-name="{
+                    row
+                }"
             >
-                <header
-                    class="
-                        mb-4
-                        flex
-                        items-end
-                        justify-between
-                        gap-6
-                    "
-                >
-                    <h2 class="h3">
-                        Recent projects
-                    </h2>
+                <span class="h3">
+                    {{ row.name }}
+                </span>
+            </template>
 
 
-                    <RouterLink
-                        :to="{
-                            name:
-                                'projects.index'
-                        }"
-                        class="
-                            group
-                            flex
-                            shrink-0
-                            items-center
-                            gap-2
-                            font-mono
-                            text-xs
-                            font-bold
-                            lowercase
-                            text-dark
-                            transition-colors
-                            hover:text-accent
-                        "
-                    >
-                        view all
-
-                        <i
-                            class="
-                                bi
-                                bi-arrow-right
-                                transition-transform
-                                duration-200
-                                group-hover:translate-x-1
-                            "
-                        />
-                    </RouterLink>
-                </header>
-
-
-                <div
-                    class="
-                        border-y
-                        border-accent
-                    "
-                >
-                    <RouterLink
-                        v-for="
-                            project
-                            in data.recent_projects
-                        "
-                        :key="
-                            project.id
-                        "
-                        :to="{
-                            name:
-                                'projects.show',
-
-                            params: {
-                                id:
-                                    project.id
-                            }
-                        }"
-                        class="
-                            group
-                            grid
-                            grid-cols-[minmax(0,1fr)_auto]
-                            items-center
-                            gap-5
-                            border-b
-                            border-accent
-                            px-1
-                            py-5
-                            transition-colors
-                            last:border-b-0
-                            hover:bg-accent
-                            hover:px-4
-                            hover:text-light
-                        "
-                    >
-                        <div
-                            class="
-                                min-w-0
-                            "
-                        >
-                            <h3
-                                class="
-                                    h3
-                                    truncate
-                                "
-                            >
-                                {{ project.name }}
-                            </h3>
-
-
-                            <p
-                                class="
-                                    p
-                                    mt-2
-                                    truncate
-                                    uppercase
-                                    opacity-60
-                                "
-                            >
-                                {{
-                                    project.company
-                                        ?.name ||
-                                    'No client'
-                                }}
-
-                                <template
-                                    v-if="
-                                        project.service_product
-                                            ?.name
-                                    "
-                                >
-                                    ·
-                                    {{
-                                        project.service_product
-                                            .name
-                                    }}
-                                </template>
-                            </p>
-                        </div>
-
-
-                        <AdminStatusBadge
-                            :status="
-                                project.status
-                            "
-                        />
-                    </RouterLink>
-
-
-                    <div
-                        v-if="
-                            loading
-                        "
-                        class="
-                            space-y-5
-                            py-5
-                        "
-                    >
-                        <div
-                            v-for="
-                                index
-                                in 3
-                            "
-                            :key="
-                                index
-                            "
-                            class="
-                                animate-pulse
-                            "
-                        >
-                            <div
-                                class="
-                                    h-3
-                                    w-1/3
-                                    bg-dark/10
-                                "
-                            />
-
-                            <div
-                                class="
-                                    mt-3
-                                    h-2
-                                    w-1/2
-                                    bg-dark/5
-                                "
-                            />
-                        </div>
-                    </div>
-
-
-                    <p
-                        v-else-if="
-                            !data
-                                .recent_projects
-                                .length
-                        "
-                        class="
-                            p
-                            py-10
-                            text-center
-                            uppercase
-                            text-dark/40
-                        "
-                    >
-                        No projects yet.
-                    </p>
-                </div>
-            </section>
-
-
-            <!-- Clients -->
-            <section
-                class="
-                    bg-light
-                    xl:p-6
-                "
+            <template
+                #cell-company="{
+                    row
+                }"
             >
-                <header
+                <span
                     class="
-                        mb-4
-                        flex
-                        items-end
-                        justify-between
-                        gap-6
+                        p
+                        uppercase
                     "
                 >
-                    <h2 class="h3">
-                        Recent clients
-                    </h2>
+                    {{
+                        row.company
+                            ?.name ||
+                        '—'
+                    }}
+                </span>
+            </template>
 
 
-                    <RouterLink
-                        :to="{
-                            name:
-                                'clients.index'
-                        }"
-                        class="
-                            group
-                            flex
-                            shrink-0
-                            items-center
-                            gap-2
-                            font-mono
-                            text-xs
-                            font-bold
-                            lowercase
-                            text-dark
-                            transition-colors
-                            hover:text-accent
-                        "
-                    >
-                        view all
-
-                        <i
-                            class="
-                                bi
-                                bi-arrow-right
-                                transition-transform
-                                duration-200
-                                group-hover:translate-x-1
-                            "
-                        />
-                    </RouterLink>
-                </header>
-
-
-                <div
+            <template
+                #cell-service_product="{
+                    row
+                }"
+            >
+                <span
                     class="
-                        border-y
-                        border-accent
+                        p
+                        uppercase
                     "
                 >
-                    <RouterLink
-                        v-for="
-                            client
-                            in data.recent_clients
-                        "
-                        :key="
-                            client.id
-                        "
-                        :to="{
-                            name:
-                                'clients.show',
-
-                            params: {
-                                id:
-                                    client.id
-                            }
-                        }"
-                        class="
-                            group
-                            grid
-                            grid-cols-[minmax(0,1fr)_auto]
-                            items-center
-                            gap-5
-                            border-b
-                            border-accent
-                            px-1
-                            py-5
-                            transition-colors
-                            last:border-b-0
-                            hover:bg-accent
-                            hover:px-4
-                            hover:text-light
-                        "
-                    >
-                        <div
-                            class="
-                                min-w-0
-                            "
-                        >
-                            <h3
-                                class="
-                                    h3
-                                    truncate
-                                "
-                            >
-                                {{
-                                    client.display_label
-                                }}
-                            </h3>
+                    {{
+                        row.service_product
+                            ?.name ||
+                        '—'
+                    }}
+                </span>
+            </template>
 
 
-                            <p
-                                class="
-                                    p
-                                    mt-2
-                                    uppercase
-                                    opacity-60
-                                "
-                            >
-                                {{
-                                    client.contacts_count
-                                }}
-                                {{
-                                    client.contacts_count === 1
-                                        ? 'contact'
-                                        : 'contacts'
-                                }}
-
-                                ·
-
-                                {{
-                                    client.projects_count
-                                }}
-                                {{
-                                    client.projects_count === 1
-                                        ? 'project'
-                                        : 'projects'
-                                }}
-                            </p>
-                        </div>
+            <template
+                #cell-status="{
+                    row
+                }"
+            >
+                <Tag
+                    :text="
+                        row.status
+                    "
+                />
+            </template>
+        </AdminTable>
 
 
-                        <AdminStatusBadge
-                            :status="
-                                client.status
-                            "
-                        />
-                    </RouterLink>
+        <!-- Recent clients -->
+        <AdminTable
+            v-model:search="
+                clientSearch
+            "
+            title="Recent clients"
+            search-placeholder="Search clients"
+            :columns="
+                clientColumns
+            "
+            :rows="
+                filteredClients
+            "
+            :loading="
+                loading
+            "
+            empty-title="No clients found."
+            empty-text="Clients you create will appear here."
+            @row-click="
+                openClient
+            "
+        >
+            <template
+                #cell-display_label="{
+                    row
+                }"
+            >
+                <span class="h3">
+                    {{
+                        row.display_label
+                    }}
+                </span>
+            </template>
 
 
-                    <div
-                        v-if="
-                            loading
-                        "
-                        class="
-                            space-y-5
-                            py-5
-                        "
-                    >
-                        <div
-                            v-for="
-                                index
-                                in 3
-                            "
-                            :key="
-                                index
-                            "
-                            class="
-                                animate-pulse
-                            "
-                        >
-                            <div
-                                class="
-                                    h-3
-                                    w-1/3
-                                    bg-dark/10
-                                "
-                            />
-
-                            <div
-                                class="
-                                    mt-3
-                                    h-2
-                                    w-1/2
-                                    bg-dark/5
-                                "
-                            />
-                        </div>
-                    </div>
+            <template
+                #cell-contacts_count="{
+                    row
+                }"
+            >
+                <span class="p">
+                    {{
+                        row.contacts_count ??
+                        0
+                    }}
+                </span>
+            </template>
 
 
-                    <p
-                        v-else-if="
-                            !data
-                                .recent_clients
-                                .length
-                        "
-                        class="
-                            p
-                            py-10
-                            text-center
-                            uppercase
-                            text-dark/40
-                        "
-                    >
-                        No clients yet.
-                    </p>
-                </div>
-            </section>
-        </div>
+            <template
+                #cell-projects_count="{
+                    row
+                }"
+            >
+                <span class="p">
+                    {{
+                        row.projects_count ??
+                        0
+                    }}
+                </span>
+            </template>
+
+
+            <template
+                #cell-status="{
+                    row
+                }"
+            >
+                <Tag
+                    :text="
+                        row.status
+                    "
+                />
+            </template>
+        </AdminTable>
     </div>
 </template>

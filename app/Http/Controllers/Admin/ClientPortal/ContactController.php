@@ -7,12 +7,18 @@ use App\Http\Requests\Admin\ClientPortal\StoreContactRequest;
 use App\Http\Resources\Admin\ClientPortal\ContactResource;
 use App\Models\ClientContact;
 use App\Models\Company;
+use App\Notifications\ClientContactInvitationNotification;
+use Illuminate\Http\Response;
 
 class ContactController extends Controller
 {
     public function store(StoreContactRequest $request, Company $company): ContactResource
     {
         $contact = $company->contacts()->create($this->normalized($request));
+
+        if ($contact->hasPortalAccess()) {
+            $contact->notify(new ClientContactInvitationNotification($company, route('client.login')));
+        }
 
         return new ContactResource($contact);
     }
@@ -23,6 +29,15 @@ class ContactController extends Controller
         $contact->update($this->normalized($request, $contact));
 
         return new ContactResource($contact->fresh());
+    }
+
+    public function destroy(Company $company, ClientContact $contact): Response
+    {
+        abort_unless($contact->company_id === $company->id, 404);
+
+        $contact->delete();
+
+        return response()->noContent();
     }
 
     private function normalized(StoreContactRequest $request, ?ClientContact $contact = null): array

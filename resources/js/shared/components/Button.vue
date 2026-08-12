@@ -4,10 +4,17 @@ import {
 } from 'vue'
 
 
+
 const props = defineProps({
     variant: {
         type: String,
         default: 'dark'
+    },
+
+
+    hoverVariant: {
+        type: String,
+        default: ''
     },
 
 
@@ -54,32 +61,86 @@ const props = defineProps({
 })
 
 
+
 const emit =
     defineEmits([
         'click'
     ])
 
 
-const buttonColor =
+
+const textColor =
     computed(() => {
         if (
             props.variant ===
             'light'
         ) {
-            return 'text-light hover:text-accent'
+            return 'text-light'
         }
+
 
 
         if (
             props.variant ===
             'accent'
         ) {
-            return 'text-accent hover:text-light'
+            return 'text-accent'
         }
 
 
-        return 'text-dark hover:text-accent'
+
+        return 'text-dark'
     })
+
+
+
+const hoverTextColor =
+    computed(() => {
+        const variant =
+            props.hoverVariant ||
+            (
+                props.variant ===
+                'light'
+                    ? 'accent'
+                    : props.variant ===
+                        'accent'
+                        ? 'light'
+                        : 'accent'
+            )
+
+
+
+        if (
+            variant ===
+            'light'
+        ) {
+            return 'hover:text-light'
+        }
+
+
+
+        if (
+            variant ===
+            'accent'
+        ) {
+            return 'hover:text-accent'
+        }
+
+
+
+        return 'hover:text-dark'
+    })
+
+
+
+const buttonColor =
+    computed(() => {
+        return [
+            textColor.value,
+            hoverTextColor.value
+        ]
+    })
+
 
 
 const wrapperAlignment =
@@ -92,6 +153,7 @@ const wrapperAlignment =
         }
 
 
+
         if (
             props.align ===
             'right'
@@ -100,9 +162,11 @@ const wrapperAlignment =
         }
 
 
+
         return 'justify-center'
     })
 </script>
+
 
 
 <template>

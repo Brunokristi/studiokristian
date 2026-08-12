@@ -1,4 +1,9 @@
 <script setup>
+import {
+    RouterLink
+} from 'vue-router'
+
+
 defineProps({
     title: {
         type: String,
@@ -12,150 +17,160 @@ defineProps({
     },
 
 
-    description: {
-        type: String,
-        default: ''
-    },
-
-
-    logo: {
-        type: String,
-        default: '/assets/logo.svg'
+    breadcrumbs: {
+        type: Array,
+        default: () => []
     }
 })
 </script>
 
 
 <template>
-    <header
-        class="
-            w-full
-            space-y-8
-            border-b
-            border-accent
-            pb-8
-        "
-    >
-        <!-- Brand -->
-        <div
-            class="
-                grid
-                grid-cols-[1fr_auto_1fr]
-                items-center
-                gap-4
+    <header class="pb-4">
+        <!-- Breadcrumbs -->
+        <nav
+            v-if="
+                breadcrumbs.length ||
+                eyebrow
             "
-        >
-            <span
-                class="
-                    font-mono
-                    text-xs
-                    font-bold
-                    text-accent
-                    sm:text-sm
-                "
-            >
-                studio
-            </span>
-
-
-            <img
-                :src="logo"
-                alt="Studio Kristian"
-                class="
-                    h-auto
-                    w-10
-                    sm:w-12
-                "
-            >
-
-
-            <span
-                class="
-                    text-right
-                    font-mono
-                    text-xs
-                    font-bold
-                    text-dark
-                    sm:text-sm
-                "
-            >
-                kristian
-            </span>
-        </div>
-
-
-        <!-- Page information -->
-        <div
+            aria-label="Breadcrumb"
             class="
+                mb-2
                 flex
-                flex-col
-                gap-8
-                lg:flex-row
-                lg:items-end
-                lg:justify-between
+                min-w-0
+                flex-wrap
+                items-center
+                gap-x-2
+                gap-y-1
+                p
+                uppercase
+                sm:text-xs
             "
         >
-            <div
+            <RouterLink
+                :to="{
+                    name: 'dashboard'
+                }"
                 class="
-                    min-w-0
-                    max-w-3xl
+                    text-dark
+                    transition-colors
+                    hover:text-accent
                 "
             >
-                <p
-                    v-if="eyebrow"
+                Admin
+            </RouterLink>
+
+
+            <template
+                v-for="(
+                    breadcrumb,
+                    index
+                ) in breadcrumbs"
+                :key="
+                    `${breadcrumb.label}-${index}`
+                "
+            >
+                <span
                     class="
-                        h3
-                        mb-3
+                        text-dark
+                    "
+                    aria-hidden="true"
+                >
+                    /
+                </span>
+
+
+                <RouterLink
+                    v-if="
+                        breadcrumb.to
+                    "
+                    :to="
+                        breadcrumb.to
+                    "
+                    class="
+                        min-w-0
+                        max-w-[12rem]
+                        truncate
+                        text-dark
+                        transition-colors
+                        hover:text-accent
+                        sm:max-w-none
+                    "
+                >
+                    {{ breadcrumb.label }}
+                </RouterLink>
+
+
+                <span
+                    v-else
+                    class="
+                        min-w-0
+                        max-w-[12rem]
+                        truncate
+                        text-accent
+                        sm:max-w-none
+                    "
+                    aria-current="page"
+                >
+                    {{ breadcrumb.label }}
+                </span>
+            </template>
+
+
+            <template
+                v-if="
+                    !breadcrumbs.length &&
+                    eyebrow
+                "
+            >
+                <span
+                    class="
+                        text-dark
+                    "
+                >
+                    /
+                </span>
+
+
+                <span
+                    class="
                         text-accent
                     "
                 >
                     {{ eyebrow }}
-                </p>
+                </span>
+            </template>
+        </nav>
 
 
-                <h1
-                    class="
-                        h2
-                        text-left
-                        text-dark
-                    "
-                >
-                    {{ title }}
-                </h1>
-
-
-                <p
-                    v-if="description"
-                    class="
-                        p
-                        mt-3
-                        max-w-2xl
-                        uppercase
-                        text-dark/60
-                    "
-                >
-                    {{ description }}
-                </p>
-            </div>
-
-
-            <!-- Actions -->
-            <div
-                v-if="$slots.default"
-                class="
+        <div
+            class="
                     flex
-                    w-full
-                    flex-wrap
-                    items-center
-                    gap-x-8
-                    gap-y-5
-                    lg:w-auto
-                    lg:shrink-0
-                    lg:justify-end
+                    flex-col
+                    gap-6
+                    md:flex-row
+                    md:items-end
+                    md:justify-between
                 "
             >
-                <slot />
-            </div>
+                <div>
+                    <h1 class="h2 text-left">
+                        {{ title }}
+                    </h1>
+                </div>
+
+                <div
+                    v-if="$slots.default"
+                    class="
+                        flex
+                        flex-wrap
+                        gap-x-7
+                        gap-y-4
+                        md:justify-end
+                    "
+                >
+                    <slot />
+                </div>
         </div>
     </header>
 </template>

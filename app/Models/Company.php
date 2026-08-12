@@ -11,8 +11,7 @@ class Company extends Model
     use HasFactory;
 
     protected $fillable = [
-        'name', 'display_name', 'registration_number', 'tax_number', 'vat_number',
-        'registered_address', 'billing_address', 'billing_details', 'status',
+        'name', 'registration_number', 'tax_number', 'vat_number', 'address', 'status',
         'internal_notes', 'archived_at',
     ];
 
@@ -33,6 +32,6 @@ class Company extends Model
 
     public function getDisplayLabelAttribute(): string
     {
-        return $this->display_name ?: $this->name;
+        return $this->name;
     }
 }

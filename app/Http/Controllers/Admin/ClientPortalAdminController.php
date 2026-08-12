@@ -24,7 +24,7 @@ class ClientPortalAdminController extends Controller
         $data = $request->validate([
             'name' => ['required', 'string', 'max:255'], 'registration_number' => ['nullable', 'string', 'max:50'],
             'tax_number' => ['nullable', 'string', 'max:50'], 'vat_number' => ['nullable', 'string', 'max:50'],
-            'registered_address' => ['nullable', 'string', 'max:2000'], 'billing_details' => ['nullable', 'string', 'max:2000'],
+            'address' => ['nullable', 'string', 'max:2000'],
         ]);
         $company = Company::query()->create($data);
         $audit->record('company.created', $request->user(), $company, $company->id, request: $request);

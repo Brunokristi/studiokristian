@@ -20,6 +20,7 @@
         "vite": "^7.0.7"
     },
     "dependencies": {
+        "@googlemaps/js-api-loader": "^2.1.1",
         "bootstrap-icons": "^1.13.1",
         "vue": "^3.5.30",
         "vue-i18n": "^9.14.5",

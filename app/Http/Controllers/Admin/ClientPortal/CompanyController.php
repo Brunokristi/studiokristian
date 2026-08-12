@@ -25,7 +25,6 @@ class CompanyController extends Controller
             ->withCount(['contacts as portal_contacts_count' => fn ($query) => $query->where('active', true)->where('can_access_portal', true)])
             ->when($search !== '', fn ($query) => $query->where(function ($nested) use ($search) {
                 $nested->where('name', 'like', "%{$search}%")
-                    ->orWhere('display_name', 'like', "%{$search}%")
                     ->orWhere('registration_number', 'like', "%{$search}%")
                     ->orWhere('tax_number', 'like', "%{$search}%")
                     ->orWhere('vat_number', 'like', "%{$search}%")

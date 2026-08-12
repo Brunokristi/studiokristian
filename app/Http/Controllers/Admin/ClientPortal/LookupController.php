@@ -12,7 +12,7 @@ class LookupController extends Controller
     public function __invoke(): JsonResponse
     {
         return response()->json([
-            'companies' => Company::query()->where('status', 'active')->orderBy('name')->get(['id', 'name', 'display_name']),
+            'companies' => Company::query()->where('status', 'active')->orderBy('name')->get(['id', 'name']),
             'service_products' => ServiceProduct::query()->orderBy('sort_order')->orderBy('name')->get(['id', 'name', 'active']),
         ]);
     }

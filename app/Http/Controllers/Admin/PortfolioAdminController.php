@@ -40,7 +40,7 @@ class PortfolioAdminController extends Controller
     public function listing(): JsonResponse
     {
         return response()->json(Project::query()
-            ->with(['company:id,name,display_name'])
+            ->with(['company:id,name'])
             ->withCount(['images', 'features'])
             ->orderByDesc('updated_at')
             ->get()
