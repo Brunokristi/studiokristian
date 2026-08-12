@@ -11,8 +11,9 @@ class Company extends Model
     use HasFactory;
 
     protected $fillable = [
-        'name', 'registration_number', 'tax_number', 'vat_number',
-        'registered_address', 'billing_details', 'status', 'internal_notes', 'archived_at',
+        'name', 'display_name', 'registration_number', 'tax_number', 'vat_number',
+        'registered_address', 'billing_address', 'billing_details', 'status',
+        'internal_notes', 'archived_at',
     ];
 
     protected function casts(): array
@@ -28,5 +29,10 @@ class Company extends Model
     public function projects(): HasMany
     {
         return $this->hasMany(Project::class);
+    }
+
+    public function getDisplayLabelAttribute(): string
+    {
+        return $this->display_name ?: $this->name;
     }
 }

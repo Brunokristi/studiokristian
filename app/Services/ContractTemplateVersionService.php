@@ -10,7 +10,7 @@ use InvalidArgumentException;
 
 class ContractTemplateVersionService
 {
-    public function __construct(private readonly AuditLogger $audit) {}
+    public function __construct(private readonly AuditLogger $audit, private readonly ContractBlockDocumentService $documents) {}
 
     public function createDraft(ContractTemplate $template, string $version, User $actor): ContractTemplateVersion
     {
@@ -19,6 +19,8 @@ class ContractTemplateVersionService
         return $template->versions()->create([
             'version' => $version,
             'content' => $source?->content ?? '',
+            'document_schema' => $source?->document_schema,
+            'field_definitions' => $source?->field_definitions,
             'status' => 'draft',
             'change_policy' => 'future_only',
             'created_by' => $actor->id,
@@ -30,11 +32,14 @@ class ContractTemplateVersionService
         if ($version->status !== 'draft') {
             throw new InvalidArgumentException('Only a draft can be published.');
         }
-        if (trim($version->content) === '' || trim($changeSummary) === '') {
+        if ((trim($version->content) === '' && ! $version->document_schema) || trim($changeSummary) === '') {
             throw new InvalidArgumentException('Published versions require content and a change summary.');
         }
         if (! in_array($changePolicy, ['future_only', 'requires_new_acceptance', 'information_only'], true)) {
             throw new InvalidArgumentException('Invalid contract change policy.');
+        }
+        if ($version->document_schema) {
+            $this->documents->validate($version->document_schema);
         }
 
         return DB::transaction(function () use ($version, $changePolicy, $changeSummary, $actor) {

@@ -6,4 +6,10 @@ window.Alpine = Alpine;
 
 Alpine.start();
 
-import './main.js';
+if (document.querySelector('#app')) {
+    import('./main.js');
+}
+
+if (document.querySelector('#client-portal-admin')) {
+    import('./admin/client-portal/main.js');
+}

@@ -15,13 +15,21 @@ class Project extends Model
     protected $fillable = [
         'company_id',
         'service_product_id',
+        'service_blueprint_version_id',
         'portal_status',
+        'is_published',
+        'project_code',
         'name',
         'name_translations',
         'url',
         'live_url',
         'summary',
         'summary_translations',
+        'internal_notes',
+        'configuration',
+        'contract_values',
+        'started_at',
+        'completed_at',
         'hex_color',
         'logo_path',
         'archived_at',
@@ -31,6 +39,11 @@ class Project extends Model
         'name_translations' => 'array',
         'summary_translations' => 'array',
         'archived_at' => 'datetime',
+        'started_at' => 'date',
+        'completed_at' => 'date',
+        'configuration' => 'array',
+        'contract_values' => 'array',
+        'is_published' => 'boolean',
     ];
 
     public function company(): BelongsTo
@@ -43,9 +56,23 @@ class Project extends Model
         return $this->belongsTo(ServiceProduct::class);
     }
 
+    public function blueprintVersion(): BelongsTo { return $this->belongsTo(ServiceBlueprintVersion::class, 'service_blueprint_version_id'); }
+    public function deliverables(): HasMany { return $this->hasMany(ProjectDeliverable::class)->orderBy('sort_order'); }
+    public function folders(): HasMany { return $this->hasMany(ProjectFolder::class)->orderBy('sort_order'); }
+
     public function contacts(): BelongsToMany
     {
         return $this->belongsToMany(ClientContact::class)->withTimestamps();
+    }
+
+    public function coworkers(): BelongsToMany
+    {
+        return $this->belongsToMany(User::class)->withTimestamps();
+    }
+
+    public function tickets(): HasMany
+    {
+        return $this->hasMany(ProjectTicket::class);
     }
 
     public function images(): HasMany

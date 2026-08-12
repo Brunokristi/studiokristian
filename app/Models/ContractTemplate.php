@@ -19,4 +19,9 @@ class ContractTemplate extends Model
     {
         return $this->hasMany(ContractTemplateVersion::class);
     }
+
+    public function currentPublishedVersion(): ?ContractTemplateVersion
+    {
+        return $this->versions()->where('status', 'published')->latest('published_at')->first();
+    }
 }

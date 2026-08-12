@@ -13,6 +13,7 @@ class ProjectController extends Controller
         $locale = $this->resolveLocale($request);
 
         $projects = Project::query()
+            ->where('is_published', true)
             ->with(['images' => fn ($query) => $query->orderBy('sort_order')])
             ->orderByDesc('created_at')
             ->get()
@@ -36,6 +37,7 @@ class ProjectController extends Controller
         $locale = $this->resolveLocale($request);
 
         $project = Project::query()
+            ->where('is_published', true)
             ->with([
                 'images' => fn ($query) => $query->orderBy('sort_order'),
                 'features' => fn ($query) => $query->orderBy('sort_order'),

@@ -9,6 +9,6 @@ class ProjectFilePolicy
 {
     public function view(ClientContact $contact, ProjectFile $file): bool
     {
-        return $file->visibility === 'client' && $contact->can('view', $file->project);
+        return $file->isEffectivelyClientVisible() && $contact->can('view', $file->project);
     }
 }

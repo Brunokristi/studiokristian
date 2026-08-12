@@ -1,0 +1,14 @@
+<script setup>
+import { RouterLink, useRouter } from 'vue-router'
+import { useServerTable } from '../../composables/useServerTable'
+import AdminPageHeader from '../../components/AdminPageHeader.vue'
+import AdminDataTable from '../../components/AdminDataTable.vue'
+import AdminPagination from '../../components/AdminPagination.vue'
+import AdminStatusBadge from '../../components/AdminStatusBadge.vue'
+
+const router = useRouter()
+const columns = [{key:'display_label',sortKey:'name',label:'Client',sortable:true},{key:'registration_number',label:'IČO',sortable:true},{key:'contacts_count',label:'Contacts'},{key:'projects_count',label:'Projects'},{key:'portal_contacts_count',label:'Portal access'},{key:'status',label:'Status',sortable:true},{key:'updated_at',label:'Updated',sortable:true}]
+const { rows, meta, loading, error, state, sortBy } = useServerTable('/clients')
+</script>
+
+<template><div class="space-y-6"><AdminPageHeader title="Clients" eyebrow="Companies" description="Legal entities and the people representing them."><RouterLink class="admin-button bg-dark text-light" :to="{name:'clients.create'}">New client</RouterLink></AdminPageHeader><div class="grid gap-3 sm:grid-cols-[minmax(0,1fr)_180px]"><div class="admin-field"><label for="client-search">Search</label><input id="client-search" v-model="state.search" type="search" placeholder="Name, IČO, DIČ, IČ DPH or email" @input="state.page=1"></div><div class="admin-field"><label for="client-status">Status</label><select id="client-status" v-model="state.status" @change="state.page=1"><option value="">All statuses</option><option value="active">Active</option><option value="inactive">Inactive</option><option value="archived">Archived</option></select></div></div><p v-if="error" class="text-sm text-red-700">{{ error }}</p><AdminDataTable :columns="columns" :rows="rows" :loading="loading" :sort="state.sort" :direction="state.direction" empty-title="No clients yet." empty-text="Create the first client company to begin." @sort="sortBy" @row-click="row=>router.push({name:'clients.show',params:{id:row.id}})"><template #cell-display_label="{row}"><strong>{{ row.display_label }}</strong><small v-if="row.display_name" class="mt-1 block text-neutral-500">{{ row.name }}</small></template><template #cell-status="{value}"><AdminStatusBadge :status="value" /></template><template #cell-updated_at="{value}">{{ new Date(value).toLocaleDateString() }}</template><template #empty-action><RouterLink class="admin-button bg-dark text-light" :to="{name:'clients.create'}">Create client</RouterLink></template></AdminDataTable><AdminPagination :meta="meta" @change="page=>state.page=page" /></div></template>

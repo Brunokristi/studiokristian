@@ -10,13 +10,13 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 class ContractTemplateVersion extends Model
 {
     protected $fillable = [
-        'contract_template_id', 'version', 'content', 'status', 'change_policy',
+        'contract_template_id', 'version', 'content', 'document_schema', 'field_definitions', 'status', 'change_policy',
         'change_summary', 'published_at', 'retired_at', 'created_by',
     ];
 
     protected function casts(): array
     {
-        return ['published_at' => 'datetime', 'retired_at' => 'datetime'];
+        return ['document_schema' => 'array', 'field_definitions' => 'array', 'published_at' => 'datetime', 'retired_at' => 'datetime'];
     }
 
     protected static function booted(): void
