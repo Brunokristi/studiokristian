@@ -15,6 +15,14 @@ class ProjectInvitationNotification extends Notification implements ShouldQueue
     public function via(object $notifiable): array { return ['mail']; }
     public function toMail(object $notifiable): MailMessage
     {
-        return (new MailMessage)->subject('Invitation to '.$this->project->name)->greeting('Hello,')->line('You have been invited to collaborate on '.$this->project->name.'.')->action('Open project', $this->url);
+        $subject = 'Invitation to '.$this->project->name;
+
+        return (new MailMessage)
+            ->subject($subject)
+            ->view('emails.project-invitation', [
+                'subject' => $subject,
+                'projectName' => $this->project->name,
+                'actionUrl' => $this->url,
+            ]);
     }
 }

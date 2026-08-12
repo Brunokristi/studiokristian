@@ -10,7 +10,9 @@ use App\Notifications\NewClientTicketNotification;
 use App\Notifications\ProjectInvitationNotification;
 use App\Notifications\StaffMagicLinkNotification;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Notification;
+use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
 class CollaborationWorkflowTest extends TestCase
@@ -84,5 +86,50 @@ class CollaborationWorkflowTest extends TestCase
         $this->assertTrue($contact->fresh()->hasPortalAccess());
         $this->assertTrue($project->contacts()->whereKey($contact->id)->exists());
         Notification::assertSentTo($contact, ProjectInvitationNotification::class);
+    }
+
+    public function test_coworker_vue_api_only_returns_assigned_projects_without_storage_paths(): void
+    {
+        $coworker = User::factory()->create(['is_admin' => false]);
+        $assigned = Project::create(['name' => 'Assigned', 'url' => 'assigned']);
+        Project::create(['name' => 'Private', 'url' => 'private']);
+        $assigned->coworkers()->attach($coworker);
+
+        $this->actingAs($coworker)->getJson('/workspace/api/projects')
+            ->assertOk()->assertJsonCount(1)->assertJsonPath('0.name', 'Assigned')
+            ->assertJsonMissingPath('0.configuration');
+    }
+
+    public function test_admin_can_load_and_update_portfolio_through_vue_api(): void
+    {
+        $admin = User::factory()->create(['is_admin' => true]);
+        $project = Project::create(['name' => 'Original', 'url' => 'original', 'summary' => 'Before']);
+
+        $this->actingAs($admin)->getJson("/admin/client-portal/api/projects/{$project->id}/portfolio")
+            ->assertOk()->assertJsonPath('project.name', 'Original');
+
+        $this->actingAs($admin)->putJson("/admin/client-portal/api/projects/{$project->id}/portfolio", [
+            'name' => 'Updated', 'name_sk' => 'Aktualizované', 'url' => 'updated',
+            'summary' => 'After', 'summary_sk' => 'Potom', 'hex_color' => null,
+            'portal_status' => 'active', 'images' => [], 'features' => [],
+        ])->assertOk()->assertJsonPath('project.name', 'Updated');
+
+        $this->assertDatabaseHas('projects', ['id' => $project->id, 'name' => 'Updated', 'url' => 'updated']);
+    }
+
+    public function test_vue_portfolio_editor_can_upload_gallery_images(): void
+    {
+        Storage::fake('public');
+        $admin = User::factory()->create(['is_admin' => true]);
+        $project = Project::create(['name' => 'Gallery', 'url' => 'gallery']);
+
+        $this->actingAs($admin)->withHeader('Accept', 'application/json')->post("/admin/client-portal/api/projects/{$project->id}/portfolio", [
+            '_method' => 'PUT', 'name' => 'Gallery', 'url' => 'gallery', 'portal_status' => 'active', 'hex_color' => '',
+            'images' => [['file' => UploadedFile::fake()->image('cover.jpg'), 'description' => 'Cover', 'sort_order' => 0]],
+            'features' => [],
+        ])->assertOk()->assertJsonPath('project.images.0.description', 'Cover');
+
+        $image = $project->images()->firstOrFail();
+        Storage::disk('public')->assertExists(str_replace('/storage/', '', $image->path));
     }
 }

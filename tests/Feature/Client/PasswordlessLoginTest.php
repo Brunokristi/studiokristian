@@ -39,6 +39,17 @@ class PasswordlessLoginTest extends TestCase
         $this->assertSame($known->getSession()->get('status'), $unknown->getSession()->get('status'));
     }
 
+    public function test_vue_login_request_receives_the_generic_json_response(): void
+    {
+        Notification::fake();
+
+        $this->postJson(route('client.login.send'), ['email' => 'unknown@example.test'])
+            ->assertOk()
+            ->assertJson([
+                'message' => 'Ak je email priradený aktívnemu kontaktu, poslali sme prihlasovací odkaz.',
+            ]);
+    }
+
     public function test_expired_magic_link_is_rejected(): void
     {
         $contact = $this->contact();

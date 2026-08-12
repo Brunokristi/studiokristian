@@ -13,24 +13,12 @@ use App\Models\ServiceProduct;
 use App\Services\AuditLogger;
 use App\Services\ContractService;
 use App\Services\ContractTemplateVersionService;
-use App\Services\TextDiffService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
-use Illuminate\View\View;
 
 class ClientPortalAdminController extends Controller
 {
-    public function index(): View
-    {
-        return view('admin.client-portal.index', [
-            'companies' => Company::query()->with('contacts')->withCount('projects')->latest()->get(),
-            'products' => ServiceProduct::query()->with('defaultContractTemplate')->orderBy('name')->get(),
-            'templates' => ContractTemplate::query()->with(['serviceProduct', 'versions' => fn ($query) => $query->latest()])->orderBy('name')->get(),
-            'projects' => Project::query()->whereNotNull('company_id')->with(['company', 'serviceProduct', 'serviceAccounts.credential'])->latest()->get(),
-        ]);
-    }
-
     public function storeCompany(Request $request, AuditLogger $audit): RedirectResponse
     {
         $data = $request->validate([
@@ -157,17 +145,6 @@ class ClientPortalAdminController extends Controller
         $version = $service->createDraft($template, $data['version'], $request->user());
 
         return redirect()->route('admin.client-portal.versions.edit', $version);
-    }
-
-    public function editVersion(ContractTemplateVersion $version, TextDiffService $diff): View
-    {
-        $version->load('template');
-        $previous = $version->template->versions()->where('id', '!=', $version->id)->whereIn('status', ['published', 'retired'])->latest('published_at')->first();
-
-        return view('admin.client-portal.version', [
-            'version' => $version, 'previous' => $previous,
-            'diff' => $diff->lines($previous?->content ?? '', $version->content),
-        ]);
     }
 
     public function updateVersion(Request $request, ContractTemplateVersion $version): RedirectResponse

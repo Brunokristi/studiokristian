@@ -23,11 +23,15 @@ class ClientMagicLinkNotification extends Notification implements ShouldQueue
 
     public function toMail(object $notifiable): MailMessage
     {
+        $subject = 'Prihlásenie do Client Portal';
+
         return (new MailMessage)
-            ->subject('Prihlásenie do Client Portal')
-            ->greeting('Dobrý deň, '.$notifiable->first_name.',')
-            ->line('Tento jednorazový odkaz vás bezpečne prihlási do Client Portal. Platí 10 minút.')
-            ->action('Otvoriť Client Portal', $this->url)
-            ->line('Ak ste o prihlásenie nežiadali, tento email môžete ignorovať.');
+            ->subject($subject)
+            ->view('emails.client-magic-link', [
+                'subject' => $subject,
+                'preview' => 'Váš jednorazový prihlasovací odkaz platí 10 minút.',
+                'recipientName' => $notifiable->first_name,
+                'actionUrl' => $this->url,
+            ]);
     }
 }

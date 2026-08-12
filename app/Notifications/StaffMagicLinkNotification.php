@@ -14,6 +14,15 @@ class StaffMagicLinkNotification extends Notification implements ShouldQueue
     public function via(object $notifiable): array { return ['mail']; }
     public function toMail(object $notifiable): MailMessage
     {
-        return (new MailMessage)->subject('Your Studio Kristian sign-in link')->greeting('Hello '.$notifiable->name.',')->line('Use this one-time link to sign in. It expires in 10 minutes.')->action('Sign in to workspace', $this->url)->line('If you did not request this link, ignore this email.');
+        $subject = 'Your Studio Kristian sign-in link';
+
+        return (new MailMessage)
+            ->subject($subject)
+            ->view('emails.staff-magic-link', [
+                'subject' => $subject,
+                'preview' => 'Your secure one-time sign-in link expires in 10 minutes.',
+                'recipientName' => $notifiable->name,
+                'actionUrl' => $this->url,
+            ]);
     }
 }

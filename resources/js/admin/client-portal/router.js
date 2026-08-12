@@ -9,6 +9,8 @@ import ProjectForm from './pages/projects/ProjectForm.vue'
 import ProjectWizard from './pages/projects/ProjectWizard.vue'
 import ServiceProductsIndex from './pages/service-products/ServiceProductsIndex.vue'
 import ServiceProductDetail from './pages/service-products/ServiceProductDetail.vue'
+import PortfolioIndex from './pages/portfolio/PortfolioIndex.vue'
+import PortfolioEditor from './pages/portfolio/PortfolioEditor.vue'
 
 const router = createRouter({
     history: createWebHistory('/admin/client-portal/'),
@@ -24,6 +26,8 @@ const router = createRouter({
         { path: '/projects/:id/edit', name: 'projects.edit', component: ProjectForm, props: true },
         { path: '/service-products', name: 'service-products.index', component: ServiceProductsIndex },
         { path: '/service-products/:id', name: 'service-products.show', component: ServiceProductDetail, props: true },
+        { path: '/portfolio', name: 'portfolio.index', component: PortfolioIndex },
+        { path: '/projects/:id/portfolio', name: 'portfolio.edit', component: PortfolioEditor, props: true },
     ],
     scrollBehavior: () => ({ top: 0 }),
 })

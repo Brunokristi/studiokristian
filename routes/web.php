@@ -69,14 +69,17 @@ Route::prefix('client')->name('client.')->group(function () {
 
 // Redirect dashboard to admin portfolio after login
 Route::get('/dashboard', function () {
-    return redirect()->route('admin.portfolio.index');
+    return redirect()->route('admin.client-portal.index');
 })->middleware(['auth', 'verified'])->name('dashboard');
 
 Route::middleware(['auth', 'verified'])->prefix('workspace')->name('staff.')->group(function () {
     Route::get('/', [StaffWorkspaceController::class, 'index'])->name('workspace');
-    Route::post('/projects/{project}/tickets', [StaffWorkspaceController::class, 'storeTicket'])->name('tickets.store');
-    Route::put('/projects/{project}/tickets/{ticket}', [StaffWorkspaceController::class, 'updateTicket'])->name('tickets.update');
-    Route::get('/projects/{project}/files/{file}', [StaffWorkspaceController::class, 'file'])->name('files.show');
+    Route::prefix('api')->group(function () {
+        Route::get('/projects', [StaffWorkspaceController::class, 'projects'])->name('projects.index');
+        Route::post('/projects/{project}/tickets', [StaffWorkspaceController::class, 'storeTicket'])->name('tickets.store');
+        Route::put('/projects/{project}/tickets/{ticket}', [StaffWorkspaceController::class, 'updateTicket'])->name('tickets.update');
+        Route::get('/projects/{project}/files/{file}', [StaffWorkspaceController::class, 'file'])->name('files.show');
+    });
 });
 
 // Admin Portfolio (protected)
@@ -84,11 +87,11 @@ Route::prefix('admin/portfolio')
     ->middleware(['auth', 'admin'])
     ->name('admin.portfolio.')
     ->group(function () {
-        Route::get('/', [PortfolioAdminController::class, 'index'])->name('index');
+        Route::get('/', fn () => redirect('/admin/client-portal/portfolio'))->name('index');
         Route::post('/translate', [PortfolioAdminController::class, 'translate'])->name('translate');
-        Route::get('/create', [PortfolioAdminController::class, 'create'])->name('create');
+        Route::get('/create', fn () => redirect('/admin/client-portal/projects/create'))->name('create');
         Route::post('/', [PortfolioAdminController::class, 'store'])->name('store');
-        Route::get('/{project}/edit', [PortfolioAdminController::class, 'edit'])->name('edit');
+        Route::get('/{project}/edit', fn (\App\Models\Project $project) => redirect('/admin/client-portal/projects/'.$project->id.'/portfolio'))->name('edit');
         Route::put('/{project}', [PortfolioAdminController::class, 'update'])->name('update');
         Route::delete('/{project}', [PortfolioAdminController::class, 'destroy'])->name('destroy');
     });
@@ -96,6 +99,10 @@ Route::prefix('admin/portfolio')
 Route::prefix('admin/client-portal')->middleware(['auth', 'admin'])->name('admin.client-portal.')->group(function () {
     Route::prefix('api')->name('api.')->group(function () {
         Route::get('/dashboard', AdminDashboardController::class)->name('dashboard');
+        Route::get('/portfolio', [PortfolioAdminController::class, 'listing'])->name('portfolio.index');
+        Route::get('/projects/{project}/portfolio', [PortfolioAdminController::class, 'show'])->name('projects.portfolio.show');
+        Route::put('/projects/{project}/portfolio', [PortfolioAdminController::class, 'update'])->name('projects.portfolio.update');
+        Route::post('/portfolio/translate', [PortfolioAdminController::class, 'translate'])->name('portfolio.translate');
         Route::get('/lookups', AdminLookupController::class)->name('lookups');
         Route::get('/companies/{company}/contacts/options', [AdminLookupController::class, 'contacts'])->name('companies.contacts.options');
 
@@ -155,13 +162,16 @@ Route::prefix('admin/client-portal')->middleware(['auth', 'admin'])->name('admin
     Route::delete('/services/{account}', [ClientPortalAdminController::class, 'destroyServiceAccount'])->name('services.destroy');
     Route::post('/templates', [ClientPortalAdminController::class, 'storeTemplate'])->name('templates.store');
     Route::post('/templates/{template}/versions', [ClientPortalAdminController::class, 'createVersion'])->name('versions.store');
-    Route::get('/versions/{version}', [ClientPortalAdminController::class, 'editVersion'])->name('versions.edit');
+    Route::get('/versions/{version}', function (\App\Models\ContractTemplateVersion $version) {
+        $productId = $version->template->service_product_id;
+        return redirect($productId ? '/admin/client-portal/service-products/'.$productId : '/admin/client-portal/service-products');
+    })->name('versions.edit');
     Route::put('/versions/{version}', [ClientPortalAdminController::class, 'updateVersion'])->name('versions.update');
     Route::post('/versions/{version}/publish', [ClientPortalAdminController::class, 'publishVersion'])->name('versions.publish');
     Route::post('/versions/{version}/retire', [ClientPortalAdminController::class, 'retireVersion'])->name('versions.retire');
     Route::post('/projects/{project}/contracts', [ClientPortalAdminController::class, 'generateContract'])->name('contracts.generate');
     Route::get('/{path}', AdminShellController::class)
-        ->where('path', 'clients(?:/.*)?|projects(?:/.*)?|service-products(?:/.*)?')
+        ->where('path', 'clients(?:/.*)?|projects(?:/.*)?|service-products(?:/.*)?|portfolio(?:/.*)?')
         ->name('app');
 });
 

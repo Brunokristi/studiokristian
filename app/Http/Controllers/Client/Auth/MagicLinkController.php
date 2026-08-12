@@ -7,6 +7,7 @@ use App\Models\ClientContact;
 use App\Models\ClientLoginToken;
 use App\Notifications\ClientMagicLinkNotification;
 use App\Services\AuditLogger;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -22,7 +23,7 @@ class MagicLinkController extends Controller
         return view('client.auth.login');
     }
 
-    public function store(Request $request): RedirectResponse
+    public function store(Request $request): RedirectResponse|JsonResponse
     {
         $data = $request->validate(['email' => ['required', 'email:rfc', 'max:255']]);
         $contact = ClientContact::query()
@@ -48,7 +49,11 @@ class MagicLinkController extends Controller
             $contact->notify(new ClientMagicLinkNotification($url));
         }
 
-        return back()->with('status', 'Ak je email priradený aktívnemu kontaktu, poslali sme prihlasovací odkaz.');
+        $message = 'Ak je email priradený aktívnemu kontaktu, poslali sme prihlasovací odkaz.';
+
+        return $request->expectsJson()
+            ? response()->json(['message' => $message])
+            : back()->with('status', $message);
     }
 
     public function consume(Request $request, string $token, AuditLogger $audit): RedirectResponse

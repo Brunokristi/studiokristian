@@ -3,7 +3,9 @@
 namespace Tests\Feature\Auth;
 
 use App\Models\User;
+use App\Notifications\StaffMagicLinkNotification;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Notification;
 use Tests\TestCase;
 
 class AuthenticationTest extends TestCase
@@ -14,32 +16,33 @@ class AuthenticationTest extends TestCase
     {
         $response = $this->get('/login');
 
-        $response->assertStatus(200);
+        $response
+            ->assertOk()
+            ->assertSee('id="staff-login"', false)
+            ->assertDontSee('sm:max-w-md');
     }
 
-    public function test_users_can_authenticate_using_the_login_screen(): void
+    public function test_admin_can_request_a_passwordless_login_link(): void
     {
-        $user = User::factory()->create();
+        Notification::fake();
+        $user = User::factory()->create(['is_admin' => true]);
 
-        $response = $this->post('/login', [
-            'email' => $user->email,
-            'password' => 'password',
-        ]);
-
-        $this->assertAuthenticated();
-        $response->assertRedirect(route('dashboard', absolute: false));
-    }
-
-    public function test_users_can_not_authenticate_with_invalid_password(): void
-    {
-        $user = User::factory()->create();
-
-        $this->post('/login', [
-            'email' => $user->email,
-            'password' => 'wrong-password',
-        ]);
+        $response = $this->postJson('/login', ['email' => $user->email]);
 
         $this->assertGuest();
+        $response->assertOk()->assertJsonStructure(['message']);
+        Notification::assertSentTo($user, StaffMagicLinkNotification::class);
+    }
+
+    public function test_unknown_email_receives_the_same_generic_response(): void
+    {
+        Notification::fake();
+
+        $this->postJson('/login', ['email' => 'unknown@example.test'])
+            ->assertOk()->assertJsonStructure(['message']);
+
+        $this->assertGuest();
+        Notification::assertNothingSent();
     }
 
     public function test_users_can_logout(): void

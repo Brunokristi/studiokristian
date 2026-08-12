@@ -12,7 +12,7 @@ const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content ?? 
     <header class="sticky top-0 z-30 flex h-16 items-center justify-between border-b border-dark bg-light px-4 sm:px-6">
       <RouterLink :to="{ name: 'dashboard' }" class="font-mono text-sm font-bold uppercase">Studio Kristian / Admin</RouterLink>
       <button class="grid h-10 w-10 place-items-center border border-dark lg:hidden" aria-label="Toggle navigation" @click="menuOpen = !menuOpen"><i class="bi bi-list text-xl"></i></button>
-      <a href="/admin/portfolio" class="hidden font-mono text-xs font-bold uppercase lg:block">Portfolio ↗</a>
+      <RouterLink :to="{ name: 'portfolio.index' }" class="hidden font-mono text-xs font-bold uppercase lg:block">Portfolio</RouterLink>
     </header>
     <div class="mx-auto grid max-w-[1600px] lg:grid-cols-[230px_minmax(0,1fr)]">
       <aside :class="menuOpen ? 'block' : 'hidden'" class="border-b border-dark bg-light p-4 lg:block lg:min-h-[calc(100vh-64px)] lg:border-b-0 lg:border-r lg:p-6">
@@ -21,6 +21,7 @@ const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content ?? 
           <RouterLink :to="{ name: 'clients.index' }" class="admin-nav-link">Clients</RouterLink>
           <RouterLink :to="{ name: 'projects.index' }" class="admin-nav-link">Projects</RouterLink>
           <RouterLink :to="{ name: 'service-products.index' }" class="admin-nav-link">Service Products</RouterLink>
+          <RouterLink :to="{ name: 'portfolio.index' }" class="admin-nav-link">Portfolio</RouterLink>
         </nav>
         <form method="POST" action="/logout" class="mt-8"><input type="hidden" name="_token" :value="csrfToken"><button class="admin-nav-link w-full text-left" type="submit">Log out</button></form>
       </aside>

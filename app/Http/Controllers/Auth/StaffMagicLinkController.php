@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\StaffLoginToken;
 use App\Models\User;
 use App\Notifications\StaffMagicLinkNotification;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -18,7 +19,7 @@ class StaffMagicLinkController extends Controller
 {
     public function create(): View { return view('auth.login'); }
 
-    public function store(Request $request): RedirectResponse
+    public function store(Request $request): RedirectResponse|JsonResponse
     {
         $data = $request->validate(['email' => ['required', 'email:rfc', 'max:255']]);
         $user = User::query()->whereRaw('LOWER(email) = ?', [strtolower($data['email'])])->first();
@@ -27,7 +28,8 @@ class StaffMagicLinkController extends Controller
             $token = $user->loginTokens()->create(['token_hash' => hash('sha256', $plain), 'expires_at' => now()->addMinutes(10), 'requested_ip' => $request->ip()]);
             $user->notify(new StaffMagicLinkNotification(URL::temporarySignedRoute('staff.login.consume', $token->expires_at, ['token' => $plain])));
         }
-        return back()->with('status', 'If this email belongs to a staff account, we sent a secure sign-in link.');
+        $message = 'If this email belongs to a staff account, we sent a secure sign-in link.';
+        return $request->expectsJson() ? response()->json(['message' => $message]) : back()->with('status', $message);
     }
 
     public function consume(Request $request, string $token): RedirectResponse

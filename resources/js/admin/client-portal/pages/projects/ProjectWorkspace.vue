@@ -80,7 +80,7 @@ const ticketsFor = status => tickets.value.filter(ticket => ticket.status === st
         <AdminPageHeader :title="project?.name || 'Project'" :eyebrow="project?.project_code || 'Project workspace'">
             <template v-if="project">
                 <button class="admin-button" :class="project.is_published ? 'bg-accent' : ''" @click="togglePublishing">{{ project.is_published ? 'Shown on website' : 'Show this project on website' }}</button>
-                <a class="admin-button" :href="`/admin/portfolio/${id}/edit`">Edit website content</a>
+                <RouterLink class="admin-button" :to="{ name: 'portfolio.edit', params: { id } }">Edit website content</RouterLink>
                 <button class="admin-button" @click="confirm = true">Archive</button>
                 <RouterLink class="admin-button bg-dark text-light" :to="{ name: 'projects.edit', params: { id } }">Edit project</RouterLink>
             </template>

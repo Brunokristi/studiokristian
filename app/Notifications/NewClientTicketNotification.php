@@ -15,6 +15,16 @@ class NewClientTicketNotification extends Notification implements ShouldQueue
     public function via(object $notifiable): array { return ['mail']; }
     public function toMail(object $notifiable): MailMessage
     {
-        return (new MailMessage)->subject('New client ticket: '.$this->ticket->title)->line($this->ticket->project->name.' received a new client support ticket.')->line($this->ticket->description)->action('Open ticket board', url('/admin/client-portal/projects/'.$this->ticket->project_id));
+        $subject = 'New client ticket: '.$this->ticket->title;
+
+        return (new MailMessage)
+            ->subject($subject)
+            ->view('emails.new-client-ticket', [
+                'subject' => $subject,
+                'projectName' => $this->ticket->project->name,
+                'ticketTitle' => $this->ticket->title,
+                'ticketDescription' => $this->ticket->description,
+                'actionUrl' => url('/admin/client-portal/projects/'.$this->ticket->project_id),
+            ]);
     }
 }

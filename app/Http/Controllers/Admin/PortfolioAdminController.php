@@ -3,9 +3,7 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
-use App\Models\Company;
 use App\Models\Project;
-use App\Models\ServiceProduct;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -15,7 +13,6 @@ use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
 use Illuminate\Support\Str;
-use Illuminate\View\View;
 
 class PortfolioAdminController extends Controller
 {
@@ -40,27 +37,23 @@ class PortfolioAdminController extends Controller
         ]);
     }
 
-    public function index(): View
+    public function listing(): JsonResponse
     {
-        $projects = Project::query()
+        return response()->json(Project::query()
+            ->with(['company:id,name,display_name'])
             ->withCount(['images', 'features'])
             ->orderByDesc('updated_at')
-            ->get();
-
-        return view('admin.portfolio.index', [
-            'projects' => $projects,
-        ]);
-    }
-
-    public function create(): View
-    {
-        return view('admin.portfolio.form', [
-            'project' => null,
-            'companies' => Company::query()->where('status', 'active')->orderBy('name')->get(),
-            'serviceProducts' => ServiceProduct::query()->where('active', true)->orderBy('name')->get(),
-            'images' => [['path' => '', 'existing_path' => '', 'description' => '', 'description_sk' => '', 'sort_order' => 0]],
-            'features' => [['title' => '', 'title_sk' => '', 'description' => '', 'description_sk' => '', 'sort_order' => 0]],
-        ]);
+            ->get()
+            ->map(fn (Project $project) => [
+                'id' => $project->id,
+                'name' => $project->name,
+                'url' => $project->url,
+                'company' => $project->company?->display_label,
+                'is_published' => $project->is_published,
+                'images_count' => $project->images_count,
+                'features_count' => $project->features_count,
+                'updated_at' => $project->updated_at?->toIso8601String(),
+            ]));
     }
 
     public function store(Request $request): RedirectResponse
@@ -97,54 +90,46 @@ class PortfolioAdminController extends Controller
             ->with('status', 'Project created successfully.');
     }
 
-    public function edit(Project $project): View
+    public function show(Project $project): JsonResponse
     {
         $project->load(['images', 'features']);
 
-        $images = $project->images
-            ->map(function ($image) {
-                return [
+        return response()->json([
+            'project' => [
+                'id' => $project->id,
+                'company_id' => $project->company_id,
+                'service_product_id' => $project->service_product_id,
+                'portal_status' => $project->portal_status,
+                'is_published' => $project->is_published,
+                'name' => $project->name,
+                'name_sk' => data_get($project->name_translations, 'sk', ''),
+                'url' => $project->url,
+                'live_url' => $project->live_url,
+                'summary' => $project->summary,
+                'summary_sk' => data_get($project->summary_translations, 'sk', ''),
+                'hex_color' => $project->hex_color,
+                'logo_path' => $project->logo_path,
+                'images' => $project->images->map(fn ($image) => [
+                    'id' => $image->id,
                     'path' => $image->path,
                     'existing_path' => $image->path,
                     'description' => $image->description ?? '',
                     'description_sk' => data_get($image->description_translations, 'sk', ''),
                     'sort_order' => $image->sort_order,
-                ];
-            })
-            ->values()
-            ->all();
-
-        $features = $project->features
-            ->map(function ($feature) {
-                return [
+                ])->values(),
+                'features' => $project->features->map(fn ($feature) => [
+                    'id' => $feature->id,
                     'title' => $feature->title,
                     'title_sk' => data_get($feature->title_translations, 'sk', ''),
                     'description' => $feature->description,
                     'description_sk' => data_get($feature->description_translations, 'sk', ''),
                     'sort_order' => $feature->sort_order,
-                ];
-            })
-            ->values()
-            ->all();
-
-        if ($images === []) {
-            $images = [['path' => '', 'existing_path' => '', 'description' => '', 'description_sk' => '', 'sort_order' => 0]];
-        }
-
-        if ($features === []) {
-            $features = [['title' => '', 'title_sk' => '', 'description' => '', 'description_sk' => '', 'sort_order' => 0]];
-        }
-
-        return view('admin.portfolio.form', [
-            'project' => $project,
-            'companies' => Company::query()->where('status', 'active')->orderBy('name')->get(),
-            'serviceProducts' => ServiceProduct::query()->where('active', true)->orderBy('name')->get(),
-            'images' => $images,
-            'features' => $features,
+                ])->values(),
+            ],
         ]);
     }
 
-    public function update(Request $request, Project $project): RedirectResponse
+    public function update(Request $request, Project $project): RedirectResponse|JsonResponse
     {
         $data = $this->validatedData($request, $project->id);
         $slug = $this->resolvedSlug($data['url'] ?? '', $data['name']);
@@ -172,6 +157,10 @@ class PortfolioAdminController extends Controller
             $this->syncImages($request, $project, $data['images'] ?? []);
             $this->syncFeatures($project, $data['features'] ?? []);
         });
+
+        if ($request->expectsJson()) {
+            return $this->show($project->fresh());
+        }
 
         return redirect()
             ->route('admin.portfolio.index')
