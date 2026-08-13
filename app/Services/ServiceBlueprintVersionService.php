@@ -45,7 +45,16 @@ class ServiceBlueprintVersionService
                     if ($folder->parent_id && ! isset($folderMap[$folder->parent_id])) continue;
                     $copy = $draft->folders()->create([
                         'parent_id' => $folder->parent_id ? $folderMap[$folder->parent_id] : null,
-                        'name' => $folder->name, 'client_visible' => $folder->client_visible, 'sort_order' => $folder->sort_order,
+                        'type' => $folder->type ?? 'folder',
+                        'name' => $folder->name,
+                        'resource_type' => $folder->resource_type,
+                        'requirement_level' => $folder->requirement_level,
+                        'requires_client_signature' => $folder->requires_client_signature,
+                        'template_name' => $folder->template_name,
+                        'content' => $folder->content,
+                        'url' => $folder->url,
+                        'client_visible' => $folder->client_visible,
+                        'sort_order' => $folder->sort_order,
                     ]);
                     $folderMap[$folder->id] = $copy->id;
                     $pending->forget($index);

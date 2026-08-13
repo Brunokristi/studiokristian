@@ -1,10 +1,10 @@
 <script setup>
 import {
     computed,
-    nextTick,
     onMounted,
     reactive,
-    ref
+    ref,
+    watch
 } from 'vue'
 
 
@@ -23,7 +23,14 @@ import api, {
 import AdminPageHeader from '../../components/AdminPageHeader.vue'
 import Button from '@shared/components/Button.vue'
 import FormField from '@shared/components/FormField.vue'
-import Toast from '@shared/components/Toast.vue'
+import useAutosavePolicy from '../../composables/useAutosavePolicy'
+
+
+const {
+    setStatus,
+    setLastSavedAt
+} =
+    useAutosavePolicy()
 
 
 const props = defineProps({
@@ -75,12 +82,20 @@ const requestError =
     ref('')
 
 
-const showErrorToast =
+const autosaveTimer =
+    ref(null)
+
+
+const suppressAutosave =
     ref(false)
 
 
-const showSuccessToast =
+const inputHasFocus =
     ref(false)
+
+
+const lastSavedSnapshot =
+    ref('')
 
 
 const form =
@@ -94,6 +109,27 @@ const form =
         can_access_portal: false,
         can_accept_documents: false
     })
+
+
+watch(
+    () => form.active,
+    (value) => {
+        if (!value) {
+            form.can_access_portal = false
+            form.can_accept_documents = false
+        }
+    }
+)
+
+
+watch(
+    () => form.can_access_portal,
+    (value) => {
+        if (!value) {
+            form.can_accept_documents = false
+        }
+    }
+)
 
 
 const editing =
@@ -280,15 +316,12 @@ function showError(
 ) {
     requestError.value =
         message
+}
 
 
-    showErrorToast.value =
-        false
-
-
-    nextTick(() => {
-        showErrorToast.value =
-            true
+function getAutosaveSnapshot() {
+    return JSON.stringify({
+        ...form
     })
 }
 
@@ -304,6 +337,9 @@ async function loadContact() {
         return
     }
 
+
+    suppressAutosave.value =
+        true
 
     try {
         const response =
@@ -370,6 +406,10 @@ async function loadContact() {
                     )
             }
         )
+
+
+        lastSavedSnapshot.value =
+            getAutosaveSnapshot()
     } catch (
         exception
     ) {
@@ -380,6 +420,9 @@ async function loadContact() {
         )
     } finally {
         loading.value =
+            false
+
+        suppressAutosave.value =
             false
     }
 }
@@ -409,11 +452,14 @@ function buildPayload() {
 
         can_access_portal:
             Boolean(
+                form.active &&
                 form.can_access_portal
             ),
 
         can_accept_documents:
             Boolean(
+                form.active &&
+                form.can_access_portal &&
                 form.can_accept_documents
             )
     }
@@ -428,8 +474,15 @@ async function submit() {
     }
 
 
+    suppressAutosave.value =
+        true
+
     saving.value =
         true
+
+    setStatus(
+        'saving'
+    )
 
 
     errors.value =
@@ -458,22 +511,35 @@ async function submit() {
                 buildPayload()
             )
         } else {
-            await api.post(
-                `/clients/${companyId.value}/contacts`,
-                buildPayload()
-            )
+            const response =
+                await api.post(
+                    `/clients/${companyId.value}/contacts`,
+                    buildPayload()
+                )
+
+
+            if (
+                response?.data?.data?.id
+            ) {
+                router.push({
+                    name:
+                        'clients.show',
+
+                    params: {
+                        id:
+                            companyId.value
+                    }
+                })
+
+                return
+            }
         }
 
 
-        router.push({
-            name:
-                'clients.show',
+        setLastSavedAt()
 
-            params: {
-                id:
-                    companyId.value
-            }
-        })
+        lastSavedSnapshot.value =
+            getAutosaveSnapshot()
     } catch (
         exception
     ) {
@@ -491,7 +557,77 @@ async function submit() {
     } finally {
         saving.value =
             false
+
+        setStatus(
+            'idle'
+        )
+
+        setLastSavedAt()
+
+        suppressAutosave.value =
+            false
     }
+}
+
+
+function handleFieldFocus() {
+    inputHasFocus.value =
+        true
+}
+
+
+function handleFieldBlur() {
+    inputHasFocus.value =
+        false
+
+    scheduleAutosave()
+}
+
+
+function scheduleAutosave() {
+    if (
+        suppressAutosave.value ||
+        loading.value ||
+        saving.value ||
+        inputHasFocus.value ||
+        !companyId.value ||
+        !form.first_name?.trim() &&
+        !form.last_name?.trim() &&
+        !form.email?.trim()
+    ) {
+        return
+    }
+
+    const snapshot =
+        getAutosaveSnapshot()
+
+    if (
+        lastSavedSnapshot.value &&
+        snapshot ===
+        lastSavedSnapshot.value
+    ) {
+        return
+    }
+
+
+    if (
+        autosaveTimer.value
+    ) {
+        clearTimeout(
+            autosaveTimer.value
+        )
+    }
+
+
+    autosaveTimer.value =
+        setTimeout(() => {
+            if (
+                !saving.value &&
+                companyId.value
+            ) {
+                submit()
+            }
+        }, 600)
 }
 
 
@@ -520,6 +656,19 @@ function cancel() {
 }
 
 
+watch(
+    () => ({
+        ...form
+    }),
+    () => {
+        scheduleAutosave()
+    },
+    {
+        deep: true
+    }
+)
+
+
 onMounted(
     async () => {
         await loadContact()
@@ -536,32 +685,6 @@ onMounted(
             lg:space-y-14
         "
     >
-        <!-- Error toast -->
-        <Toast
-            v-model="showErrorToast"
-            heading="Something went wrong"
-            :text="requestError"
-            :duration="5000"
-        />
-
-
-        <!-- Success toast -->
-        <Toast
-            v-model="showSuccessToast"
-            :heading="
-                form.active
-                    ? 'Contact activated'
-                    : 'Contact deactivated'
-            "
-            :text="
-                form.active
-                    ? 'The contact is now active.'
-                    : 'The contact is now inactive.'
-            "
-            :duration="3000"
-        />
-
-
         <!-- Header -->
         <AdminPageHeader
             :title="pageTitle"
@@ -631,6 +754,8 @@ onMounted(
                         errors.first_name?.[0] ||
                         ''
                     "
+                    @focus="handleFieldFocus"
+                    @blur="handleFieldBlur"
                 />
 
 
@@ -649,6 +774,8 @@ onMounted(
                         errors.last_name?.[0] ||
                         ''
                     "
+                    @focus="handleFieldFocus"
+                    @blur="handleFieldBlur"
                 />
 
 
@@ -667,6 +794,8 @@ onMounted(
                         errors.email?.[0] ||
                         ''
                     "
+                    @focus="handleFieldFocus"
+                    @blur="handleFieldBlur"
                 />
 
 
@@ -684,6 +813,8 @@ onMounted(
                         errors.phone?.[0] ||
                         ''
                     "
+                    @focus="handleFieldFocus"
+                    @blur="handleFieldBlur"
                 />
 
 
@@ -740,6 +871,10 @@ onMounted(
                     :options="
                         portalAccessOptions
                     "
+                    :disabled="
+                        !form.active ||
+                        saving
+                    "
                     :error="
                         errors.can_access_portal?.[0] ||
                         ''
@@ -759,6 +894,11 @@ onMounted(
                     :options="
                         documentAcceptanceOptions
                     "
+                    :disabled="
+                        !form.active ||
+                        !form.can_access_portal ||
+                        saving
+                    "
                     :error="
                         errors.can_accept_documents?.[0] ||
                         ''
@@ -773,38 +913,21 @@ onMounted(
                     flex
                     flex-col
                     gap-4
+                    pt-4
                 "
             >
                 <Button
                     type="button"
-                    text="cancel"
-                    :disabled="
-                        saving
-                    "
-                    @click="
-                        cancel
-                    "
-                    align="left"
-                />
-
-
-                <Button
-                    type="submit"
-                    :text="
-                        editing
-                            ? 'save changes'
-                            : 'create contact'
-                    "
-                    loading-text="saving"
-                    :loading="
-                        saving
-                    "
+                    text="back to client"
                     :disabled="
                         saving
                     "
                     variant="accent"
-                    align="left"
-                    hover-variant="accent-dark"
+                    align="right"
+                    @click="
+                        cancel
+                    "
+                    hover-variant="dark"
                 />
             </div>
         </form>

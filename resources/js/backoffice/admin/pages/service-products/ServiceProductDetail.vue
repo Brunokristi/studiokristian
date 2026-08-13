@@ -1,4 +1,1220 @@
 <script setup>
-import{computed,onMounted,ref}from'vue';import{RouterLink}from'vue-router';import draggable from'vuedraggable';import api,{errorMessage}from'../../composables/useAdminApi';import AdminPageHeader from'../../components/AdminPageHeader.vue';import DynamicFormBuilder from'../../components/DynamicFormBuilder.vue';import FolderTreeBuilder from'../../components/FolderTreeBuilder.vue';import ContractBlockEditor from'../../components/ContractBlockEditor.vue';const props=defineProps({id:String});const data=ref(null),tab=ref('overview'),error=ref(''),busy=ref(false),summary=ref(''),contractVersion=ref(null);const editable=computed(()=>data.value?.version?.status==='draft');async function load(){try{data.value=(await api.get(`/service-products/${props.id}/blueprint`)).data;const versions=data.value.product.default_contract_template?.versions||[];contractVersion.value=versions.find(v=>v.status==='draft')||versions.find(v=>v.status==='published')||null;if(data.value.version?.folders)data.value.version.folders=data.value.version.folders.map(f=>({...f,client_key:String(f.id),parent_client_key:f.parent_id?String(f.parent_id):null}))}catch(e){error.value=errorMessage(e)}}onMounted(load);async function createBlueprint(){await api.post(`/service-products/${props.id}/blueprint`,{name:`${data.value.product.name} Blueprint`,version:'1.0'});await load()}async function createDraft(){const version=prompt('New blueprint version','1.1');if(version){await api.post(`/service-products/${props.id}/blueprint/drafts`,{version});await load()}}async function saveBlueprint(){busy.value=true;try{await api.put(`/blueprint-versions/${data.value.version.id}`,{fields:data.value.version.fields,deliverables:data.value.version.deliverables,folders:data.value.version.folders});await load()}catch(e){error.value=errorMessage(e)}finally{busy.value=false}}async function publishBlueprint(){await api.post(`/blueprint-versions/${data.value.version.id}/publish`,{change_summary:summary.value});await load()}function addDeliverable(){data.value.version.deliverables.push({key:`deliverable_${Date.now()}`,name:'New deliverable',description:'',category:'',requirement_level:'recommended',expected_resource_type:'manual_confirmation',client_visible:true,default_selected:true})}async function setupContract(){if(!data.value.product.default_contract_template)await api.post(`/service-products/${props.id}/contract-template`,{name:`${data.value.product.name} Agreement`});await load();const template=data.value.product.default_contract_template;await api.post(`/contract-templates/${template.id}/drafts`,{version:'1.0'});await load()}async function saveContract(){await api.put(`/contract-template-versions/${contractVersion.value.id}`,{document_schema:contractVersion.value.document_schema||{blocks:[]},field_definitions:contractVersion.value.field_definitions||[]});await load()}async function publishContract(){await api.post(`/contract-template-versions/${contractVersion.value.id}/publish`,{change_summary:summary.value});await load()}
+import {
+    computed,
+    onMounted,
+    reactive,
+    ref,
+    watch
+} from 'vue'
+
+
+import {
+    useRouter
+} from 'vue-router'
+
+
+import api, {
+    errorMessage,
+    validationErrors
+} from '../../composables/useAdminApi'
+
+
+import AdminPageHeader from '../../components/AdminPageHeader.vue'
+
+
+import ServiceFileStructure
+    from '../../components/ServiceFileStructure.vue'
+
+import DocumentEditor
+    from '../../components/DocumentEditor.vue'
+
+
+import Button from '@shared/components/Button.vue'
+import FormField from '@shared/components/FormField.vue'
+import Tag from '@shared/components/Tag.vue'
+import useAutosavePolicy from '../../composables/useAutosavePolicy'
+
+
+const {
+    enabled: autosaveEnabled
+} =
+    useAutosavePolicy()
+
+
+const props =
+    defineProps({
+        id: {
+            type: String,
+            default: ''
+        },
+
+        create: {
+            type: Boolean,
+            default: false
+        }
+    })
+
+
+const router =
+    useRouter()
+
+
+const data =
+    ref(null)
+
+
+const createdProductId =
+    ref(null)
+
+
+const loading =
+    ref(true)
+
+
+const saving =
+    ref(false)
+
+
+const errors =
+    ref({})
+
+
+const requestError =
+    ref('')
+
+
+const autosaveTimer =
+    ref(null)
+
+
+const suppressAutosave =
+    ref(false)
+
+
+const inputHasFocus =
+    ref(false)
+
+
+const lastSavedSnapshot =
+    ref('')
+
+
+const documentEditorOpen =
+    ref(false)
+
+
+const documentTemplate =
+    ref(null)
+
+
+const documentTemplateLoading =
+    ref(false)
+
+
+const productForm =
+    reactive({
+        name: '',
+        description: '',
+        active: true
+    })
+
+
+const isCreateMode =
+    computed(() =>
+        Boolean(
+            props.create
+        ) ||
+        (!props.id && !createdProductId.value)
+    )
+
+
+const pageTitle =
+    computed(() =>
+        productForm.name ||
+        data.value?.product?.name ||
+        'New service'
+    )
+
+
+const breadcrumbs =
+    computed(() => {
+        const items = [
+            {
+                label: 'Service Products',
+                to: {
+                    name: 'service-products.index'
+                }
+            }
+        ]
+
+
+        items.push({
+            label:
+                productForm.name ||
+                data.value?.product?.name ||
+                'New service'
+        })
+
+
+        return items
+    })
+
+
+const editable =
+    computed(() => {
+        if (isCreateMode.value) {
+            return true
+        }
+
+
+        return (
+            data.value?.version?.status ===
+            'draft'
+        )
+    })
+
+
+const folders =
+    computed(() =>
+        data.value?.version?.folders ||
+        []
+    )
+
+
+function blankProduct() {
+    return {
+        name: '',
+        description: '',
+        active: true
+    }
+}
+
+
+function blankBlueprint() {
+    return {
+        id: null,
+        version: '1.0',
+        status: 'draft',
+        folders: []
+    }
+}
+
+
+function prepareProduct(
+    product
+) {
+    Object.assign(
+        productForm,
+        {
+            name:
+                product?.name ||
+                '',
+
+            description:
+                product?.description ||
+                '',
+
+            active:
+                product?.active ??
+                true
+        }
+    )
+}
+
+
+function showError(
+    message
+) {
+    requestError.value =
+        message
+}
+
+
+function getAutosaveSnapshot() {
+    return JSON.stringify({
+        name:
+            productForm.name,
+
+        description:
+            productForm.description,
+
+        active:
+            productForm.active,
+
+        folders:
+            data.value?.version?.folders || []
+    })
+}
+
+
+async function load() {
+    loading.value =
+        true
+
+    suppressAutosave.value =
+        true
+
+    try {
+        if (
+            isCreateMode.value
+        ) {
+            data.value = {
+                product:
+                    blankProduct(),
+
+                version:
+                    blankBlueprint(),
+
+                readiness: {
+                    ready: false,
+                    missing: [
+                        'service_product'
+                    ]
+                }
+            }
+
+
+            prepareProduct(
+                data.value.product
+            )
+
+
+            return
+        }
+
+
+        const response =
+            await api.get(
+                `/service-products/${props.id}/blueprint`
+            )
+
+
+        data.value =
+            response.data
+
+
+        prepareProduct(
+            data.value.product
+        )
+
+
+        if (
+            data.value.version
+        ) {
+            data.value.version.folders =
+                (data.value.version.folders || [])
+                    .map(
+                        item => ({
+                            ...item,
+                            client_key:
+                                item.client_key ||
+                                String(
+                                    item.id
+                                ),
+                            parent_client_key:
+                                item.parent_client_key ??
+                                (item.parent_id !== null &&
+                                item.parent_id !== undefined
+                                    ? String(
+                                        item.parent_id
+                                    )
+                                    : null),
+                            client_visible:
+                                item.client_visible ??
+                                true
+                        })
+                    )
+        }
+
+
+        lastSavedSnapshot.value =
+            getAutosaveSnapshot()
+    } catch (
+        exception
+    ) {
+        showError(
+            errorMessage(
+                exception
+            )
+        )
+    } finally {
+        loading.value =
+            false
+
+        suppressAutosave.value =
+            false
+    }
+}
+
+
+async function saveProduct() {
+    if (
+        saving.value
+    ) {
+        return
+    }
+
+
+    suppressAutosave.value =
+        true
+
+    saving.value =
+        true
+
+
+    errors.value =
+        {}
+
+
+    requestError.value =
+        ''
+
+
+    try {
+        const payload = {
+            name:
+                productForm.name,
+
+            description:
+                productForm.description,
+
+            active:
+                Boolean(
+                    productForm.active
+                )
+        }
+
+
+        let productResponse
+
+
+        if (
+            isCreateMode.value
+        ) {
+            productResponse =
+                await api.post(
+                    '/service-products',
+                    payload
+                )
+
+
+            const createdId =
+                productResponse.data?.id
+
+
+            if (
+                createdId
+            ) {
+                createdProductId.value =
+                    createdId
+
+                data.value =
+                    data.value || {
+                        product: {},
+                        version: blankBlueprint()
+                    }
+
+                data.value.product = {
+                    ...(data.value.product || {}),
+                    id: createdId,
+                    name:
+                        productForm.name,
+                    description:
+                        productForm.description,
+                    active:
+                        Boolean(
+                            productForm.active
+                        )
+                }
+
+                lastSavedSnapshot.value =
+                    getAutosaveSnapshot()
+
+                return
+            }
+
+
+            return
+        }
+
+
+        productResponse =
+            await api.put(
+                `/service-products/${props.id || createdProductId.value}`,
+                payload
+            )
+
+
+        if (
+            data.value
+        ) {
+            data.value.product = {
+                ...(data.value.product || {}),
+                ...productResponse.data
+            }
+        }
+
+
+        if (
+            !productForm.name &&
+            productResponse.data?.name
+        ) {
+            productForm.name =
+                productResponse.data.name
+        }
+
+
+        if (
+            !productForm.description &&
+            productResponse.data?.description
+        ) {
+            productForm.description =
+                productResponse.data.description
+        }
+
+
+        if (
+            data.value?.version?.id
+        ) {
+            const blueprintResponse =
+                await api.put(
+                    `/blueprint-versions/${data.value.version.id}`,
+                    {
+                        fields:
+                            data.value.version.fields ||
+                            [],
+
+                        folders:
+                            (data.value.version.folders || []).map(
+                                item => ({
+                                    ...item,
+                                    client_key:
+                                        item.client_key ||
+                                        String(
+                                            item.id
+                                        ),
+                                    parent_client_key:
+                                        item.parent_client_key ??
+                                        (item.parent_id !== null &&
+                                        item.parent_id !== undefined
+                                            ? String(
+                                                item.parent_id
+                                            )
+                                            : null),
+                                    client_visible:
+                                        item.client_visible ??
+                                        true
+                                })
+                            )
+                    }
+                )
+
+
+            if (
+                blueprintResponse?.data
+            ) {
+                data.value.version =
+                    {
+                        ...data.value.version,
+                        ...blueprintResponse.data
+                    }
+            }
+        }
+
+
+        lastSavedSnapshot.value =
+            getAutosaveSnapshot()
+    } catch (
+        exception
+    ) {
+        errors.value =
+            validationErrors(
+                exception
+            )
+
+
+        showError(
+            errorMessage(
+                exception
+            )
+        )
+    } finally {
+        saving.value =
+            false
+
+        suppressAutosave.value =
+            false
+    }
+}
+
+
+async function createBlueprint() {
+    if (
+        !props.id ||
+        saving.value
+    ) {
+        return
+    }
+
+
+    saving.value =
+        true
+
+
+    try {
+        await api.post(
+            `/service-products/${props.id}/blueprint`,
+            {
+                name:
+                    `${productForm.name} Blueprint`,
+
+                version:
+                    '1.0'
+            }
+        )
+
+
+        await load()
+    } catch (
+        exception
+    ) {
+        showError(
+            errorMessage(
+                exception
+            )
+        )
+    } finally {
+        saving.value =
+            false
+    }
+}
+
+
+async function createDraft() {
+    if (
+        !props.id ||
+        saving.value
+    ) {
+        return
+    }
+
+
+    saving.value =
+        true
+
+
+    try {
+        const currentVersion =
+            data.value?.version?.version ||
+            '1.0'
+
+
+        const parts =
+            String(
+                currentVersion
+            )
+                .split('.')
+                .map(
+                    Number
+                )
+
+
+        const nextVersion =
+            `${parts[0] || 1}.${(parts[1] || 0) + 1}`
+
+
+        await api.post(
+            `/service-products/${props.id}/blueprint/drafts`,
+            {
+                version:
+                    nextVersion
+            }
+        )
+
+
+        await load()
+    } catch (
+        exception
+    ) {
+        showError(
+            errorMessage(
+                exception
+            )
+        )
+    } finally {
+        saving.value =
+            false
+    }
+}
+
+
+function openDocumentTemplate(
+    file
+) {
+    if (
+        !file?.id
+    ) {
+        return
+    }
+
+
+    documentTemplate.value =
+        {
+            id: file.id,
+            name:
+                file.name ||
+                'Untitled document',
+            content:
+                file.content ||
+                ''
+        }
+
+
+    documentEditorOpen.value =
+        true
+}
+
+
+function saveDocumentTemplate(
+    template
+) {
+    if (
+        !data.value?.version
+    ) {
+        return
+    }
+
+
+    data.value.version.folders =
+        data.value.version.folders.map(
+            item =>
+                String(item.id) ===
+                String(template.id)
+                    ? {
+                        ...item,
+                        name:
+                            template.name ||
+                            item.name,
+                        content:
+                            template.content ||
+                            '',
+                        template_name:
+                            template.name ||
+                            item.template_name ||
+                            item.name
+                    }
+                    : item
+        )
+
+
+    documentTemplate.value =
+        null
+
+    documentEditorOpen.value =
+        false
+
+    scheduleAutosave()
+}
+
+
+function updateFolders(
+    value
+) {
+    if (
+        !data.value?.version
+    ) {
+        return
+    }
+
+
+    data.value.version.folders =
+        value
+
+    scheduleAutosave()
+}
+
+
+async function saveBlueprint() {
+    if (
+        !data.value?.version ||
+        saving.value
+    ) {
+        return
+    }
+
+
+    saving.value =
+        true
+
+
+    try {
+        await api.put(
+            `/blueprint-versions/${data.value.version.id}`,
+            {
+                fields:
+                    data.value.version.fields ||
+                    [],
+
+                folders:
+                    (data.value.version.folders || []).map(
+                        item => ({
+                            ...item,
+                            client_key:
+                                item.client_key ||
+                                String(
+                                    item.id
+                                ),
+                            parent_client_key:
+                                item.parent_client_key ??
+                                (item.parent_id !== null &&
+                                item.parent_id !== undefined
+                                    ? String(
+                                        item.parent_id
+                                    )
+                                    : null),
+                            client_visible:
+                                item.client_visible ??
+                                true
+                        })
+                    )
+            }
+        )
+
+
+        await load()
+    } catch (
+        exception
+    ) {
+        showError(
+            errorMessage(
+                exception
+            )
+        )
+    } finally {
+        saving.value =
+            false
+    }
+}
+
+
+async function publishBlueprint() {
+    if (
+        !data.value?.version ||
+        saving.value
+    ) {
+        return
+    }
+
+
+    saving.value =
+        true
+
+
+    try {
+        await api.post(
+            `/blueprint-versions/${data.value.version.id}/publish`,
+            {
+                change_summary:
+                    'Updated service configuration'
+            }
+        )
+
+
+        await load()
+    } catch (
+        exception
+    ) {
+        showError(
+            errorMessage(
+                exception
+            )
+        )
+    } finally {
+        saving.value =
+            false
+    }
+}
+
+
+function handleFieldFocus() {
+    inputHasFocus.value =
+        true
+}
+
+
+function handleFieldBlur() {
+    inputHasFocus.value =
+        false
+
+    scheduleAutosave()
+}
+
+
+function scheduleAutosave() {
+    if (
+        suppressAutosave.value ||
+        inputHasFocus.value ||
+        !autosaveEnabled.value
+    ) {
+        return
+    }
+
+    const snapshot =
+        getAutosaveSnapshot()
+
+    if (
+        lastSavedSnapshot.value &&
+        snapshot ===
+        lastSavedSnapshot.value
+    ) {
+        return
+    }
+
+
+    if (
+        autosaveTimer.value
+    ) {
+        clearTimeout(
+            autosaveTimer.value
+        )
+    }
+
+
+    autosaveTimer.value =
+        setTimeout(() => {
+            if (
+                !saving.value
+            ) {
+                saveProduct()
+            }
+        }, 400)
+}
+
+
+function cancel() {
+    router.push({
+        name:
+            'service-products.index'
+    })
+}
+
+
+function formatStatus(
+    value
+) {
+    return String(
+        value || ''
+    )
+        .replaceAll(
+            '_',
+            ' '
+        )
+}
+
+watch(
+    () => [
+        productForm.name,
+        productForm.description,
+        productForm.active
+    ],
+    () => {
+        scheduleAutosave()
+    },
+    {
+        deep: true
+    }
+)
+
+
+watch(
+    () => data.value?.version?.folders,
+    () => {
+        scheduleAutosave()
+    },
+    {
+        deep: true
+    }
+)
+
+
+onMounted(() => {
+    load()
+})
 </script>
-<template><div v-if="data" class="space-y-6"><AdminPageHeader :title="data.product.name" eyebrow="Service delivery blueprint"><RouterLink class="admin-button" :to="{name:'service-products.index'}">Back</RouterLink><button v-if="!data.product.blueprint" class="admin-button bg-dark text-light" @click="createBlueprint">Create blueprint</button><button v-else-if="!editable" class="admin-button bg-dark text-light" @click="createDraft">Create draft</button></AdminPageHeader><p v-if="error" class="text-red-700">{{error}}</p><nav class="flex gap-5 overflow-x-auto border-b border-dark font-mono text-xs font-bold uppercase"><button v-for="item in ['overview','project setup','deliverables','file structure','contract']" :key="item" class="whitespace-nowrap border-b-4 pb-3" :class="tab===item?'border-accent':'border-transparent'" @click="tab=item">{{item}}</button></nav><section v-if="tab==='overview'" class="grid gap-5 lg:grid-cols-2"><article class="border border-dark bg-light p-6"><h2 class="font-mono font-bold uppercase">Readiness</h2><p class="mt-4 text-2xl font-bold">{{data.readiness.ready?'Ready':'Setup incomplete'}}</p><p v-for="missing in data.readiness.missing" :key="missing" class="mt-2 text-sm">Missing: {{missing.replaceAll('_',' ')}}</p></article><article class="border border-dark bg-light p-6"><h2 class="font-mono font-bold uppercase">Versions</h2><p class="mt-4">Blueprint {{data.version?.version||'not configured'}} · {{data.version?.status}}</p><p class="mt-2">Contract {{contractVersion?.version||'not configured'}} · {{contractVersion?.status}}</p></article></section><DynamicFormBuilder v-if="tab==='project setup'&&data.version" v-model="data.version.fields" :disabled="!editable"/><section v-if="tab==='deliverables'" class="space-y-3"><draggable v-if="data.version" v-model="data.version.deliverables" item-key="key" handle=".drag-handle" :disabled="!editable"><template #item="{element,index}"><article class="mb-3 grid gap-3 border border-dark bg-light p-4 sm:grid-cols-[32px_1fr_160px_180px_auto]"><button class="drag-handle">☰</button><div class="admin-field"><label>Name / key</label><input v-model="element.name" :disabled="!editable"><input v-model="element.key" :disabled="!editable||Boolean(element.id)" class="mt-2"></div><div class="admin-field"><label>Requirement</label><select v-model="element.requirement_level" :disabled="!editable"><option>required</option><option>recommended</option><option>optional</option></select></div><div class="admin-field"><label>Expected</label><select v-model="element.expected_resource_type" :disabled="!editable"><option v-for="type in ['file','folder','document','guide','service_account','external_link','manual_confirmation']" :key="type">{{type}}</option></select></div><button v-if="editable" @click="data.version.deliverables.splice(index,1)">×</button></article></template></draggable><button v-if="editable" class="admin-button" @click="addDeliverable">Add deliverable</button></section><FolderTreeBuilder v-if="tab==='file structure'&&data.version" v-model="data.version.folders" :disabled="!editable"/><section v-if="tab==='contract'" class="space-y-4"><button v-if="!contractVersion" class="admin-button bg-dark text-light" @click="setupContract">Set up default contract</button><template v-else><ContractBlockEditor v-model="contractVersion.document_schema" :fields="data.version?.fields||[]" :disabled="contractVersion.status!=='draft'"/><button v-if="contractVersion.status==='draft'" class="admin-button" @click="saveContract">Save contract draft</button><button v-if="contractVersion.status==='draft'" class="admin-button bg-dark text-light" :disabled="!summary" @click="publishContract">Publish contract</button></template></section><footer v-if="editable&&tab!=='contract'" class="sticky bottom-0 flex flex-wrap justify-end gap-2 border border-dark bg-light p-4"><input v-model="summary" class="min-w-64 border p-2" placeholder="Change summary"><button class="admin-button" :disabled="busy" @click="saveBlueprint">Save draft</button><button class="admin-button bg-dark text-light" :disabled="!summary" @click="publishBlueprint">Publish</button></footer></div><p v-else class="p-10">Loading…</p></template>
+
+
+<template>
+    <div
+        v-if="data"
+        class="
+            w-full
+            space-y-16
+            lg:space-y-20
+        "
+    >
+        <!-- Header -->
+        <AdminPageHeader
+            :title="
+                pageTitle
+            "
+            :description="
+                isCreateMode
+                    ? 'Create a reusable service for your client projects.'
+                    : 'Define what this service includes and how its projects are structured.'
+            "
+            :breadcrumbs="
+                breadcrumbs
+            "
+        >
+            <Button
+                v-if="
+                    !isCreateMode &&
+                    !data.version
+                "
+                type="button"
+                text="create structure"
+                variant="accent"
+                align="left"
+                :loading="
+                    saving
+                "
+                :disabled="
+                    saving
+                "
+                @click="
+                    createBlueprint
+                "
+            />
+
+
+            <Button
+                v-if="
+                    !isCreateMode &&
+                    data.version &&
+                    !editable
+                "
+                type="button"
+                text="create draft"
+                variant="accent"
+                align="left"
+                :loading="
+                    saving
+                "
+                :disabled="
+                    saving
+                "
+                @click="
+                    createDraft
+                "
+            />
+        </AdminPageHeader>
+
+
+        <!-- Basic information -->
+        <section
+            class="
+                space-y-6
+            "
+        >
+            <h2
+                class="
+                    h2
+                    text-accent
+                    text-left
+                "
+            >
+                Basic information
+            </h2>
+
+
+            <form
+                class="
+                    grid
+                    grid-cols-1
+                    gap-8
+                    md:grid-cols-2
+                    md:gap-x-20
+                    md:gap-y-10
+                "
+                @submit.prevent="
+                    saveProduct
+                "
+            >
+                <section
+                    class="
+                        space-y-8
+                    "
+                >
+                    <FormField
+                        id="service-name"
+                        v-model="
+                            productForm.name
+                        "
+                        name="name"
+                        type="text"
+                        label="Name"
+                        placeholder="Website development"
+                        :disabled="
+                            saving
+                        "
+                        :error="
+                            errors.name?.[0] ||
+                            ''
+                        "
+                        @focus="handleFieldFocus"
+                        @blur="handleFieldBlur"
+                    />
+
+
+                    <FormField
+                        id="service-description"
+                        v-model="
+                            productForm.description
+                        "
+                        name="description"
+                        type="textarea"
+                        label="Description"
+                        placeholder="Describe what this service includes."
+                        :disabled="
+                            saving
+                        "
+                        :error="
+                            errors.description?.[0] ||
+                            ''
+                        "
+                        @focus="handleFieldFocus"
+                        @blur="handleFieldBlur"
+                    />
+                </section>
+
+
+                <section
+                        class="
+                            flex
+                            flex-col
+                            space-y-8
+
+                        "
+                    >
+                        <div
+                            class="
+                                space-y-8
+                            "
+                        >
+                            <FormField
+                                id="service-status"
+                                v-model="
+                                    productForm.active
+                                "
+                                name="active"
+                                type="select"
+                                label="Status"
+                                :options="[
+                                    {
+                                        label: 'Active',
+                                        value: true
+                                    },
+                                    {
+                                        label: 'Inactive',
+                                        value: false
+                                    }
+                                ]"
+                                :disabled="
+                                    saving
+                                "
+                                :error="
+                                    errors.active?.[0] ||
+                                    ''
+                                "
+                            />
+                        </div>
+
+                        <div
+                            class="
+                                flex
+                                flex-col
+                                gap-4
+                            "
+                        />
+                </section>
+            </form>
+        </section>
+
+
+        <!-- File structure -->
+        <section
+            v-if="
+                !isCreateMode &&
+                data.version
+            "
+            class="
+                space-y-8
+            "
+        >
+            <div>
+                <h2
+                    class="
+                        h2
+                        text-accent
+                        text-left
+                    "
+                >
+                    Project structure
+                </h2>
+            </div>
+
+
+            <ServiceFileStructure
+                :model-value="
+                    folders
+                "
+                :disabled="
+                    !editable
+                "
+                @update:model-value="
+                    updateFolders
+                "
+                @open-document="
+                    openDocumentTemplate
+                "
+            />
+        </section>
+
+
+        <!-- Document editor -->
+        <DocumentEditor
+            v-if="
+                documentEditorOpen
+            "
+            :template="
+                documentTemplate
+            "
+            :loading="
+                documentTemplateLoading
+            "
+            :saving="
+                saving
+            "
+            @close="
+                documentEditorOpen = false
+            "
+            @save="
+                saveDocumentTemplate
+            "
+        />
+    </div>
+
+
+    <div
+        v-else-if="
+            loading
+        "
+        class="
+            p
+            uppercase
+            text-dark/40
+        "
+    >
+        Loading service...
+    </div>
+</template>

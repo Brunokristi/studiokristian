@@ -10,8 +10,8 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 class ProjectFolder extends Model
 {
     use SoftDeletes;
-    protected $fillable = ['project_id', 'parent_id', 'source_blueprint_folder_id', 'name', 'client_visible', 'sort_order', 'created_by'];
-    protected function casts(): array { return ['client_visible' => 'boolean']; }
+    protected $fillable = ['project_id', 'parent_id', 'source_blueprint_folder_id', 'type', 'name', 'resource_type', 'requirement_level', 'requires_client_signature', 'template_name', 'content', 'url', 'client_visible', 'sort_order', 'created_by'];
+    protected function casts(): array { return ['client_visible' => 'boolean', 'requires_client_signature' => 'boolean']; }
     public function project(): BelongsTo { return $this->belongsTo(Project::class); }
     public function parent(): BelongsTo { return $this->belongsTo(self::class, 'parent_id'); }
     public function children(): HasMany { return $this->hasMany(self::class, 'parent_id')->orderBy('sort_order'); }

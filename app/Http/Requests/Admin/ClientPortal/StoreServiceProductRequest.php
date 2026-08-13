@@ -19,11 +19,11 @@ class StoreServiceProductRequest extends AdminClientPortalRequest
         $productId = $this->route('serviceProduct')?->getKey();
 
         return [
-            'name' => ['required', 'string', 'max:255'],
+            'name' => ['nullable', 'string', 'max:255'],
             'slug' => ['nullable', 'alpha_dash:ascii', 'max:255', Rule::unique('service_products', 'slug')->ignore($productId)],
             'description' => ['nullable', 'string', 'max:5000'],
-            'active' => ['required', 'boolean'],
-            'sort_order' => ['required', 'integer', 'min:0', 'max:65535'],
+            'active' => ['nullable', 'boolean'],
+            'sort_order' => ['nullable', 'integer', 'min:0', 'max:65535'],
         ];
     }
 }

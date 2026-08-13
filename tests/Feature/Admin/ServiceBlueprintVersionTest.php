@@ -54,4 +54,33 @@ class ServiceBlueprintVersionTest extends TestCase
         $this->assertSame('Hosting included?', $v1->fields()->first()->label);
         $this->assertSame('Is hosting managed?', $v2->fields()->first()->label);
     }
+
+    public function test_draft_copy_preserves_file_structure_metadata(): void
+    {
+        $actor = User::factory()->create(['is_admin' => true]);
+        $product = ServiceProduct::query()->create(['name' => 'Website', 'slug' => 'website', 'active' => true, 'sort_order' => 0]);
+        $service = app(ServiceBlueprintVersionService::class);
+        $v1 = $service->create($product, 'Website Delivery', '1.0', $actor);
+        $root = $v1->folders()->create(['name' => 'Documents', 'type' => 'folder']);
+        $v1->folders()->create([
+            'parent_id' => $root->id,
+            'name' => 'Client brief',
+            'type' => 'file',
+            'resource_type' => 'document',
+            'requirement_level' => 'required',
+            'requires_client_signature' => true,
+            'template_name' => 'Client brief template',
+            'url' => '',
+        ]);
+        $service->publish($v1, 'Initial version.', $actor);
+
+        $v2 = $service->createDraft($v1->blueprint, '1.1', $actor);
+        $copied = $v2->folders()->where('name', 'Client brief')->sole();
+
+        $this->assertSame('file', $copied->type);
+        $this->assertSame('document', $copied->resource_type);
+        $this->assertSame('required', $copied->requirement_level);
+        $this->assertTrue((bool) $copied->requires_client_signature);
+        $this->assertSame('Client brief template', $copied->template_name);
+    }
 }

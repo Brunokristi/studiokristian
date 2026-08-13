@@ -13,7 +13,59 @@ import {
 } from 'vue-router'
 
 
+import Tag from '@shared/components/Tag.vue'
 import Toast from '@shared/components/Toast.vue'
+import useAutosavePolicy from '../composables/useAutosavePolicy'
+
+
+const {
+    enabled,
+    status,
+    lastSavedAt
+} =
+    useAutosavePolicy()
+
+
+const lastSavedLabel =
+    computed(() => {
+        if (
+            !lastSavedAt.value
+        ) {
+            return 'never'
+        }
+
+
+        const savedAt =
+            new Date(
+                lastSavedAt.value
+            )
+
+
+        const now =
+            new Date()
+
+
+        const diffMs =
+            now.getTime() -
+            savedAt.getTime()
+
+
+        if (
+            diffMs <
+            60000
+        ) {
+            return 'now'
+        }
+
+
+        return savedAt.toLocaleTimeString(
+            [],
+            {
+                hour: '2-digit',
+                minute: '2-digit'
+            }
+        )
+    })
 
 
 const route =
@@ -50,12 +102,30 @@ const navigation = [
     },
 
     {
-        label: 'Service products',
+        label: 'Services',
         icon: 'bi-box',
         route: {
             name: 'service-products.index'
         },
         match: 'service-products'
+    },
+
+    {
+        label: 'Internal storage',
+        icon: 'bi-folder2-open',
+        route: {
+            name: 'internal-storage.index'
+        },
+        match: 'internal-storage'
+    },
+
+    {
+        label: 'Coworkers',
+        icon: 'bi-people-fill',
+        route: {
+            name: 'coworkers.index'
+        },
+        match: 'coworkers'
     },
 
     {
@@ -137,73 +207,112 @@ watch(
                 px-5
             "
         >
-            <RouterLink
-                :to="{
-                    name: 'dashboard'
-                }"
+            <div
                 class="
                     flex
-                    gap-1
                     items-center
-                    justify-center
-                    transition-opacity
-                    duration-200                            
+                    gap-3
                 "
-                aria-label="Studio Kristian Admin"
             >
-                <img
-                    src="/public/assets/logo.svg"
-                    alt=""
+                <RouterLink
+                    :to="{
+                        name: 'dashboard'
+                    }"
                     class="
-                        h-2.5
-                        w-auto
+                        flex
+                        gap-1
+                        items-center
+                        justify-center
+                        transition-opacity
+                        duration-200
                     "
+                    aria-label="Studio Kristian Admin"
                 >
+                    <img
+                        src="/public/assets/logo.svg"
+                        alt=""
+                        class="
+                            h-2.5
+                            w-auto
+                        "
+                    >
+
+                    <span
+                        class="
+                            h3
+                        "
+                    >
+                        backoffice
+                    </span>
+                </RouterLink>
+            </div>
+
+            <div
+                v-if="enabled"
+                class="
+                    flex
+                    items-center
+                    gap-2
+                "
+            >
+                <Tag
+                    :text="
+                        status === 'saving'
+                            ? 'saving...'
+                            : 'autosave on'
+                    "
+                />
 
                 <span
                     class="
-                        h3
+                        p
+                        text-dark
+                        uppercase
+                        text-[10px]
                     "
                 >
-                    backoffice
+                    last saved: {{
+                        lastSavedLabel
+                    }}
                 </span>
-            </RouterLink>
 
-
-            <button
-                type="button"
-                class="
-                    grid
-                    h-9
-                    w-9
-                    place-items-center
-                    text-dark
-                    transition-colors
-                    hover:text-accent
-                    lg:hidden
-                "
-                :aria-expanded="
-                    menuOpen
-                "
-                aria-controls="admin-navigation"
-                aria-label="Toggle navigation"
-                @click="
-                    menuOpen =
-                        !menuOpen
-                "
-            >
-                <i
+                <button
+                    type="button"
                     class="
-                        bi
-                        text-xl
+                        grid
+                        h-9
+                        w-9
+                        place-items-center
+                        text-dark
+                        transition-colors
+                        hover:text-accent
+                        lg:hidden
                     "
-                    :class="
+                    :aria-expanded="
                         menuOpen
-                            ? 'bi-chevron-bar-left'
-                            : 'bi-chevron-bar-right'
                     "
-                />
-            </button>
+                    aria-controls="admin-navigation"
+                    aria-label="Toggle navigation"
+                    @click="
+                        menuOpen =
+                            !menuOpen
+                    "
+                >
+                    <i
+                        class="
+                            bi
+                            text-xl
+                        "
+                        :class="
+                            menuOpen
+                                ? 'bi-chevron-bar-left'
+                                : 'bi-chevron-bar-right'
+                        "
+                    />
+                </button>
+            </div>
+
+            
         </div>
 
 
@@ -364,7 +473,7 @@ watch(
                 class="
                     min-w-0
                     px-10
-                    py-5
+                    py-10
                     pb-20
                 "
             >

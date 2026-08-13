@@ -66,7 +66,13 @@ return new class extends Migration
             $table->id();
             $table->foreignId('service_blueprint_version_id')->constrained()->cascadeOnDelete();
             $table->foreignId('parent_id')->nullable()->constrained('service_blueprint_folder_definitions')->cascadeOnDelete();
+            $table->string('type')->default('folder');
             $table->string('name');
+            $table->string('resource_type')->nullable();
+            $table->string('requirement_level')->nullable();
+            $table->boolean('requires_client_signature')->default(false);
+            $table->string('template_name')->nullable();
+            $table->string('url')->nullable();
             $table->boolean('client_visible')->default(true);
             $table->unsignedInteger('sort_order')->default(0);
             $table->timestamps();
@@ -105,7 +111,13 @@ return new class extends Migration
             $table->foreignId('project_id')->constrained()->cascadeOnDelete();
             $table->foreignId('parent_id')->nullable()->constrained('project_folders')->cascadeOnDelete();
             $table->foreignId('source_blueprint_folder_id')->nullable()->constrained('service_blueprint_folder_definitions')->nullOnDelete();
+            $table->string('type')->default('folder');
             $table->string('name');
+            $table->string('resource_type')->nullable();
+            $table->string('requirement_level')->nullable();
+            $table->boolean('requires_client_signature')->default(false);
+            $table->string('template_name')->nullable();
+            $table->string('url')->nullable();
             $table->boolean('client_visible')->default(true);
             $table->unsignedInteger('sort_order')->default(0);
             $table->foreignId('created_by')->nullable()->constrained('users')->nullOnDelete();

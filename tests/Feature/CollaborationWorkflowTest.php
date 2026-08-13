@@ -56,6 +56,44 @@ class CollaborationWorkflowTest extends TestCase
         Notification::assertSentToTimes($coworker, ProjectInvitationNotification::class, 2);
     }
 
+    public function test_admin_can_manage_coworkers_and_list_internal_files(): void
+    {
+        Notification::fake();
+        $admin = User::factory()->create(['is_admin' => true]);
+        $company = Company::create(['name' => 'Client']);
+        $project = Project::create(['company_id' => $company->id, 'name' => 'Internal work', 'url' => 'internal-work']);
+
+        $this->actingAs($admin)
+            ->postJson('/admin/client-portal/api/coworkers', [
+                'name' => 'Sam Coworker',
+                'email' => 'sam@example.test',
+                'project_ids' => [$project->id],
+            ])
+            ->assertCreated()
+            ->assertJsonPath('name', 'Sam Coworker');
+
+        $this->actingAs($admin)
+            ->getJson('/admin/client-portal/api/coworkers')
+            ->assertOk()
+            ->assertJsonFragment(['email' => 'sam@example.test']);
+
+        $project->files()->create([
+            'display_name' => 'Brief.docx',
+            'original_filename' => 'Brief.docx',
+            'storage_path' => 'client-portal/projects/'.$project->id.'/files/brief.docx',
+            'mime_type' => 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+            'size' => 1200,
+            'checksum' => 'abc123',
+            'visibility' => 'internal',
+            'uploaded_by' => $admin->id,
+        ]);
+
+        $this->actingAs($admin)
+            ->getJson('/admin/client-portal/api/internal-storage')
+            ->assertOk()
+            ->assertJsonFragment(['display_name' => 'Brief.docx']);
+    }
+
     public function test_client_ticket_notifies_admin_and_project_coworker(): void
     {
         Notification::fake();

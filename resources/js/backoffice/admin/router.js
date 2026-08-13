@@ -9,6 +9,8 @@ import ServiceProductsIndex from './pages/service-products/ServiceProductsIndex.
 import ServiceProductDetail from './pages/service-products/ServiceProductDetail.vue'
 import PortfolioIndex from './pages/portfolio/PortfolioIndex.vue'
 import PortfolioEditor from './pages/portfolio/PortfolioEditor.vue'
+import CoworkersIndex from './pages/coworkers/CoworkersIndex.vue'
+import InternalStorageIndex from './pages/internal-storage/InternalStorageIndex.vue'
 
 const router = createRouter({
     history: createWebHistory('/admin/client-portal/'),
@@ -25,7 +27,11 @@ const router = createRouter({
         { path: '/projects/:id', name: 'projects.show', component: ProjectForm, props: true },
         { path: '/projects/:id/edit', name: 'projects.edit', component: ProjectForm, props: true },
         { path: '/service-products', name: 'service-products.index', component: ServiceProductsIndex },
+        { path: '/service-products/create', name: 'service-products.create', component: ServiceProductDetail, props: { create: true } },
         { path: '/service-products/:id', name: 'service-products.show', component: ServiceProductDetail, props: true },
+        { path: '/service-products/:id/edit', name: 'service-products.edit', component: ServiceProductDetail, props: true },
+        { path: '/coworkers', name: 'coworkers.index', component: CoworkersIndex },
+        { path: '/internal-storage', name: 'internal-storage.index', component: InternalStorageIndex },
         { path: '/portfolio', name: 'portfolio.index', component: PortfolioIndex },
         { path: '/projects/:id/portfolio', name: 'portfolio.edit', component: PortfolioEditor, props: true },
     ],

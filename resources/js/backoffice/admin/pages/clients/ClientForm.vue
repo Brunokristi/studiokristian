@@ -5,7 +5,8 @@ import {
     onBeforeUnmount,
     onMounted,
     reactive,
-    ref
+    ref,
+    watch
 } from 'vue'
 
 
@@ -35,6 +36,14 @@ import Tag from '@shared/components/Tag.vue'
 import Button from '@shared/components/Button.vue'
 import FormField from '@shared/components/FormField.vue'
 import Toast from '@shared/components/Toast.vue'
+import useAutosavePolicy from '../../composables/useAutosavePolicy'
+
+
+const {
+    setStatus,
+    setLastSavedAt
+} =
+    useAutosavePolicy()
 
 
 const props =
@@ -74,8 +83,8 @@ const showErrorToast =
     ref(false)
 
 
-const showSuccessToast =
-    ref(false)
+const autosaveTimer =
+    ref(null)
 
 
 const contacts =
@@ -574,6 +583,10 @@ async function submit() {
     saving.value =
         true
 
+    setStatus(
+        'saving'
+    )
+
 
     errors.value =
         {}
@@ -645,15 +658,8 @@ async function submit() {
 
         await loadClient()
 
+        setLastSavedAt()
 
-        showSuccessToast.value =
-            false
-
-
-        nextTick(() => {
-            showSuccessToast.value =
-                true
-        })
     } catch (
         exception
     ) {
@@ -671,7 +677,46 @@ async function submit() {
     } finally {
         saving.value =
             false
+
+        setStatus(
+            'idle'
+        )
+
+        setLastSavedAt()
     }
+}
+
+
+function scheduleAutosave() {
+    if (
+        !editing.value ||
+        loading.value ||
+        saving.value ||
+        !form.name?.trim()
+    ) {
+        return
+    }
+
+
+    if (
+        autosaveTimer.value
+    ) {
+        clearTimeout(
+            autosaveTimer.value
+        )
+    }
+
+
+    autosaveTimer.value =
+        setTimeout(() => {
+            if (
+                !saving.value &&
+                editing.value &&
+                form.name?.trim()
+            ) {
+                submit()
+            }
+        }, 600)
 }
 
 
@@ -752,6 +797,19 @@ function createProject() {
 }
 
 
+watch(
+    () => ({
+        ...form
+    }),
+    () => {
+        scheduleAutosave()
+    },
+    {
+        deep: true
+    }
+)
+
+
 onMounted(
     async () => {
         await loadClient()
@@ -762,6 +820,14 @@ onBeforeUnmount(() => {
     clearTimeout(
         addressSearchTimer
     )
+
+    if (
+        autosaveTimer.value
+    ) {
+        clearTimeout(
+            autosaveTimer.value
+        )
+    }
 })
 </script>
 
@@ -779,14 +845,6 @@ onBeforeUnmount(() => {
             heading="Something went wrong"
             :text="requestError"
             :duration="5000"
-        />
-
-
-        <Toast
-            v-model="showSuccessToast"
-            heading="Client saved"
-            text="The client information has been updated."
-            :duration="4000"
         />
 
 
@@ -870,7 +928,6 @@ onBeforeUnmount(() => {
                             type="text"
                             label="Business name"
                             placeholder="Company name"
-                            required
                             :error="
                                 errors.name?.[0] ||
                                 ''
@@ -897,7 +954,6 @@ onBeforeUnmount(() => {
                                     errors.registration_number?.[0] ||
                                     ''
                                 "
-                                required
                             />
 
 
@@ -948,7 +1004,6 @@ onBeforeUnmount(() => {
                             :loading="
                                 addressLoading
                             "
-                            required
                             :error="
                                 errors.address?.[0] ||
                                 ''
@@ -966,7 +1021,7 @@ onBeforeUnmount(() => {
                         class="
                             flex
                             flex-col
-
+                            space-y-8
                         "
                     >
                         <div
@@ -1024,41 +1079,11 @@ onBeforeUnmount(() => {
 
                         <div
                             class="
-                                mt-8
-                                md:mt-auto
-                            "
-                        >
-                            <div
-                                class="
-                                    flex
-                                    flex-col
-                                    gap-4
-                                "
-                            >
-                                <Button
-                                    type="button"
-                                    text="cancel"
-                                    :disabled="saving"
-                                    @click="cancel"
-                                    align="left"
-                                />
-
-                                <Button
-                                    type="submit"
-                                    :text="
-                                        editing
-                                            ? 'save changes'
-                                            : 'create client'
-                                    "
-                                    loading-text="saving"
-                                    :loading="saving"
-                                    :disabled="saving"
-                                    variant="accent"
-                                    align="left"
-                                    hover-variant="accent-dark"
-                                />
-                            </div>
-                        </div>
+                                mt-auto
+                                flex
+                                flex-col
+                                gap-4"
+                        ></div>
                     </section>
                 </div>
             </div>

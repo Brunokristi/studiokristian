@@ -17,6 +17,8 @@ use App\Http\Controllers\Admin\ClientPortal\ContractClauseController as AdminCon
 use App\Http\Controllers\Admin\ClientPortal\ProjectDeliverableController as AdminProjectDeliverableController;
 use App\Http\Controllers\Admin\ClientPortal\ProjectCoworkerController as AdminProjectCoworkerController;
 use App\Http\Controllers\Admin\ClientPortal\ProjectTicketController as AdminProjectTicketController;
+use App\Http\Controllers\Admin\ClientPortal\CoworkerController;
+use App\Http\Controllers\Admin\ClientPortal\InternalStorageController;
 use App\Http\Controllers\Client\Auth\MagicLinkController;
 use App\Http\Controllers\Client\ContractController as ClientContractController;
 use App\Http\Controllers\Client\ProjectController as ClientProjectController;
@@ -121,6 +123,9 @@ Route::prefix('admin/client-portal')->middleware(['auth', 'admin'])->name('admin
         Route::put('/projects/{project}', [AdminProjectController::class, 'update'])->name('projects.update');
         Route::post('/projects/{project}/archive', [AdminProjectController::class, 'archive'])->name('projects.archive');
         Route::put('/projects/{project}/publishing', [AdminProjectController::class, 'publish'])->name('projects.publish');
+        Route::get('/coworkers', [CoworkerController::class, 'index'])->name('coworkers.index');
+        Route::post('/coworkers', [CoworkerController::class, 'store'])->name('coworkers.store');
+        Route::get('/internal-storage', [InternalStorageController::class, 'index'])->name('internal-storage.index');
         Route::get('/projects/{project}/files', [AdminProjectFileController::class, 'index'])->name('projects.files.index');
         Route::post('/projects/{project}/folders', [AdminProjectFileController::class, 'storeFolder'])->name('projects.folders.store');
         Route::put('/projects/{project}/folders/{folder}', [AdminProjectFileController::class, 'updateFolder'])->name('projects.folders.update');
@@ -172,7 +177,7 @@ Route::prefix('admin/client-portal')->middleware(['auth', 'admin'])->name('admin
     Route::post('/versions/{version}/retire', [ClientPortalAdminController::class, 'retireVersion'])->name('versions.retire');
     Route::post('/projects/{project}/contracts', [ClientPortalAdminController::class, 'generateContract'])->name('contracts.generate');
     Route::get('/{path}', AdminShellController::class)
-        ->where('path', 'clients(?:/.*)?|projects(?:/.*)?|service-products(?:/.*)?|portfolio(?:/.*)?')
+        ->where('path', 'clients(?:/.*)?|projects(?:/.*)?|service-products(?:/.*)?|coworkers(?:/.*)?|internal-storage(?:/.*)?|portfolio(?:/.*)?')
         ->name('app');
 });
 

@@ -50,7 +50,21 @@ class ProjectInstantiationService
                 $progress = false;
                 foreach ($pending as $index => $definition) {
                     if ($definition->parent_id && ! isset($map[$definition->parent_id])) continue;
-                    $folder = $project->folders()->create(['parent_id' => $definition->parent_id ? $map[$definition->parent_id] : null, 'source_blueprint_folder_id' => $definition->id, 'name' => $definition->name, 'client_visible' => $definition->client_visible, 'sort_order' => $definition->sort_order, 'created_by' => $actor->id]);
+                    $folder = $project->folders()->create([
+                        'parent_id' => $definition->parent_id ? $map[$definition->parent_id] : null,
+                        'source_blueprint_folder_id' => $definition->id,
+                        'type' => $definition->type ?? 'folder',
+                        'name' => $definition->name,
+                        'resource_type' => $definition->resource_type,
+                        'requirement_level' => $definition->requirement_level,
+                        'requires_client_signature' => $definition->requires_client_signature,
+                        'template_name' => $definition->template_name,
+                        'content' => $definition->content,
+                        'url' => $definition->url,
+                        'client_visible' => $definition->client_visible,
+                        'sort_order' => $definition->sort_order,
+                        'created_by' => $actor->id,
+                    ]);
                     $map[$definition->id] = $folder->id; $pending->forget($index); $progress = true;
                 }
                 if (! $progress) throw new InvalidArgumentException('Blueprint folder tree is invalid.');

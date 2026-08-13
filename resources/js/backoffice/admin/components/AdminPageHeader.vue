@@ -44,7 +44,6 @@ defineProps({
                 gap-y-1
                 p
                 uppercase
-                sm:text-xs
             "
         >
             <RouterLink

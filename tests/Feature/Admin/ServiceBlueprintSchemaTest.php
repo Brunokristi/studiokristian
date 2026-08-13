@@ -21,6 +21,15 @@ class ServiceBlueprintSchemaTest extends TestCase
             $this->assertTrue(Schema::hasTable($table), "Missing table {$table}");
         }
 
+        $this->assertTrue(Schema::hasColumn('service_blueprint_folder_definitions', 'type'));
+        $this->assertTrue(Schema::hasColumn('service_blueprint_folder_definitions', 'resource_type'));
+        $this->assertTrue(Schema::hasColumn('service_blueprint_folder_definitions', 'requirement_level'));
+        $this->assertTrue(Schema::hasColumn('service_blueprint_folder_definitions', 'requires_client_signature'));
+        $this->assertTrue(Schema::hasColumn('project_folders', 'type'));
+        $this->assertTrue(Schema::hasColumn('project_folders', 'resource_type'));
+        $this->assertTrue(Schema::hasColumn('project_folders', 'requirement_level'));
+        $this->assertTrue(Schema::hasColumn('project_folders', 'requires_client_signature'));
+
         $legacyProject = Project::query()->create([
             'name' => 'Legacy Portfolio Project',
             'url' => 'legacy-portfolio-project',
