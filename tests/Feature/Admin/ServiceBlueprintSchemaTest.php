@@ -25,10 +25,12 @@ class ServiceBlueprintSchemaTest extends TestCase
         $this->assertTrue(Schema::hasColumn('service_blueprint_folder_definitions', 'resource_type'));
         $this->assertTrue(Schema::hasColumn('service_blueprint_folder_definitions', 'requirement_level'));
         $this->assertTrue(Schema::hasColumn('service_blueprint_folder_definitions', 'requires_client_signature'));
+        $this->assertTrue(Schema::hasColumn('service_blueprint_folder_definitions', 'content'));
         $this->assertTrue(Schema::hasColumn('project_folders', 'type'));
         $this->assertTrue(Schema::hasColumn('project_folders', 'resource_type'));
         $this->assertTrue(Schema::hasColumn('project_folders', 'requirement_level'));
         $this->assertTrue(Schema::hasColumn('project_folders', 'requires_client_signature'));
+        $this->assertTrue(Schema::hasColumn('project_folders', 'content'));
 
         $legacyProject = Project::query()->create([
             'name' => 'Legacy Portfolio Project',

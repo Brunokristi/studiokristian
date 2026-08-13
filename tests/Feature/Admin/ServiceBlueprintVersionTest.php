@@ -83,4 +83,67 @@ class ServiceBlueprintVersionTest extends TestCase
         $this->assertTrue((bool) $copied->requires_client_signature);
         $this->assertSame('Client brief template', $copied->template_name);
     }
+
+    public function test_blueprint_update_persists_folder_and_document_tree(): void
+    {
+        $actor = User::factory()->create(['is_admin' => true]);
+        $product = ServiceProduct::query()->create(['name' => 'Website', 'slug' => 'website', 'active' => true, 'sort_order' => 0]);
+        $service = app(ServiceBlueprintVersionService::class);
+        $version = $service->create($product, 'Website Delivery', '1.0', $actor);
+
+        $this->actingAs($actor)
+            ->putJson('/admin/client-portal/api/blueprint-versions/' . $version->id, [
+                'fields' => [],
+                'folders' => [
+                    [
+                        'client_key' => 'root-folder',
+                        'parent_client_key' => null,
+                        'type' => 'folder',
+                        'name' => 'Documents',
+                        'resource_type' => null,
+                        'requirement_level' => null,
+                        'requires_client_signature' => false,
+                        'template_name' => null,
+                        'content' => null,
+                        'url' => null,
+                        'client_visible' => true,
+                    ],
+                    [
+                        'client_key' => 'child-folder',
+                        'parent_client_key' => 'root-folder',
+                        'type' => 'folder',
+                        'name' => 'Legal',
+                        'resource_type' => null,
+                        'requirement_level' => null,
+                        'requires_client_signature' => false,
+                        'template_name' => null,
+                        'content' => null,
+                        'url' => null,
+                        'client_visible' => true,
+                    ],
+                    [
+                        'client_key' => 'doc-file',
+                        'parent_client_key' => 'root-folder',
+                        'type' => 'file',
+                        'name' => 'Client brief',
+                        'resource_type' => 'document',
+                        'requirement_level' => 'required',
+                        'requires_client_signature' => true,
+                        'template_name' => 'Client brief template',
+                        'content' => '<p>Welcome</p>',
+                        'url' => '',
+                        'client_visible' => true,
+                    ],
+                ],
+            ])
+            ->assertOk();
+
+        $this->assertDatabaseHas('service_blueprint_folder_definitions', ['service_blueprint_version_id' => $version->id, 'name' => 'Documents']);
+        $this->assertDatabaseHas('service_blueprint_folder_definitions', ['service_blueprint_version_id' => $version->id, 'name' => 'Legal']);
+        $this->assertDatabaseHas('service_blueprint_folder_definitions', ['service_blueprint_version_id' => $version->id, 'name' => 'Client brief', 'resource_type' => 'document', 'requirement_level' => 'required']);
+
+        $root = $version->fresh()->folders()->where('name', 'Documents')->sole();
+        $child = $version->fresh()->folders()->where('name', 'Legal')->sole();
+        $this->assertSame($root->id, $child->parent_id);
+    }
 }

@@ -72,6 +72,7 @@ return new class extends Migration
             $table->string('requirement_level')->nullable();
             $table->boolean('requires_client_signature')->default(false);
             $table->string('template_name')->nullable();
+            $table->text('content')->nullable();
             $table->string('url')->nullable();
             $table->boolean('client_visible')->default(true);
             $table->unsignedInteger('sort_order')->default(0);
@@ -117,6 +118,7 @@ return new class extends Migration
             $table->string('requirement_level')->nullable();
             $table->boolean('requires_client_signature')->default(false);
             $table->string('template_name')->nullable();
+            $table->text('content')->nullable();
             $table->string('url')->nullable();
             $table->boolean('client_visible')->default(true);
             $table->unsignedInteger('sort_order')->default(0);

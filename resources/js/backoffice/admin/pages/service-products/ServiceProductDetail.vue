@@ -713,7 +713,11 @@ function saveDocumentTemplate(
     documentEditorOpen.value =
         false
 
-    scheduleAutosave()
+    if (
+        data.value?.version?.id
+    ) {
+        void saveBlueprint()
+    }
 }
 
 
@@ -730,7 +734,11 @@ function updateFolders(
     data.value.version.folders =
         value
 
-    scheduleAutosave()
+    if (
+        data.value?.version?.id
+    ) {
+        void saveBlueprint()
+    }
 }
 
 
