@@ -14,6 +14,7 @@ class DashboardController extends Controller
         $contact = $request->user();
         $projects = $contact->projects()
             ->where('projects.company_id', $contact->company_id)
+            ->whereHas('company', fn ($query) => $query->where('status', 'active'))
             ->whereNull('archived_at')
             ->with('serviceProduct')
             ->withCount([

@@ -34,6 +34,7 @@ const props =
             type: [
                 String,
                 Number,
+                Boolean,
                 Array,
                 Object
             ],
@@ -100,6 +101,7 @@ const props =
 const emit =
     defineEmits([
         'update:modelValue',
+        'change',
         'keydown',
         'focus',
         'blur',
@@ -205,6 +207,11 @@ function handleInput(
         value
     )
 
+    emit(
+        'change',
+        value
+    )
+
 
     if (
         props.type ===
@@ -277,9 +284,17 @@ function handleBlur(
 function handleTextareaInput(
     event
 ) {
+    const value =
+        event.target.value
+
     emit(
         'update:modelValue',
-        event.target.value
+        value
+    )
+
+    emit(
+        'change',
+        value
     )
 
 
@@ -327,6 +342,11 @@ function handleSelectOption(
         value
     )
 
+    emit(
+        'change',
+        value
+    )
+
 
     emit(
         'select',
@@ -342,9 +362,17 @@ function handleSelectOption(
 function handleAutocompleteOption(
     option
 ) {
+    const value =
+        option.value
+
     emit(
         'update:modelValue',
-        option.value
+        value
+    )
+
+    emit(
+        'change',
+        value
     )
 
 

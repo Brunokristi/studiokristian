@@ -88,6 +88,34 @@ class PasswordlessLoginTest extends TestCase
         $this->assertGuest('client');
     }
 
+    public function test_inactive_company_contact_cannot_request_or_use_portal_access(): void
+    {
+        Notification::fake();
+
+        $company = Company::query()->create(['name' => 'Inactive Client', 'status' => 'inactive']);
+        $contact = ClientContact::query()->create([
+            'company_id' => $company->id,
+            'first_name' => 'Inactive',
+            'last_name' => 'Client',
+            'email' => 'inactive@example.test',
+            'active' => true,
+            'can_access_portal' => true,
+            'can_accept_documents' => true,
+        ]);
+
+        $this->post(route('client.login.send'), ['email' => $contact->email])
+            ->assertSessionHas('status');
+
+        Notification::assertNothingSent();
+        $this->assertFalse($contact->hasPortalAccess());
+
+        $this->actingAs($contact, 'client')
+            ->get(route('client.dashboard'))
+            ->assertRedirect(route('client.login'));
+
+        $this->assertGuest('client');
+    }
+
     private function contact(): ClientContact
     {
         $company = Company::query()->create(['name' => 'ABC s.r.o.']);

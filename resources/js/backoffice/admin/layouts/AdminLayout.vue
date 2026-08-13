@@ -135,19 +135,39 @@ watch(
                 border-accent
                 bg-light
                 px-5
-                lg:hidden
             "
         >
-            <span
+            <RouterLink
+                :to="{
+                    name: 'dashboard'
+                }"
                 class="
-                    font-mono
-                    text-xs
-                    font-bold
-                    uppercase
+                    flex
+                    gap-1
+                    items-center
+                    justify-center
+                    transition-opacity
+                    duration-200                            
                 "
+                aria-label="Studio Kristian Admin"
             >
-                Admin
-            </span>
+                <img
+                    src="/public/assets/logo.svg"
+                    alt=""
+                    class="
+                        h-2.5
+                        w-auto
+                    "
+                >
+
+                <span
+                    class="
+                        h3
+                    "
+                >
+                    backoffice
+                </span>
+            </RouterLink>
 
 
             <button
@@ -160,6 +180,7 @@ watch(
                     text-dark
                     transition-colors
                     hover:text-accent
+                    lg:hidden
                 "
                 :aria-expanded="
                     menuOpen
@@ -178,8 +199,8 @@ watch(
                     "
                     :class="
                         menuOpen
-                            ? 'bi-x-lg'
-                            : 'bi-list'
+                            ? 'bi-chevron-bar-left'
+                            : 'bi-chevron-bar-right'
                     "
                 />
             </button>
@@ -201,7 +222,6 @@ watch(
                 z-30
                 bg-dark/20
                 backdrop-blur-[2px]
-                lg:hidden
             "
             @click="
                 closeMenu
@@ -247,51 +267,6 @@ watch(
                         : '-translate-x-full'
                 "
             >
-                <!-- Branding -->
-                <div
-                    class="
-                        border-b
-                        border-accent
-                        px-4
-                        py-4
-                    "
-                >
-                    <RouterLink
-                        :to="{
-                            name: 'dashboard'
-                        }"
-                        class="
-                            flex
-                            items-center
-                            justify-center
-                            transition-opacity
-                            duration-200                            
-                        "
-                        aria-label="Studio Kristian Admin"
-                    >
-                        <img
-                            src="/public/assets/logo.svg"
-                            alt=""
-                            class="
-                                h-auto
-                                w-10
-                            "
-                        >
-
-                        <span
-                            class="
-                                ml-2
-                                font-mono
-                                text-xs
-                                font-bold
-                            "
-                        >
-                            backoffice
-                        </span>
-                    </RouterLink>
-                </div>
-
-
                 <!-- Navigation -->
                 <nav
                     class="

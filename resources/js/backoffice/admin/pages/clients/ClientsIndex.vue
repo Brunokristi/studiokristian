@@ -33,32 +33,38 @@ const columns = [
         sortable: true
     },
 
+
     {
         key: 'registration_number',
         label: 'IČO',
         sortable: true
     },
 
+
     {
         key: 'contacts_count',
         label: 'Contacts'
     },
+
 
     {
         key: 'projects_count',
         label: 'Projects'
     },
 
+
     {
         key: 'portal_contacts_count',
         label: 'Portal access'
     },
+
 
     {
         key: 'status',
         label: 'Status',
         sortable: true
     },
+
 
     {
         key: 'updated_at',
@@ -88,15 +94,18 @@ const statusOptions =
             value: ''
         },
 
+
         {
             label: 'Active',
             value: 'active'
         },
 
+
         {
             label: 'Inactive',
             value: 'inactive'
         },
+
 
         {
             label: 'Archived',
@@ -105,14 +114,32 @@ const statusOptions =
     ])
 
 
+function createClient() {
+    router.push({
+        name:
+            'clients.create'
+    })
+}
+
+
 function openClient(
     client
 ) {
+    if (
+        !client?.id
+    ) {
+        return
+    }
+
+
     router.push({
-        name: 'clients.show',
+        name:
+            'clients.show',
+
 
         params: {
-            id: client.id
+            id:
+                client.id
         }
     })
 }
@@ -128,9 +155,29 @@ function formatDate(
     }
 
 
-    return new Date(
-        value
-    ).toLocaleDateString()
+    const date =
+        new Date(
+            value
+        )
+
+
+    if (
+        Number.isNaN(
+            date.getTime()
+        )
+    ) {
+        return '—'
+    }
+
+
+    return date.toLocaleDateString(
+        'en-GB',
+        {
+            day: '2-digit',
+            month: '2-digit',
+            year: 'numeric'
+        }
+    )
 }
 </script>
 
@@ -143,6 +190,7 @@ function formatDate(
             lg:space-y-14
         "
     >
+        <!-- Page header -->
         <AdminPageHeader
             title="Clients"
             description="Companies and the people representing them."
@@ -151,38 +199,28 @@ function formatDate(
                     label: 'Clients'
                 }
             ]"
-        >
-            <RouterLink
-                :to="{
-                    name: 'clients.create'
-                }"
-                class="
-                    inline-flex
-                    items-center
-                    border-b
-                    border-dark
-                    pb-1
-                    font-mono
-                    text-xs
-                    font-bold
-                    uppercase
-                    transition-colors
-                    hover:border-accent
-                    hover:text-accent
-                "
-            >
-                New client
-            </RouterLink>
-        </AdminPageHeader>
+        />
 
 
+        <!-- Clients table -->
         <AdminDataTable
-            v-model:search="state.search"
+            v-model:search="
+                state.search
+            "
+            v-model:filters="
+                state.filters
+            "
             title="All clients"
             search-placeholder="Search clients"
-            :columns="columns"
-            :rows="rows"
-            :loading="loading"
+            :columns="
+                columns
+            "
+            :rows="
+                rows
+            "
+            :loading="
+                loading
+            "
             :filters="[
                 {
                     key: 'status',
@@ -191,19 +229,36 @@ function formatDate(
                     options: statusOptions
                 }
             ]"
-            v-model:filters="state.filters"
-            :sort="state.sort"
-            :direction="state.direction"
+            :sort="
+                state.sort
+            "
+            :direction="
+                state.direction
+            "
             empty-title="No clients yet."
             empty-text="Create the first client company to begin."
-            @sort="sortBy"
+            add-label=" "
+            @sort="
+                sortBy
+            "
+            @row-click="
+                openClient
+            "
+            @add="
+                createClient
+            "
         >
+            <!-- Client -->
             <template
                 #cell-display_label="{
                     row
                 }"
             >
-                <div>
+                <div
+                    class="
+                        min-w-0
+                    "
+                >
                     <p
                         class="
                             p
@@ -211,70 +266,77 @@ function formatDate(
                             uppercase
                         "
                     >
-                        {{ row.display_label }}
+                        {{
+                            row.display_label
+                        }}
                     </p>
 
-                    <p
-                        v-if="
-                            row.display_name
-                        "
-                        class="
-                            mt-1
-                            text-xs
-                            uppercase
-                            text-dark/40
-                        "
-                    >
-                        {{ row.name }}
-                    </p>
+
                 </div>
             </template>
 
 
+            <!-- IČO -->
             <template
                 #cell-registration_number="{
                     value
                 }"
             >
                 <span class="p">
-                    {{ value || '—' }}
+                    {{
+                        value ||
+                        '—'
+                    }}
                 </span>
             </template>
 
 
+            <!-- Contacts -->
             <template
                 #cell-contacts_count="{
                     value
                 }"
             >
                 <span class="p">
-                    {{ value ?? 0 }}
+                    {{
+                        value ??
+                        0
+                    }}
                 </span>
             </template>
 
 
+            <!-- Projects -->
             <template
                 #cell-projects_count="{
                     value
                 }"
             >
                 <span class="p">
-                    {{ value ?? 0 }}
+                    {{
+                        value ??
+                        0
+                    }}
                 </span>
             </template>
 
 
+            <!-- Portal access -->
             <template
                 #cell-portal_contacts_count="{
                     value
                 }"
             >
                 <span class="p">
-                    {{ value ?? 0 }}
+                    {{
+                        value ??
+                        0
+                    }}
                 </span>
             </template>
 
 
+            <!-- Status -->
             <template
                 #cell-status="{
                     value
@@ -288,23 +350,30 @@ function formatDate(
             </template>
 
 
+            <!-- Updated -->
             <template
                 #cell-updated_at="{
                     value
                 }"
             >
                 <span class="p">
-                    {{ formatDate(value) }}
+                    {{
+                        formatDate(
+                            value
+                        )
+                    }}
                 </span>
             </template>
 
 
+            <!-- Empty state -->
             <template
                 #empty-action
             >
                 <RouterLink
                     :to="{
-                        name: 'clients.create'
+                        name:
+                            'clients.create'
                     }"
                     class="
                         inline-flex
@@ -326,11 +395,15 @@ function formatDate(
         </AdminDataTable>
 
 
+        <!-- Pagination -->
         <AdminPagination
-            :meta="meta"
+            :meta="
+                meta
+            "
             @change="
                 page =>
-                    state.page = page
+                    state.page =
+                        page
             "
         />
     </div>

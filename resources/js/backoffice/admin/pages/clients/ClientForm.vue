@@ -2,6 +2,7 @@
 import {
     computed,
     nextTick,
+    onBeforeUnmount,
     onMounted,
     reactive,
     ref
@@ -9,7 +10,12 @@ import {
 
 
 import {
-    RouterLink,
+    importLibrary,
+    setOptions
+} from '@googlemaps/js-api-loader'
+
+
+import {
     useRouter
 } from 'vue-router'
 
@@ -91,13 +97,10 @@ const projectsLoading =
 const form =
     reactive({
         name: '',
-        display_name: '',
         registration_number: '',
         tax_number: '',
         vat_number: '',
-        registered_address: '',
-        billing_address: '',
-        billing_details: '',
+        address: '',
         status: 'active',
         internal_notes: ''
     })
@@ -121,7 +124,6 @@ const pageTitle =
 
 
         return (
-            form.display_name ||
             form.name ||
             'Client'
         )
@@ -158,29 +160,293 @@ const breadcrumbs =
     })
 
 
+const addressOptions =
+    ref([])
+
+
+const addressLoading =
+    ref(false)
+
+
+let autocompleteSuggestion =
+    null
+
+
+let autocompleteSessionToken =
+    null
+
+
+let sessionToken =
+    null
+
+
+let addressSearchTimer =
+    null
+
+
+let addressRequestId =
+    0
+
+
+async function initializeAddressSearch() {
+    const apiKey =
+        import.meta.env.VITE_GOOGLE_MAPS_API_KEY
+
+
+    if (
+        !apiKey
+    ) {
+        return false
+    }
+
+
+    if (
+        autocompleteSuggestion
+    ) {
+        return true
+    }
+
+
+    setOptions({
+        key: apiKey,
+        v: 'weekly',
+        language: 'sk',
+        region: 'SK'
+    })
+
+
+    const places =
+        await importLibrary(
+            'places'
+        )
+
+
+    autocompleteSuggestion =
+        places.AutocompleteSuggestion
+
+
+    autocompleteSessionToken =
+        places.AutocompleteSessionToken
+
+
+    sessionToken =
+        new autocompleteSessionToken()
+
+
+    return true
+}
+
+
+function searchAddresses(
+    query
+) {
+    clearTimeout(
+        addressSearchTimer
+    )
+
+
+    if (
+        !query ||
+        query.trim().length < 3
+    ) {
+        addressOptions.value =
+            []
+
+
+        addressLoading.value =
+            false
+
+
+        return
+    }
+
+
+    addressSearchTimer =
+        setTimeout(
+            () =>
+                fetchAddressOptions(
+                    query.trim()
+                ),
+            250
+        )
+}
+
+
+async function fetchAddressOptions(
+    query
+) {
+    const requestId =
+        ++addressRequestId
+
+
+    addressLoading.value =
+        true
+
+
+    try {
+        if (
+            !await initializeAddressSearch()
+        ) {
+            addressOptions.value =
+                []
+
+
+            return
+        }
+
+
+        const response =
+            await autocompleteSuggestion.fetchAutocompleteSuggestions({
+                input: query,
+                language: 'sk',
+                region: 'SK',
+                sessionToken
+            })
+
+
+        if (
+            requestId !== addressRequestId
+        ) {
+            return
+        }
+
+
+        addressOptions.value =
+            response.suggestions
+                .map(
+                    suggestion =>
+                        suggestion.placePrediction
+                )
+                .filter(
+                    Boolean
+                )
+                .map(
+                    prediction => ({
+                        value:
+                            prediction.text.toString(),
+
+                        label:
+                            prediction.text.toString(),
+
+                        prediction
+                    })
+                )
+    } catch (
+        exception
+    ) {
+        if (
+            requestId === addressRequestId
+        ) {
+            addressOptions.value =
+                []
+
+
+            showError(
+                'Address suggestions are unavailable. You can still enter the address manually.'
+            )
+        }
+    } finally {
+        if (
+            requestId === addressRequestId
+        ) {
+            addressLoading.value =
+                false
+        }
+    }
+}
+
+
+async function handleAddressSelect(
+    option
+) {
+    if (
+        !option
+    ) {
+        return
+    }
+
+
+    if (
+        !option.prediction
+    ) {
+        form.address =
+            option.label ||
+            option.value ||
+            ''
+
+
+        return
+    }
+
+
+    addressLoading.value =
+        true
+
+
+    try {
+        const place =
+            option.prediction.toPlace()
+
+
+        await place.fetchFields({
+            fields: [
+                'formattedAddress'
+            ]
+        })
+
+
+        form.address =
+            place.formattedAddress ||
+            option.label
+
+
+        addressOptions.value =
+            []
+
+
+        sessionToken =
+            new autocompleteSessionToken()
+    } catch (
+        exception
+    ) {
+        showError(
+            'The selected address could not be loaded. You can still enter the address manually.'
+        )
+    } finally {
+        addressLoading.value =
+            false
+    }
+}
+
+
+
 const contactColumns = [
     {
         key: 'name',
         label: 'Contact'
     },
 
+
     {
         key: 'email',
         label: 'Email'
     },
+
 
     {
         key: 'position',
         label: 'Position'
     },
 
+
     {
-        key: 'status',
+        key: 'active',
         label: 'Status'
     },
 
+
     {
-        key: 'portal_access',
+        key: 'can_access_portal',
         label: 'Portal'
     }
 ]
@@ -192,10 +458,12 @@ const projectColumns = [
         label: 'Project'
     },
 
+
     {
         key: 'service_product',
         label: 'Service'
     },
+
 
     {
         key: 'status',
@@ -250,9 +518,6 @@ async function loadClient() {
                 name:
                     client.name || '',
 
-                display_name:
-                    client.display_name || '',
-
                 registration_number:
                     client.registration_number || '',
 
@@ -262,14 +527,8 @@ async function loadClient() {
                 vat_number:
                     client.vat_number || '',
 
-                registered_address:
-                    client.registered_address || '',
-
-                billing_address:
-                    client.billing_address || '',
-
-                billing_details:
-                    client.billing_details || '',
+                address:
+                    client.address || '',
 
                 status:
                     client.status ||
@@ -304,80 +563,6 @@ async function loadClient() {
 }
 
 
-async function loadContacts() {
-    if (
-        !props.id
-    ) {
-        return
-    }
-
-
-    contactsLoading.value =
-        true
-
-
-    try {
-        const response =
-            await api.get(
-                `/clients/${props.id}/contacts`
-            )
-
-
-        contacts.value =
-            response.data.data ??
-            response.data
-    } catch (
-        exception
-    ) {
-        showError(
-            errorMessage(
-                exception
-            )
-        )
-    } finally {
-        contactsLoading.value =
-            false
-    }
-}
-
-
-async function loadProjects() {
-    if (
-        !props.id
-    ) {
-        return
-    }
-
-
-    projectsLoading.value =
-        true
-
-
-    try {
-        const response =
-            await api.get(
-                `/clients/${props.id}/projects`
-            )
-
-
-        projects.value =
-            response.data.data ??
-            response.data
-    } catch (
-        exception
-    ) {
-        showError(
-            errorMessage(
-                exception
-            )
-        )
-    } finally {
-        projectsLoading.value =
-            false
-    }
-}
-
-
 async function submit() {
     if (
         saving.value
@@ -403,11 +588,21 @@ async function submit() {
             editing.value
                 ? await api.put(
                     `/clients/${props.id}`,
-                    form
+                    {
+                        ...form,
+                        display_name: undefined,
+                        billing_address: undefined,
+                        billing_details: undefined
+                    }
                 )
                 : await api.post(
                     '/clients',
-                    form
+                    {
+                        ...form,
+                        display_name: undefined,
+                        billing_address: undefined,
+                        billing_details: undefined
+                    }
                 )
 
 
@@ -429,12 +624,26 @@ async function submit() {
 
         Object.assign(
             form,
-            response.data.data
+            {
+                name:
+                    response.data.data.name || '',
+                registration_number:
+                    response.data.data.registration_number || '',
+                tax_number:
+                    response.data.data.tax_number || '',
+                vat_number:
+                    response.data.data.vat_number || '',
+                address:
+                    response.data.data.address || '',
+                status:
+                    response.data.data.status || 'active',
+                internal_notes:
+                    response.data.data.internal_notes || ''
+            }
         )
 
 
-        await loadContacts()
-        await loadProjects()
+        await loadClient()
 
 
         showSuccessToast.value =
@@ -473,19 +682,6 @@ function cancel() {
 }
 
 
-function openContact(
-    contact
-) {
-    router.push({
-        name: 'contacts.show',
-
-        params: {
-            id: contact.id
-        }
-    })
-}
-
-
 function openProject(
     project
 ) {
@@ -494,6 +690,35 @@ function openProject(
 
         params: {
             id: project.id
+        }
+    })
+}
+
+
+function editContact(contact) {
+    if (!contact?.id || !props.id) {
+        return
+    }
+
+    router.push({
+        name: 'contacts.edit',
+        params: {
+            companyId: props.id,
+            id: contact.id
+        }
+    })
+}
+
+
+function createContact() {
+    if (!props.id) {
+        return
+    }
+
+    router.push({
+        name: 'contacts.create',
+        params: {
+            companyId: props.id
         }
     })
 }
@@ -517,22 +742,27 @@ function contactName(
         .join(' ')
 }
 
+function createProject() {
+    router.push({
+        name: 'projects.create',
+        query: {
+            client_id: props.id
+        }
+    })
+}
+
 
 onMounted(
     async () => {
         await loadClient()
-
-
-        if (
-            props.id
-        ) {
-            await Promise.all([
-                loadContacts(),
-                loadProjects()
-            ])
-        }
     }
 )
+
+onBeforeUnmount(() => {
+    clearTimeout(
+        addressSearchTimer
+    )
+})
 </script>
 
 
@@ -560,7 +790,6 @@ onMounted(
         />
 
 
-        <!-- HEADER -->
         <AdminPageHeader
             :title="pageTitle"
             :description="
@@ -572,16 +801,10 @@ onMounted(
                 breadcrumbs
             "
         >
-            <Button
-                type="button"
-                text="cancel"
-                :disabled="saving"
-                @click="cancel"
-            />
+
         </AdminPageHeader>
 
 
-        <!-- LOADING -->
         <div
             v-if="loading"
             class="
@@ -609,359 +832,350 @@ onMounted(
             "
             @submit.prevent="submit"
         >
-            <!-- CLIENT INFORMATION -->
             <div
                 class="
-                    grid
-                    gap-14
-                    lg:grid-cols-2
-                    lg:gap-20
+                    space-y-4
                 "
             >
-                <!-- LEGAL INFORMATION -->
-                <section
+                <h2
                     class="
-                        space-y-8
-                        border-t
-                        border-accent
-                        pt-5
+                        h2
+                        col-span-1
+                        text-left
+                        text-accent
+                        md:col-span-2
                     "
                 >
-                    <h2
-                        class="
-                            h3
-                            text-accent
-                        "
-                    >
-                        Legal information
-                    </h2>
+                    Client information
+                </h2>
 
-
-                    <FormField
-                        id="client-name"
-                        v-model="
-                            form.name
-                        "
-                        name="name"
-                        type="text"
-                        label="Legal / business name"
-                        placeholder="Company name"
-                        required
-                        :error="
-                            errors.name?.[0] ||
-                            ''
-                        "
-                    />
-
-
-                    <FormField
-                        id="client-display-name"
-                        v-model="
-                            form.display_name
-                        "
-                        name="display_name"
-                        type="text"
-                        label="Display / trading name"
-                        placeholder="Public-facing name"
-                        :error="
-                            errors.display_name?.[0] ||
-                            ''
-                        "
-                    />
-
-
-                    <div
-                        class="
-                            grid
-                            gap-7
-                            sm:grid-cols-3
-                        "
-                    >
-                        <FormField
-                            id="client-ico"
-                            v-model="
-                                form.registration_number
-                            "
-                            name="registration_number"
-                            type="text"
-                            label="IČO"
-                            :error="
-                                errors.registration_number?.[0] ||
-                                ''
-                            "
-                        />
-
-
-                        <FormField
-                            id="client-dic"
-                            v-model="
-                                form.tax_number
-                            "
-                            name="tax_number"
-                            type="text"
-                            label="DIČ"
-                            :error="
-                                errors.tax_number?.[0] ||
-                                ''
-                            "
-                        />
-
-
-                        <FormField
-                            id="client-vat"
-                            v-model="
-                                form.vat_number
-                            "
-                            name="vat_number"
-                            type="text"
-                            label="IČ DPH"
-                            :error="
-                                errors.vat_number?.[0] ||
-                                ''
-                            "
-                        />
-                    </div>
-
-
-                    <FormField
-                        id="client-registered-address"
-                        v-model="
-                            form.registered_address
-                        "
-                        name="registered_address"
-                        type="textarea"
-                        label="Registered address"
-                        placeholder="Registered company address"
-                        :error="
-                            errors.registered_address?.[0] ||
-                            ''
-                        "
-                    />
-
-
-                    <FormField
-                        id="client-billing-address"
-                        v-model="
-                            form.billing_address
-                        "
-                        name="billing_address"
-                        type="textarea"
-                        label="Billing address"
-                        placeholder="Billing address"
-                        :error="
-                            errors.billing_address?.[0] ||
-                            ''
-                        "
-                    />
-
-
-                    <FormField
-                        id="client-billing-details"
-                        v-model="
-                            form.billing_details
-                        "
-                        name="billing_details"
-                        type="textarea"
-                        label="Billing details"
-                        placeholder="Payment and billing information"
-                        :error="
-                            errors.billing_details?.[0] ||
-                            ''
-                        "
-                    />
-                </section>
-
-
-                <!-- ACTIVITY -->
-                <section
-                    class="
-                        flex
-                        flex-col
-                        border-t
-                        border-accent
-                        pt-5
-                    "
-                >
-                    <div
+                <div class="
+                    grid
+                    grid-cols-1
+                    gap-8
+                    md:grid-cols-2
+                    md:gap-20
+                ">
+                    <section
                         class="
                             space-y-8
                         "
                     >
-                        <h2
+                        <FormField
+                            id="client-name"
+                            v-model="
+                                form.name
+                            "
+                            name="name"
+                            type="text"
+                            label="Business name"
+                            placeholder="Company name"
+                            required
+                            :error="
+                                errors.name?.[0] ||
+                                ''
+                            "
+                        />
+
+
+                        <div
                             class="
-                                h3
-                                text-accent
+                                grid
+                                gap-7
+                                sm:grid-cols-3
                             "
                         >
-                            Activity & notes
-                        </h2>
+                            <FormField
+                                id="client-ico"
+                                v-model="
+                                    form.registration_number
+                                "
+                                name="registration_number"
+                                type="text"
+                                label="IČO"
+                                :error="
+                                    errors.registration_number?.[0] ||
+                                    ''
+                                "
+                                required
+                            />
+
+
+                            <FormField
+                                id="client-dic"
+                                v-model="
+                                    form.tax_number
+                                "
+                                name="tax_number"
+                                type="text"
+                                label="DIČ"
+                                :error="
+                                    errors.tax_number?.[0] ||
+                                    ''
+                                "
+                            />
+
+
+                            <FormField
+                                id="client-vat"
+                                v-model="
+                                    form.vat_number
+                                "
+                                name="vat_number"
+                                type="text"
+                                label="IČ DPH"
+                                :error="
+                                    errors.vat_number?.[0] ||
+                                    ''
+                                "
+                            />
+                        </div>
 
 
                         <FormField
-                            id="client-status"
+                            id="client-address"
                             v-model="
-                                form.status
+                                form.address
                             "
-                            name="status"
-                            type="select"
-                            label="Status"
-                            :options="[
-                                {
-                                    label: 'Active',
-                                    value: 'active'
-                                },
-
-                                {
-                                    label: 'Inactive',
-                                    value: 'inactive'
-                                },
-
-                                {
-                                    label: 'Archived',
-                                    value: 'archived'
-                                }
-                            ]"
+                            name="address"
+                            type="autocomplete"
+                            label="Company address"
+                            placeholder="Start typing the address"
+                            autocomplete="street-address"
+                            :options="
+                                addressOptions
+                            "
+                            :loading="
+                                addressLoading
+                            "
+                            required
                             :error="
-                                errors.status?.[0] ||
+                                errors.address?.[0] ||
                                 ''
                             "
-                        />
-
-
-                        <FormField
-                            id="client-notes"
-                            v-model="
-                                form.internal_notes
+                            @search="
+                                searchAddresses
                             "
-                            name="internal_notes"
-                            type="textarea"
-                            label="Internal notes"
-                            placeholder="Notes for your team"
-                            :error="
-                                errors.internal_notes?.[0] ||
-                                ''
+                            @select="
+                                handleAddressSelect
                             "
                         />
-                    </div>
+                    </section>
 
-
-                    <!-- SAVE -->
-                    <div
+                    <section
                         class="
-                            mt-auto
-                            pt-10
+                            flex
+                            flex-col
+
                         "
                     >
                         <div
                             class="
-                                border-t
-                                border-accent
-                                pt-6
+                                space-y-8
                             "
                         >
-                            <Button
-                                type="submit"
-                                :text="
-                                    editing
-                                        ? 'save changes'
-                                        : 'create client'
+                            <FormField
+                                id="client-status"
+                                v-model="
+                                    form.status
                                 "
-                                loading-text="saving"
-                                :loading="saving"
-                                :disabled="saving"
-                                variant="accent"
+                                name="status"
+                                type="select"
+                                label="Status"
+                                :options="[
+                                    {
+                                        label: 'Active',
+                                        value: 'active'
+                                    },
+
+                                    {
+                                        label: 'Inactive',
+                                        value: 'inactive'
+                                    },
+
+                                    {
+                                        label: 'Archived',
+                                        value: 'archived'
+                                    }
+                                ]"
+                                :error="
+                                    errors.status?.[0] ||
+                                    ''
+                                "
+                            />
+
+
+                            <FormField
+                                id="client-notes"
+                                v-model="
+                                    form.internal_notes
+                                "
+                                name="internal_notes"
+                                type="textarea"
+                                label="Internal notes"
+                                placeholder="Notes for your team"
+                                :error="
+                                    errors.internal_notes?.[0] ||
+                                    ''
+                                "
                             />
                         </div>
-                    </div>
-                </section>
+
+
+                        <div
+                            class="
+                                mt-8
+                                md:mt-auto
+                            "
+                        >
+                            <div
+                                class="
+                                    flex
+                                    flex-col
+                                    gap-4
+                                "
+                            >
+                                <Button
+                                    type="button"
+                                    text="cancel"
+                                    :disabled="saving"
+                                    @click="cancel"
+                                    align="left"
+                                />
+
+                                <Button
+                                    type="submit"
+                                    :text="
+                                        editing
+                                            ? 'save changes'
+                                            : 'create client'
+                                    "
+                                    loading-text="saving"
+                                    :loading="saving"
+                                    :disabled="saving"
+                                    variant="accent"
+                                    align="left"
+                                    hover-variant="accent-dark"
+                                />
+                            </div>
+                        </div>
+                    </section>
+                </div>
             </div>
 
 
-            <!-- RELATED DATA -->
             <template
                 v-if="editing"
             >
-                <!-- CONTACTS -->
-                <section
-                    class="
-                        space-y-5
-                    "
+                <AdminDataTable
+                    title="Contacts"
+                    search-placeholder="Search contacts"
+                    :columns="contactColumns"
+                    :rows="contacts"
+                    :loading="contactsLoading"
+                    empty-title="No contacts yet."
+                    empty-text="Add a contact to give this client a person to work with."
+                    add-label=" "
+                    @row-click="editContact"
+                    @add="createContact"
                 >
-                    <div
-                        class="
-                            flex
-                            flex-col
-                            gap-4
-                            border-b
-                            border-accent
-                            pb-5
-                            sm:flex-row
-                            sm:items-end
-                            sm:justify-between
-                        "
+                    <template
+                        #cell-name="{
+                            row
+                        }"
                     >
-                        <div>
-                            <h2
-                                class="
-                                    h3
-                                    text-accent
-                                "
-                            >
-                                Contacts
-                            </h2>
-
-                            <p
-                                class="
-                                    p
-                                    mt-2
-                                    uppercase
-                                    text-dark/40
-                                "
-                            >
-                                People connected to this client.
-                            </p>
-                        </div>
+                        <span
+                            class="
+                                p
+                                font-medium
+                            "
+                        >
+                            {{
+                                contactName(
+                                    row
+                                )
+                            }}
+                        </span>
+                    </template>
 
 
-                        <Button
-                            type="button"
-                            text="add contact"
-                            @click="
-                                router.push({
-                                    name:
-                                        'contacts.create',
+                    <template
+                        #cell-email="{
+                            value
+                        }"
+                    >
+                        <span class="p">
+                            {{
+                                value ||
+                                '—'
+                            }}
+                        </span>
+                    </template>
 
-                                    query: {
-                                        client_id:
-                                            props.id
-                                    }
-                                })
+
+                    <template
+                        #cell-position="{
+                            value
+                        }"
+                    >
+                        <span class="p">
+                            {{
+                                value ||
+                                '—'
+                            }}
+                        </span>
+                    </template>
+
+
+                    <template
+                        #cell-active="{
+                            value
+                        }"
+                    >
+                        <Tag
+                            :text="
+                                value === false
+                                    ? 'inactive'
+                                    : 'active'
                             "
                         />
-                    </div>
+                    </template>
 
 
-                    <AdminDataTable
-                        title="Contacts"
-                        search-placeholder="Search contacts"
-                        :columns="
-                            contactColumns
-                        "
-                        :rows="contacts"
-                        :loading="
-                            contactsLoading
-                        "
-                        empty-title="No contacts yet."
-                        empty-text="Add a contact to give this client a person to work with."
-                        @row-click="
-                            openContact
-                        "
+                    <template
+                        #cell-can_access_portal="{
+                            value
+                        }"
                     >
-                        <template
-                            #cell-name="{
-                                row
-                            }"
-                        >
+                        <Tag
+                            :text="
+                                value
+                                    ? 'enabled'
+                                    : 'disabled'
+                            "
+                        />
+                    </template>
+                </AdminDataTable>
+
+                <AdminDataTable
+                    title="Projects"
+                    search-placeholder="Search projects"
+                    :columns="projectColumns"
+                    :rows="projects"
+                    :loading="projectsLoading"
+                    empty-title="No projects yet."
+                    empty-text="Create a project to start tracking work for this client."
+                    add-label=" "
+                    @row-click="openProject"
+                    @add="createProject"
+                >
+                    <template
+                        #cell-name="{
+                            row,
+                            value
+                        }"
+                    >
+                        <div>
                             <span
                                 class="
                                     p
@@ -969,216 +1183,60 @@ onMounted(
                                 "
                             >
                                 {{
-                                    contactName(
-                                        row
-                                    )
-                                }}
-                            </span>
-                        </template>
-
-
-                        <template
-                            #cell-email="{
-                                value
-                            }"
-                        >
-                            <span class="p">
-                                {{
-                                    value ||
-                                    '—'
-                                }}
-                            </span>
-                        </template>
-
-
-                        <template
-                            #cell-position="{
-                                value
-                            }"
-                        >
-                            <span class="p">
-                                {{
-                                    value ||
-                                    '—'
-                                }}
-                            </span>
-                        </template>
-
-
-                        <template
-                            #cell-status="{
-                                value
-                            }"
-                        >
-                            <Tag
-                                :text="
                                     value
+                                }}
+                            </span>
+
+
+                            <span
+                                v-if="
+                                    row.project_code
                                 "
-                            />
-                        </template>
-
-
-                        <template
-                            #cell-portal_access="{
-                                value
-                            }"
-                        >
-                            <Tag
-                                :text="
-                                    value
-                                        ? 'enabled'
-                                        : 'disabled'
-                                "
-                            />
-                        </template>
-                    </AdminDataTable>
-                </section>
-
-
-                <!-- PROJECTS -->
-                <section
-                    class="
-                        space-y-5
-                    "
-                >
-                    <div
-                        class="
-                            flex
-                            flex-col
-                            gap-4
-                            border-b
-                            border-accent
-                            pb-5
-                            sm:flex-row
-                            sm:items-end
-                            sm:justify-between
-                        "
-                    >
-                        <div>
-                            <h2
                                 class="
-                                    h3
-                                    text-accent
-                                "
-                            >
-                                Projects
-                            </h2>
-
-                            <p
-                                class="
-                                    p
-                                    mt-2
+                                    mt-1
+                                    block
+                                    text-xs
                                     uppercase
                                     text-dark/40
                                 "
                             >
-                                Projects and services connected to this client.
-                            </p>
-                        </div>
-
-
-                        <Button
-                            type="button"
-                            text="new project"
-                            @click="
-                                router.push({
-                                    name:
-                                        'projects.create',
-
-                                    query: {
-                                        company_id:
-                                            props.id
-                                    }
-                                })
-                            "
-                        />
-                    </div>
-
-
-                    <AdminDataTable
-                        title="Projects"
-                        search-placeholder="Search projects"
-                        :columns="
-                            projectColumns
-                        "
-                        :rows="projects"
-                        :loading="
-                            projectsLoading
-                        "
-                        empty-title="No projects yet."
-                        empty-text="Create a project to start tracking work for this client."
-                        @row-click="
-                            openProject
-                        "
-                    >
-                        <template
-                            #cell-name="{
-                                row,
-                                value
-                            }"
-                        >
-                            <div>
-                                <span
-                                    class="
-                                        p
-                                        font-medium
-                                    "
-                                >
-                                    {{
-                                        value
-                                    }}
-                                </span>
-
-                                <span
-                                    v-if="
-                                        row.project_code
-                                    "
-                                    class="
-                                        mt-1
-                                        block
-                                        text-xs
-                                        uppercase
-                                        text-dark/40
-                                    "
-                                >
-                                    {{
-                                        row.project_code
-                                    }}
-                                </span>
-                            </div>
-                        </template>
-
-
-                        <template
-                            #cell-service_product="{
-                                value,
-                                row
-                            }"
-                        >
-                            <span class="p">
                                 {{
-                                    value?.name ||
-                                    row.service_product_name ||
-                                    value ||
-                                    '—'
+                                    row.project_code
                                 }}
                             </span>
-                        </template>
+                        </div>
+                    </template>
 
 
-                        <template
-                            #cell-status="{
+                    <template
+                        #cell-service_product="{
+                            value,
+                            row
+                        }"
+                    >
+                        <span class="p">
+                            {{
+                                value?.name ||
+                                row.service_product_name ||
+                                value ||
+                                '—'
+                            }}
+                        </span>
+                    </template>
+
+
+                    <template
+                        #cell-status="{
+                            value
+                        }"
+                    >
+                        <Tag
+                            :text="
                                 value
-                            }"
-                        >
-                            <Tag
-                                :text="
-                                    value
-                                "
-                            />
-                        </template>
-                    </AdminDataTable>
-                </section>
+                            "
+                        />
+                    </template>
+                </AdminDataTable>
             </template>
         </form>
     </div>

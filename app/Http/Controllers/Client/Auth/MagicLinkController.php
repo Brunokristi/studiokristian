@@ -31,6 +31,7 @@ class MagicLinkController extends Controller
             ->where('active', true)
             ->where('can_access_portal', true)
             ->whereNull('access_revoked_at')
+            ->whereHas('company', fn ($query) => $query->where('status', 'active'))
             ->first();
 
         if ($contact) {

@@ -52,6 +52,9 @@ class ClientContact extends Authenticatable
 
     public function hasPortalAccess(): bool
     {
-        return $this->active && $this->can_access_portal && $this->access_revoked_at === null;
+        return $this->active
+            && $this->can_access_portal
+            && $this->access_revoked_at === null
+            && $this->company?->status === 'active';
     }
 }
