@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Admin\ClientPortal;
 
 use App\Http\Controllers\Controller;
+use App\Models\ClientContact;
 use App\Models\Project;
 use App\Models\User;
 use App\Notifications\ProjectInvitationNotification;
@@ -30,5 +31,24 @@ class ProjectCoworkerController extends Controller
         $project->contacts()->syncWithoutDetaching([$contact->id]);
         $contact->notify(new ProjectInvitationNotification($project, route('client.login')));
         return response()->json(['id' => $contact->id, 'name' => $contact->name, 'email' => $contact->email], 201);
+    }
+
+    public function resendCoworkerInvitation(Project $project, User $user): JsonResponse
+    {
+        abort_unless($project->coworkers()->whereKey($user->id)->exists(), 404);
+
+        $user->notify(new ProjectInvitationNotification($project, route('login')));
+
+        return response()->json(['status' => 'resent']);
+    }
+
+    public function resendContactInvitation(Project $project, ClientContact $contact): JsonResponse
+    {
+        abort_unless($project->contacts()->whereKey($contact->id)->exists(), 404);
+
+        $contact->update(['active' => true, 'can_access_portal' => true, 'access_revoked_at' => null]);
+        $contact->notify(new ProjectInvitationNotification($project, route('client.login')));
+
+        return response()->json(['status' => 'resent']);
     }
 }

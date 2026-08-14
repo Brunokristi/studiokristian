@@ -20,10 +20,6 @@ class ContractService
 
     public function generate(Project $project, ContractTemplateVersion $version, ?string $number = null): ContractInstance
     {
-        if ($version->status !== 'published' || ! $version->published_at) {
-            throw new InvalidArgumentException('Only published contract template versions can generate contracts.');
-        }
-
         if ($version->template->service_product_id && $version->template->service_product_id !== $project->service_product_id) {
             throw new InvalidArgumentException('The contract template does not belong to the project service product.');
         }

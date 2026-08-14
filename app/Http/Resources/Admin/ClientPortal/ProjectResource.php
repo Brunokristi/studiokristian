@@ -37,6 +37,12 @@ class ProjectResource extends JsonResource
             'contacts_count' => $this->whenCounted('contacts'),
             'contacts' => ContactResource::collection($this->whenLoaded('contacts')),
             'coworkers' => $this->whenLoaded('coworkers', fn () => $this->coworkers->map(fn ($user) => ['id' => $user->id, 'name' => $user->name, 'email' => $user->email])),
+            'current_user' => $request->user() ? [
+                'id' => $request->user()->id,
+                'name' => $request->user()->name,
+                'email' => $request->user()->email,
+                'is_admin' => (bool) $request->user()->is_admin,
+            ] : null,
             'blueprint_version' => $this->whenLoaded('blueprintVersion', fn () => $this->blueprintVersion ? ['id'=>$this->blueprintVersion->id,'version'=>$this->blueprintVersion->version,'name'=>$this->blueprintVersion->blueprint->name] : null),
             'deliverables' => $this->whenLoaded('deliverables'),
             'folders' => $this->whenLoaded('folders'),

@@ -56,6 +56,10 @@ const contacts =
     ref([])
 
 
+const coworkers =
+    ref([])
+
+
 const loading =
     ref(true)
 
@@ -85,15 +89,18 @@ const form =
         company_id: '',
         service_product_id: '',
         name: '',
-        url: '',
-        project_code: '',
         summary: '',
         internal_notes: '',
         portal_status: 'draft',
         started_at: '',
         completed_at: '',
-        contact_ids: []
+        contact_ids: [],
+        coworker_ids: []
     })
+
+
+const lockedCompanyId =
+    ref('')
 
 
 const editing =
@@ -192,6 +199,35 @@ const companyOptions =
     )
 
 
+const selectedCompanyName =
+    computed(() => {
+        const company =
+            lookups.value.companies.find(
+                item =>
+                    String(
+                        item.id
+                    ) ===
+                    String(
+                        form.company_id
+                    )
+            )
+
+        return (
+            company?.name ||
+            ''
+        )
+    })
+
+
+const companyLocked =
+    computed(() =>
+        !editing.value &&
+        Boolean(
+            lockedCompanyId.value
+        )
+    )
+
+
 const serviceOptions =
     computed(() =>
         lookups.value.service_products.map(
@@ -257,21 +293,6 @@ function normalizeCompanyPrefill() {
 }
 
 
-function hasCompanyOption(
-    companyId
-) {
-    return lookups.value.companies.some(
-        company =>
-            String(
-                company.id
-            ) ===
-            String(
-                companyId
-            )
-    )
-}
-
-
 async function loadContacts(
     companyId,
     preserve = false
@@ -333,6 +354,51 @@ async function loadContacts(
 }
 
 
+async function loadCoworkers(
+    preserve = false
+) {
+    try {
+        const response =
+            await api.get(
+                '/coworkers'
+            )
+
+        coworkers.value =
+            response.data
+
+        if (
+            !preserve
+        ) {
+            form.coworker_ids =
+                form.coworker_ids.filter(
+                    id =>
+                        coworkers.value.some(
+                            coworker =>
+                                String(
+                                    coworker.id
+                                ) ===
+                                String(
+                                    id
+                                )
+                        )
+                )
+        }
+    } catch (
+        exception
+    ) {
+        coworkers.value =
+            []
+
+
+        showError(
+            errorMessage(
+                exception
+            )
+        )
+    }
+}
+
+
 watch(
     () =>
         form.company_id,
@@ -363,12 +429,19 @@ watch(
 
 async function load() {
     try {
+        const [
+            lookupsResponse,
+            coworkersResponse
+        ] = await Promise.all([
+            api.get('/lookups'),
+            api.get('/coworkers')
+        ])
+
         lookups.value =
-            (
-                await api.get(
-                    '/lookups'
-                )
-            ).data
+            lookupsResponse.data
+
+        coworkers.value =
+            coworkersResponse.data
 
 
         if (
@@ -403,6 +476,15 @@ async function load() {
                         ).map(
                             contact =>
                                 contact.id
+                        ),
+
+                    coworker_ids:
+                        (
+                            project.coworkers ||
+                            []
+                        ).map(
+                            coworker =>
+                                coworker.id
                         )
                 }
             )
@@ -418,11 +500,11 @@ async function load() {
 
 
             if (
-                companyId &&
-                hasCompanyOption(
-                    companyId
-                )
+                companyId
             ) {
+                lockedCompanyId.value =
+                    companyId
+
                 form.company_id =
                     companyId
 
@@ -432,6 +514,10 @@ async function load() {
                     true
                 )
             }
+
+            await loadCoworkers(
+                true
+            )
         }
     } catch (
         exception
@@ -544,8 +630,8 @@ onMounted(
             :title="pageTitle"
             :description="
                 editing
-                    ? 'Update the project information, lifecycle and assigned contacts.'
-                    : 'Create a project and connect it to a client and service.'
+                    ? 'Update project details, status, and team assignments.'
+                    : 'Create a project from this client and assign contacts plus coworkers.'
             "
             :breadcrumbs="[
                 {
@@ -643,46 +729,42 @@ onMounted(
 
 
                     <div
+                        v-if="
+                            companyLocked
+                        "
                         class="
-                            grid
-                            gap-7
-                            sm:grid-cols-2
+                            border
+                            border-accent/20
+                            p-4
                         "
                     >
-                        <FormField
-                            id="project-code"
-                            v-model="
-                                form.project_code
+                        <p
+                            class="
+                                p
+                                uppercase
+                                text-dark/50
                             "
-                            name="project_code"
-                            type="text"
-                            label="Project code"
-                            placeholder="PRJ-001"
-                            :error="
-                                errors.project_code?.[0] ||
-                                ''
-                            "
-                        />
+                        >
+                            Client
+                        </p>
 
-
-                        <FormField
-                            id="project-url"
-                            v-model="
-                                form.url
+                        <p
+                            class="
+                                h3
+                                mt-2
+                                text-accent
                             "
-                            name="url"
-                            type="text"
-                            label="Internal URL slug"
-                            placeholder="Generated from name when blank"
-                            :error="
-                                errors.url?.[0] ||
-                                ''
-                            "
-                        />
+                        >
+                            {{
+                                selectedCompanyName ||
+                                'Selected client'
+                            }}
+                        </p>
                     </div>
 
 
                     <FormField
+                        v-else
                         id="project-company"
                         v-model="
                             form.company_id
@@ -836,7 +918,7 @@ onMounted(
                         />
 
 
-                        <!-- ASSIGNED CONTACTS -->
+                        <!-- ASSIGNED PEOPLE -->
                         <div
                             class="
                                 space-y-5
@@ -852,7 +934,7 @@ onMounted(
                                         text-accent
                                     "
                                 >
-                                    Assigned contacts
+                                    Assigned people
                                 </h3>
 
                                 <p
@@ -863,64 +945,80 @@ onMounted(
                                         text-dark/40
                                     "
                                 >
-                                    Contacts connected to this project.
+                                    Choose client contacts and coworkers who should be part of this project.
                                 </p>
                             </div>
 
 
                             <div
-                                v-if="
-                                    !form.company_id
-                                "
                                 class="
-                                    border
-                                    border-accent/20
-                                    p-4
+                                    space-y-6
                                 "
                             >
-                                <p
-                                    class="
-                                        p
-                                        uppercase
-                                        text-dark/50
-                                    "
-                                >
-                                    Select a client first.
-                                </p>
-                            </div>
+                                <div>
+                                    <h4
+                                        class="
+                                            p
+                                            uppercase
+                                            text-dark/60
+                                        "
+                                    >
+                                        Client contacts
+                                    </h4>
+
+                                    <div
+                                        v-if="
+                                            !form.company_id
+                                        "
+                                        class="
+                                            border
+                                            border-accent/20
+                                            p-4
+                                        "
+                                    >
+                                        <p
+                                            class="
+                                                p
+                                                uppercase
+                                                text-dark/50
+                                            "
+                                        >
+                                            No client selected.
+                                        </p>
+                                    </div>
 
 
-                            <div
-                                v-else-if="
-                                    !contacts.length
-                                "
-                                class="
-                                    border
-                                    border-accent/20
-                                    p-4
-                                "
-                            >
-                                <p
-                                    class="
-                                        p
-                                        uppercase
-                                        text-dark/50
-                                    "
-                                >
-                                    This client has no active contacts.
-                                </p>
-                            </div>
+                                    <div
+                                        v-else-if="
+                                            !contacts.length
+                                        "
+                                        class="
+                                            border
+                                            border-accent/20
+                                            p-4
+                                        "
+                                    >
+                                        <p
+                                            class="
+                                                p
+                                                uppercase
+                                                text-dark/50
+                                            "
+                                        >
+                                            This client has no active contacts.
+                                        </p>
+                                    </div>
 
 
-                            <div
-                                v-else
-                                class="
-                                    divide-y
-                                    divide-accent/20
-                                    border-t
-                                    border-accent
-                                "
-                            >
+                                    <div
+                                        v-else
+                                        class="
+                                            divide-y
+                                            divide-accent/20
+                                            border-t
+                                            border-accent
+                                        "
+                                    >
                                 <label
                                     v-for="
                                         contact
@@ -991,6 +1089,120 @@ onMounted(
                                         </span>
                                     </span>
                                 </label>
+                                    </div>
+                                </div>
+
+                                <div>
+                                    <h4
+                                        class="
+                                            p
+                                            uppercase
+                                            text-dark/60
+                                        "
+                                    >
+                                        Coworkers
+                                    </h4>
+
+                                    <div
+                                        v-if="
+                                            !coworkers.length
+                                        "
+                                        class="
+                                            border
+                                            border-accent/20
+                                            p-4
+                                        "
+                                    >
+                                        <p
+                                            class="
+                                                p
+                                                uppercase
+                                                text-dark/50
+                                            "
+                                        >
+                                            No coworkers available yet.
+                                        </p>
+                                    </div>
+
+
+                                    <div
+                                        v-else
+                                        class="
+                                            divide-y
+                                            divide-accent/20
+                                            border-t
+                                            border-accent
+                                        "
+                                    >
+                                        <label
+                                            v-for="
+                                                coworker
+                                                in coworkers
+                                            "
+                                            :key="
+                                                coworker.id
+                                            "
+                                            class="
+                                                flex
+                                                cursor-pointer
+                                                gap-4
+                                                py-4
+                                            "
+                                        >
+                                            <input
+                                                v-model="
+                                                    form.coworker_ids
+                                                "
+                                                type="checkbox"
+                                                :value="
+                                                    coworker.id
+                                                "
+                                                class="
+                                                    mt-1
+                                                    h-4
+                                                    w-4
+                                                    shrink-0
+                                                    rounded-none
+                                                    border-dark
+                                                    text-accent
+                                                    focus:ring-accent
+                                                "
+                                            >
+
+
+                                            <span
+                                                class="
+                                                    min-w-0
+                                                "
+                                            >
+                                                <span
+                                                    class="
+                                                        p
+                                                        block
+                                                        font-medium
+                                                    "
+                                                >
+                                                    {{
+                                                        coworker.name
+                                                    }}
+                                                </span>
+
+                                                <span
+                                                    class="
+                                                        p
+                                                        mt-1
+                                                        block
+                                                        text-dark/50
+                                                    "
+                                                >
+                                                    {{
+                                                        coworker.email
+                                                    }}
+                                                </span>
+                                            </span>
+                                        </label>
+                                    </div>
+                                </div>
                             </div>
 
 
@@ -1005,6 +1217,21 @@ onMounted(
                             >
                                 {{
                                     errors.contact_ids[0]
+                                }}
+                            </p>
+
+
+                            <p
+                                v-if="
+                                    errors.coworker_ids?.[0]
+                                "
+                                class="
+                                    p
+                                    text-red-700
+                                "
+                            >
+                                {{
+                                    errors.coworker_ids[0]
                                 }}
                             </p>
                         </div>

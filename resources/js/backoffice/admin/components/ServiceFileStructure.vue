@@ -33,6 +33,16 @@ const props =
             default: false
         },
 
+        allowMetadataEditing: {
+            type: Boolean,
+            default: true
+        },
+
+        preventDeletingRequired: {
+            type: Boolean,
+            default: false
+        },
+
         disabled: {
             type: Boolean,
             default: false
@@ -1456,6 +1466,54 @@ function canDownloadResource(
 }
 
 
+function canDeleteItem(
+    item
+) {
+    if (!item?.id) {
+        return false
+    }
+
+    if (!props.preventDeletingRequired) {
+        return true
+    }
+
+    if (
+        item.type === 'file' &&
+        item.requirement_level === 'required'
+    ) {
+        return false
+    }
+
+    if (
+        item.type === 'folder'
+    ) {
+        const ids =
+            new Set([
+                item.id
+            ])
+
+        collectDescendants(
+            item.id,
+            ids
+        )
+
+        const containsRequired =
+            props.modelValue.some(
+                value =>
+                    ids.has(
+                        value.id
+                    ) &&
+                    value.type === 'file' &&
+                    value.requirement_level === 'required'
+            )
+
+        return !containsRequired
+    }
+
+    return true
+}
+
+
 function openFileEditor(
     item
 ) {
@@ -1824,6 +1882,10 @@ function requestDelete(
         props.disabled ||
         !item?.id
     ) {
+        return
+    }
+
+    if (!canDeleteItem(item)) {
         return
     }
 
@@ -2896,9 +2958,16 @@ watch(
                                             openMenu = null;
                                             requestDelete(item)
                                         "
+                                        :disabled="
+                                            !canDeleteItem(item)
+                                        "
                                     >
                                         <span>
-                                            Delete
+                                            {{
+                                                !canDeleteItem(item)
+                                                    ? 'Required'
+                                                    : 'Delete'
+                                            }}
                                         </span>
                                     </button>
                                 </div>
@@ -3390,6 +3459,9 @@ watch(
                     />
 
                     <FormField
+                        v-if="
+                            allowMetadataEditing
+                        "
                         id="file-requirement"
                         v-model="
                             fileDraft.requirement_level
@@ -3415,6 +3487,7 @@ watch(
 
                     <FormField
                         v-if="
+                            allowMetadataEditing &&
                             fileDraft.resource_type ===
                             'document'
                         "

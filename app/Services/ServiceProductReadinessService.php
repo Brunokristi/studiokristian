@@ -8,9 +8,11 @@ class ServiceProductReadinessService
 {
     public function inspect(ServiceProduct $product): array
     {
-        $blueprintVersion = $product->blueprint?->versions()->where('status', 'published')->latest('published_at')->first();
+        $blueprintVersion = $product->blueprint?->versions()->where('status', 'published')->latest('published_at')->first()
+            ?? $product->blueprint?->versions()->latest('id')->first();
         $template = $product->defaultContractTemplate;
-        $contractVersion = $template?->versions()->where('status', 'published')->latest('published_at')->first();
+        $contractVersion = $template?->versions()->where('status', 'published')->latest('published_at')->first()
+            ?? $template?->versions()->latest('id')->first();
         $missing = [];
         if (! $blueprintVersion) $missing[] = 'published_blueprint';
         if (! $template) $missing[] = 'default_contract_template';

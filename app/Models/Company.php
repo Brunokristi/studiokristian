@@ -30,6 +30,11 @@ class Company extends Model
         return $this->hasMany(Project::class);
     }
 
+    public function storageFolders(): HasMany
+    {
+        return $this->hasMany(CompanyStorageFolder::class);
+    }
+
     public function getDisplayLabelAttribute(): string
     {
         return $this->name;

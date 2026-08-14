@@ -23,7 +23,7 @@ class StaffMagicLinkController extends Controller
     {
         $data = $request->validate(['email' => ['required', 'email:rfc', 'max:255']]);
         $user = User::query()->whereRaw('LOWER(email) = ?', [strtolower($data['email'])])->first();
-        if ($user && ($user->is_admin || $user->projects()->exists())) {
+        if ($user) {
             $plain = Str::random(64);
             $token = $user->loginTokens()->create(['token_hash' => hash('sha256', $plain), 'expires_at' => now()->addMinutes(10), 'requested_ip' => $request->ip()]);
             $user->notify(new StaffMagicLinkNotification(URL::temporarySignedRoute('staff.login.consume', $token->expires_at, ['token' => $plain])));

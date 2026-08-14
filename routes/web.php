@@ -129,7 +129,9 @@ Route::prefix('admin/client-portal')->middleware(['auth', 'admin'])->name('admin
         Route::get('/coworkers', [CoworkerController::class, 'index'])->name('coworkers.index');
         Route::post('/coworkers', [CoworkerController::class, 'store'])->name('coworkers.store');
         Route::get('/internal-storage', [InternalStorageController::class, 'index'])->name('internal-storage.index');
+        Route::put('/internal-storage/structure', [InternalStorageController::class, 'updateStructure'])->name('internal-storage.structure.update');
         Route::get('/projects/{project}/files', [AdminProjectFileController::class, 'index'])->name('projects.files.index');
+        Route::put('/projects/{project}/structure', [AdminProjectFileController::class, 'updateStructure'])->name('projects.structure.update');
         Route::post('/projects/{project}/folders', [AdminProjectFileController::class, 'storeFolder'])->name('projects.folders.store');
         Route::put('/projects/{project}/folders/{folder}', [AdminProjectFileController::class, 'updateFolder'])->name('projects.folders.update');
         Route::post('/projects/{project}/files', [AdminProjectFileController::class, 'upload'])->name('projects.files.upload');
@@ -138,7 +140,9 @@ Route::prefix('admin/client-portal')->middleware(['auth', 'admin'])->name('admin
         Route::get('/projects/{project}/files/{file}/download', [AdminProjectFileController::class, 'download'])->name('projects.files.download');
         Route::get('/projects/{project}/files/{file}/open', [AdminProjectFileController::class, 'open'])->name('projects.files.open');
         Route::post('/projects/{project}/coworkers', [AdminProjectCoworkerController::class, 'store'])->name('projects.coworkers.store');
+        Route::post('/projects/{project}/coworkers/{user}/resend-invitation', [AdminProjectCoworkerController::class, 'resendCoworkerInvitation'])->name('projects.coworkers.resend-invitation');
         Route::post('/projects/{project}/contacts/invite', [AdminProjectCoworkerController::class, 'inviteContact'])->name('projects.contacts.invite');
+        Route::post('/projects/{project}/contacts/{contact}/resend-invitation', [AdminProjectCoworkerController::class, 'resendContactInvitation'])->name('projects.contacts.resend-invitation');
         Route::get('/projects/{project}/tickets', [AdminProjectTicketController::class, 'index'])->name('projects.tickets.index');
         Route::post('/projects/{project}/tickets', [AdminProjectTicketController::class, 'store'])->name('projects.tickets.store');
         Route::put('/projects/{project}/tickets/{ticket}', [AdminProjectTicketController::class, 'update'])->name('projects.tickets.update');

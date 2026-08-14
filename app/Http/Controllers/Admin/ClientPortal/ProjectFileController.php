@@ -57,6 +57,107 @@ class ProjectFileController extends Controller
         return response()->json($folder);
     }
 
+    public function updateStructure(Project $project, Request $request): JsonResponse
+    {
+        $data = $request->validate([
+            'folders' => ['array'],
+            'folders.*.id' => ['nullable', 'integer'],
+            'folders.*.client_key' => ['required', 'string', 'max:100'],
+            'folders.*.parent_client_key' => ['nullable', 'string', 'max:100'],
+            'folders.*.type' => ['nullable', 'in:folder,file'],
+            'folders.*.name' => ['required', 'string', 'max:150', 'not_in:.,..'],
+            'folders.*.resource_type' => ['nullable', 'in:document,file,link'],
+            'folders.*.requirement_level' => ['nullable', 'in:required,recommended,optional'],
+            'folders.*.requires_client_signature' => ['nullable', 'boolean'],
+            'folders.*.template_name' => ['nullable', 'string', 'max:255'],
+            'folders.*.content' => ['nullable', 'string'],
+            'folders.*.url' => ['nullable', 'string', 'max:2000'],
+            'folders.*.client_visible' => ['required', 'boolean'],
+        ]);
+
+        DB::transaction(function () use ($project, $data, $request) {
+            $existing = $project->folders()->get()->keyBy('id');
+            $processedIds = [];
+            $map = [];
+            $pending = collect($data['folders'] ?? [])->values();
+
+            while ($pending->isNotEmpty()) {
+                $progress = false;
+
+                foreach ($pending as $index => $input) {
+                    $parentClientKey = $input['parent_client_key'] ?? null;
+                    if ($parentClientKey && ! isset($map[$parentClientKey])) {
+                        continue;
+                    }
+
+                    $folder = null;
+                    if (!empty($input['id'])) {
+                        $folder = $project->folders()->whereKey((int) $input['id'])->firstOrFail();
+                    }
+
+                    if (!$folder) {
+                        $folder = $project->folders()->make();
+                    }
+
+                    $resourceType = $input['type'] === 'file'
+                        ? ($input['resource_type'] ?? 'document')
+                        : null;
+
+                    $isDocument = $resourceType === 'document';
+
+                    $folder->fill([
+                        'parent_id' => $parentClientKey ? $map[$parentClientKey] : null,
+                        'type' => $input['type'] ?? 'folder',
+                        'name' => $input['name'],
+                        'resource_type' => $resourceType,
+                        'requirement_level' => $input['requirement_level'] ?? null,
+                        'requires_client_signature' => $isDocument
+                            ? (bool) ($input['requires_client_signature'] ?? false)
+                            : false,
+                        'template_name' => $input['template_name'] ?? null,
+                        'content' => $input['content'] ?? null,
+                        'url' => $resourceType === 'link' ? ($input['url'] ?? null) : null,
+                        'client_visible' => $input['client_visible'],
+                        'sort_order' => $index,
+                        'created_by' => $folder->created_by ?: $request->user()?->id,
+                    ]);
+                    $folder->save();
+
+                    $processedIds[] = $folder->id;
+                    $map[$input['client_key']] = $folder->id;
+                    $pending->forget($index);
+                    $progress = true;
+                }
+
+                if (!$progress) {
+                    throw ValidationException::withMessages([
+                        'folders' => 'Folder tree contains a missing or circular parent.',
+                    ]);
+                }
+            }
+
+            $removed = $existing
+                ->filter(fn (ProjectFolder $folder) => !in_array($folder->id, $processedIds, true))
+                ->values();
+
+            if ($removed->contains(fn (ProjectFolder $folder) => $folder->requirement_level === 'required')) {
+                throw ValidationException::withMessages([
+                    'folders' => 'Required project items cannot be deleted.',
+                ]);
+            }
+
+            if (!empty($processedIds)) {
+                $project->folders()->whereNotIn('id', $processedIds)->delete();
+            } else {
+                $project->folders()->delete();
+            }
+        });
+
+        return response()->json([
+            'folders' => $project->fresh()->folders,
+        ]);
+    }
+
     public function upload(Project $project, UploadProjectFilesRequest $request, ProjectUploadPathService $paths): JsonResponse
     {
         $base = $request->integer('folder_id') ? $project->folders()->findOrFail($request->integer('folder_id')) : null;

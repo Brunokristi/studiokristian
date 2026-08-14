@@ -1,19 +1,19 @@
 <script setup>
-import { onMounted, ref } from 'vue'
+import { onBeforeUnmount, onMounted, ref } from 'vue'
 import api, { errorMessage } from '../../composables/useAdminApi'
 import AdminPageHeader from '../../components/AdminPageHeader.vue'
+import ServiceFileStructure from '../../components/ServiceFileStructure.vue'
 
-const projects = ref([])
-const selectedProjectId = ref('')
+const storageFolders = ref([])
 const loading = ref(true)
 const error = ref('')
+const structureSaveTimer = ref(null)
+const structureSaving = ref(false)
 
-async function load(projectId = selectedProjectId.value) {
+async function load() {
     try {
-        const response = await api.get('/internal-storage', {
-            params: projectId ? { project_id: projectId } : {},
-        })
-        projects.value = response.data
+        const response = await api.get('/internal-storage')
+        storageFolders.value = normalizeFolders(response.data?.folders || [], storageFolders.value || [])
     } catch (exception) {
         error.value = errorMessage(exception)
     } finally {
@@ -23,60 +23,161 @@ async function load(projectId = selectedProjectId.value) {
 
 onMounted(load)
 
-function size(bytes) {
-    if (!bytes) return '0 B'
-    if (bytes < 1024) return `${bytes} B`
-    if (bytes < 1048576) return `${(bytes / 1024).toFixed(1)} KB`
-    return `${(bytes / 1048576).toFixed(1)} MB`
+function isPersistedFolderId(value) {
+    if (value === null || value === undefined) {
+        return false
+    }
+
+    const numeric = Number(value)
+    return Number.isInteger(numeric) && numeric > 0
 }
 
-function formatDate(value) {
-    if (!value) return '—'
-    return new Date(value).toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' })
+function normalizeFolders(serverFolders = [], previousFolders = []) {
+    const source = Array.isArray(serverFolders) ? [...serverFolders] : []
+    const previous = Array.isArray(previousFolders) ? [...previousFolders] : []
+
+    source.sort((a, b) => Number(a?.sort_order || 0) - Number(b?.sort_order || 0))
+    previous.sort((a, b) => Number(a?.sort_order || 0) - Number(b?.sort_order || 0))
+
+    const normalized = source.map((item, index) => {
+        const previousItem = previous[index] || null
+        const clientKey = previousItem?.client_key || String(item.id)
+
+        return {
+            ...item,
+            client_key: clientKey,
+            parent_client_key: null,
+            // Company private storage is always internal-only.
+            client_visible: false,
+        }
+    })
+
+    const idToClientKey = new Map(normalized.map(item => [String(item.id), item.client_key]))
+
+    return normalized.map(item => ({
+        ...item,
+        parent_client_key:
+            item.parent_id !== null && item.parent_id !== undefined
+                ? idToClientKey.get(String(item.parent_id)) || String(item.parent_id)
+                : null,
+    }))
 }
+
+function foldersPayloadForSave() {
+    const items = (storageFolders.value || []).map(item => ({
+        ...item,
+        id: isPersistedFolderId(item.id) ? Number(item.id) : null,
+        client_key: String(item.client_key || item.id),
+        parent_client_key: item.parent_client_key ?? null,
+        client_visible: false,
+    }))
+
+    const keyById = new Map(items.map(item => [String(item.id), String(item.client_key)]))
+
+    return items.map(item => ({
+        ...item,
+        parent_client_key:
+            item.parent_id !== null && item.parent_id !== undefined
+                ? keyById.get(String(item.parent_id)) || String(item.parent_client_key || item.parent_id)
+                : null,
+    }))
+}
+
+function queueStructureSave(value) {
+    storageFolders.value = value
+
+    if (structureSaveTimer.value) {
+        clearTimeout(structureSaveTimer.value)
+    }
+
+    structureSaveTimer.value = setTimeout(() => {
+        structureSaveTimer.value = null
+        void saveStructure()
+    }, 250)
+}
+
+async function saveStructure() {
+    if (structureSaving.value) {
+        return
+    }
+
+    structureSaving.value = true
+
+    try {
+        const response = await api.put('/internal-storage/structure', {
+            folders: foldersPayloadForSave(),
+        })
+
+        storageFolders.value = normalizeFolders(response.data?.folders || [], storageFolders.value || [])
+    } catch (exception) {
+        error.value = errorMessage(exception)
+    } finally {
+        structureSaving.value = false
+    }
+}
+
+function normalizeOpenUrl(value) {
+    const raw = String(value || '').trim()
+    if (!raw) return ''
+    if (raw.startsWith('/') || raw.startsWith('#')) return raw
+    if (/^[a-z][a-z\d+.-]*:/i.test(raw)) return raw
+    return `https://${raw}`
+}
+
+function handleOpenFile(item) {
+    if (item?.resource_type === 'document') {
+        error.value = 'This is a simple company cloud drive view. Document editing is disabled here.'
+        return
+    }
+
+    if (item?.resource_type === 'link') {
+        const openUrl = normalizeOpenUrl(item?.url || '')
+        if (openUrl) {
+            window.open(openUrl, '_blank', 'noopener,noreferrer')
+            return
+        }
+    }
+
+    error.value = 'This company storage entry is structure-only. Use documents and links in this space.'
+}
+
+function handleDownloadFile() {
+    error.value = 'Downloads are not available for structure-only company storage entries.'
+}
+
+onBeforeUnmount(() => {
+    if (structureSaveTimer.value) {
+        clearTimeout(structureSaveTimer.value)
+    }
+})
 </script>
 
 <template>
     <div class="space-y-6">
         <AdminPageHeader
             title="Internal storage"
-            eyebrow="Shared files"
-            description="Internal-only project files and shared team documents."
+            eyebrow="Private cloud drive"
+            description="Admin-only private cloud drive for your internal documents."
         />
 
         <div v-if="error" class="border border-red-700 bg-red-50 p-4 text-sm text-red-800">{{ error }}</div>
 
-        <div class="border border-dark bg-light p-4">
-            <div class="admin-field max-w-md">
-                <label>Filter by project</label>
-                <select v-model="selectedProjectId" @change="load(selectedProjectId)">
-                    <option value="">All projects</option>
-                    <option v-for="project in projects.flatMap((item) => item.id ? [{ id: item.id, name: item.name }] : [])" :key="project.id" :value="project.id">
-                        {{ project.name }}
-                    </option>
-                </select>
+        <article class="space-y-5 border border-dark bg-light p-5">
+            <div v-if="loading" class="py-10 text-center text-sm">Loading...</div>
+
+            <div v-else>
+                <ServiceFileStructure
+                    :model-value="storageFolders"
+                    :allow-upload-control="false"
+                    :allow-metadata-editing="true"
+                    :prevent-deleting-required="false"
+                    :disabled="structureSaving"
+                    @update:model-value="queueStructureSave"
+                    @open-document="handleOpenFile"
+                    @open-file="handleOpenFile"
+                    @download-file="handleDownloadFile"
+                />
             </div>
-        </div>
-
-        <div v-if="loading" class="py-10 text-center text-sm">Loading…</div>
-
-        <div v-else class="space-y-4">
-            <article v-for="project in projects" :key="project.id" class="border border-dark bg-light p-5">
-                <div class="mb-4 flex items-center justify-between gap-3">
-                    <h2 class="font-mono text-sm font-bold uppercase">{{ project.name }}</h2>
-                    <span class="text-xs text-neutral-500">{{ project.files.length }} internal files</span>
-                </div>
-
-                <div v-if="project.files.length" class="space-y-2">
-                    <div v-for="file in project.files" :key="file.id" class="grid grid-cols-[1fr_auto_auto_auto] items-center gap-3 border-t border-dark pt-2 text-sm">
-                        <strong class="truncate">{{ file.display_name }}</strong>
-                        <span class="text-neutral-500">{{ file.mime_type || 'file' }}</span>
-                        <span class="text-neutral-500">{{ size(file.size) }}</span>
-                        <span class="text-neutral-500">{{ formatDate(file.created_at) }}</span>
-                    </div>
-                </div>
-                <p v-else class="text-sm text-neutral-500">No internal files for this project yet.</p>
-            </article>
-        </div>
+        </article>
     </div>
 </template>

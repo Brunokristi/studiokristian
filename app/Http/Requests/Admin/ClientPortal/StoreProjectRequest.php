@@ -35,10 +35,9 @@ class StoreProjectRequest extends AdminClientPortalRequest
             'completed_at' => ['nullable', 'date', 'after_or_equal:started_at'],
             'contact_ids' => ['array'],
             'contact_ids.*' => ['integer', 'distinct', 'exists:client_contacts,id'],
+            'coworker_ids' => ['array'],
+            'coworker_ids.*' => ['integer', 'distinct', 'exists:users,id'],
             'configuration' => ['array'],
-            'contract_values' => ['array'],
-            'selected_deliverable_ids' => ['array'],
-            'selected_deliverable_ids.*' => ['integer', 'distinct', 'exists:service_blueprint_deliverables,id'],
         ];
     }
 

@@ -5,7 +5,10 @@ namespace App\Http\Controllers\Admin\ClientPortal;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\ClientPortal\StoreProjectRequest;
 use App\Http\Resources\Admin\ClientPortal\ProjectResource;
+use App\Models\ClientContact;
 use App\Models\Project;
+use App\Models\User;
+use App\Notifications\ProjectInvitationNotification;
 use App\Services\ProjectInstantiationService;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
@@ -39,7 +42,7 @@ class ProjectController extends Controller
     {
         $project = $service->create($request->validated(), $request->user());
 
-        return (new ProjectResource($project->load(['company', 'serviceProduct', 'contacts'])->loadCount('contacts')))
+        return (new ProjectResource($project->load(['company', 'serviceProduct', 'contacts', 'coworkers'])->loadCount('contacts')))
             ->response()->setStatusCode(201);
     }
 
@@ -52,17 +55,51 @@ class ProjectController extends Controller
 
     public function update(StoreProjectRequest $request, Project $project): ProjectResource
     {
+        $currentContactIds = $project->contacts()->pluck('client_contacts.id')->map(fn ($id) => (int) $id)->all();
+        $currentCoworkerIds = $project->coworkers()->pluck('users.id')->map(fn ($id) => (int) $id)->all();
+
+        $nextContactIds = collect($request->validated('contact_ids', []))->map(fn ($id) => (int) $id)->all();
+        $nextCoworkerIds = collect($request->validated('coworker_ids', []))->map(fn ($id) => (int) $id)->all();
+
+        $addedContactIds = array_values(array_diff($nextContactIds, $currentContactIds));
+        $addedCoworkerIds = array_values(array_diff($nextCoworkerIds, $currentCoworkerIds));
+
         DB::transaction(function () use ($request, $project) {
-            $data = $request->safe()->except('contact_ids');
+            $data = $request->safe()->except(['contact_ids', 'coworker_ids']);
             $data['url'] = $data['url'] ?: $project->url;
             $project->update($data);
             $project->contacts()->sync($request->validated('contact_ids', []));
+            $project->coworkers()->sync($request->validated('coworker_ids', []));
             if ($project->portal_status !== 'archived') {
                 $project->update(['archived_at' => null]);
             }
         });
 
-        return new ProjectResource($project->fresh()->load(['company', 'serviceProduct', 'contacts'])->loadCount('contacts'));
+        if (! empty($addedContactIds)) {
+            ClientContact::query()->whereIn('id', $addedContactIds)->update([
+                'active' => true,
+                'can_access_portal' => true,
+                'access_revoked_at' => null,
+            ]);
+        }
+
+        DB::afterCommit(function () use ($project, $addedContactIds, $addedCoworkerIds) {
+            if (! empty($addedContactIds)) {
+                $contacts = ClientContact::query()->whereIn('id', $addedContactIds)->get();
+                foreach ($contacts as $contact) {
+                    $contact->notify(new ProjectInvitationNotification($project, route('client.login')));
+                }
+            }
+
+            if (! empty($addedCoworkerIds)) {
+                $coworkers = User::query()->whereIn('id', $addedCoworkerIds)->get();
+                foreach ($coworkers as $coworker) {
+                    $coworker->notify(new ProjectInvitationNotification($project, route('login')));
+                }
+            }
+        });
+
+        return new ProjectResource($project->fresh()->load(['company', 'serviceProduct', 'contacts', 'coworkers'])->loadCount('contacts'));
     }
 
     public function archive(Project $project): Response

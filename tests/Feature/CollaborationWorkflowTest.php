@@ -4,11 +4,13 @@ namespace Tests\Feature;
 
 use App\Models\ClientContact;
 use App\Models\Company;
+use App\Models\CompanyStorageFolder;
 use App\Models\Project;
 use App\Models\User;
 use App\Notifications\NewClientTicketNotification;
 use App\Notifications\ProjectInvitationNotification;
 use App\Notifications\StaffMagicLinkNotification;
+use App\Notifications\TicketAssignedNotification;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Notification;
@@ -77,21 +79,19 @@ class CollaborationWorkflowTest extends TestCase
             ->assertOk()
             ->assertJsonFragment(['email' => 'sam@example.test']);
 
-        $project->files()->create([
-            'display_name' => 'Brief.docx',
-            'original_filename' => 'Brief.docx',
-            'storage_path' => 'client-portal/projects/'.$project->id.'/files/brief.docx',
-            'mime_type' => 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-            'size' => 1200,
-            'checksum' => 'abc123',
-            'visibility' => 'internal',
-            'uploaded_by' => $admin->id,
+        CompanyStorageFolder::create([
+            'company_id' => null,
+            'name' => 'Brief docs',
+            'type' => 'folder',
+            'client_visible' => false,
+            'sort_order' => 0,
+            'created_by' => $admin->id,
         ]);
 
         $this->actingAs($admin)
             ->getJson('/admin/client-portal/api/internal-storage')
             ->assertOk()
-            ->assertJsonFragment(['display_name' => 'Brief.docx']);
+            ->assertJsonFragment(['name' => 'Brief docs']);
     }
 
     public function test_client_ticket_notifies_admin_and_project_coworker(): void
@@ -109,6 +109,25 @@ class CollaborationWorkflowTest extends TestCase
 
         $this->assertDatabaseHas('project_tickets', ['project_id' => $project->id, 'created_by_client_contact_id' => $contact->id, 'status' => 'new']);
         Notification::assertSentTo([$admin, $coworker], NewClientTicketNotification::class);
+    }
+
+    public function test_assigning_ticket_to_coworker_sends_assignment_email(): void
+    {
+        Notification::fake();
+        $admin = User::factory()->create(['is_admin' => true]);
+        $coworker = User::factory()->create(['is_admin' => false]);
+        $company = Company::create(['name' => 'Client']);
+        $project = Project::create(['company_id' => $company->id, 'name' => 'Portal', 'url' => 'portal']);
+        $project->coworkers()->attach($coworker);
+
+        $this->actingAs($admin)->postJson("/admin/client-portal/api/projects/{$project->id}/tickets", [
+            'title' => 'Homepage bug',
+            'description' => 'CTA is not clickable.',
+            'priority' => 'high',
+            'assigned_to' => $coworker->id,
+        ])->assertCreated();
+
+        Notification::assertSentTo($coworker, TicketAssignedNotification::class);
     }
 
     public function test_inviting_contact_grants_portal_access_and_sends_invitation(): void
