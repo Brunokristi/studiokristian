@@ -5,7 +5,8 @@ import {
     onMounted,
     onUnmounted,
     reactive,
-    ref
+    ref,
+    watch
 } from 'vue'
 
 
@@ -22,6 +23,16 @@ const props =
             default: () => []
         },
 
+        initialFolderId: {
+            type: [String, Number, null],
+            default: null
+        },
+
+        allowUploadControl: {
+            type: Boolean,
+            default: false
+        },
+
         disabled: {
             type: Boolean,
             default: false
@@ -33,7 +44,10 @@ const emit =
     defineEmits([
         'update:modelValue',
         'open-folder',
-        'open-document'
+        'open-document',
+        'open-file',
+        'download-file',
+        'upload-files'
     ])
 
 
@@ -67,8 +81,44 @@ const renameInput =
     ref(null)
 
 
+const uploadInput =
+    ref(null)
+
+
+const uploadDirectoryInput =
+    ref(null)
+
+
 const showFileCreator =
     ref(false)
+
+
+const fileCreatorStep =
+    ref('type')
+
+
+const fileCreatorMode =
+    ref('create')
+
+
+const editingFileId =
+    ref(null)
+
+
+const moveTarget =
+    ref(null)
+
+
+const moveDestination =
+    ref('__root__')
+
+
+const moveError =
+    ref('')
+
+
+const moveBrowserFolderId =
+    ref(null)
 
 
 const deleteTarget =
@@ -161,6 +211,71 @@ const rootFolders =
                 !folder.parent_id
         )
     )
+
+
+const folderTreeRows =
+    computed(() => {
+        const rows = []
+
+        const walk = (
+            parentId,
+            depth
+        ) => {
+            const children =
+                folders.value
+                    .filter(
+                        folder => {
+                            if (
+                                parentId === null
+                            ) {
+                                return (
+                                    folder.parent_id === null ||
+                                    folder.parent_id === undefined
+                                )
+                            }
+
+                            return String(
+                                folder.parent_id
+                            ) === String(
+                                parentId
+                            )
+                        }
+                    )
+                    .sort(
+                        (a, b) =>
+                            String(
+                                a.name ||
+                                ''
+                            ).localeCompare(
+                                String(
+                                    b.name ||
+                                    ''
+                                )
+                            )
+                    )
+
+            children.forEach(
+                folder => {
+                    rows.push({
+                        folder,
+                        depth
+                    })
+
+                    walk(
+                        folder.id,
+                        depth + 1
+                    )
+                }
+            )
+        }
+
+        walk(
+            null,
+            0
+        )
+
+        return rows
+    })
 
 
 function childrenOf(
@@ -293,6 +408,11 @@ function openRoot() {
 
     openMenu.value =
         null
+
+    emit(
+        'open-folder',
+        null
+    )
 }
 
 
@@ -342,15 +462,261 @@ function openDocument(
     selectedItem.value =
         file.id
 
-
     openMenu.value =
         null
 
-
-    emit(
-        'open-document',
+    openResource(
         file
     )
+}
+
+
+function openFile(
+    file
+) {
+    if (
+        !file?.id
+    ) {
+        return
+    }
+
+    emit(
+        'open-file',
+        file
+    )
+}
+
+
+function openStructuredDocument(
+    item
+) {
+    nextTick(() => {
+        emit(
+            'open-document',
+            item
+        )
+    })
+}
+
+
+function getResourceType(
+    item
+) {
+    if (
+        item?.type ===
+        'folder'
+    ) {
+        return 'folder'
+    }
+
+    if (
+        item?.type ===
+        'file' &&
+        item?.resource_type ===
+        'document'
+    ) {
+        return 'document'
+    }
+
+    if (
+        item?.type ===
+        'file'
+    ) {
+        return 'file'
+    }
+
+    return 'file'
+}
+
+
+function openResource(
+    item
+) {
+    const resourceType =
+        getResourceType(
+            item
+        )
+
+    if (
+        resourceType ===
+        'folder'
+    ) {
+        openFolder(
+            item
+        )
+
+        return
+    }
+
+    if (
+        resourceType ===
+        'document'
+    ) {
+        openStructuredDocument(
+            item
+        )
+
+        return
+    }
+
+    openFile(
+        item
+    )
+}
+
+
+function downloadFile(
+    file
+) {
+    if (
+        !file?.id
+    ) {
+        return
+    }
+
+    emit(
+        'download-file',
+        file
+    )
+}
+
+
+function extensionFromName(
+    value
+) {
+    const name =
+        String(
+            value ||
+            ''
+        )
+
+    const parts =
+        name.split('.')
+
+    return parts.length > 1
+        ? String(
+            parts.pop()
+        ).toLowerCase()
+        : ''
+}
+
+
+function normalizeUploadedResourceType(
+    file
+) {
+    const mime =
+        String(
+            file?.type ||
+            ''
+        ).toLowerCase()
+
+    const extension =
+        extensionFromName(
+            file?.name
+        )
+
+    if (
+        mime ===
+        'application/pdf' ||
+        mime.startsWith(
+            'image/'
+        ) ||
+        mime.startsWith(
+            'audio/'
+        ) ||
+        mime.startsWith(
+            'video/'
+        )
+    ) {
+        return 'file'
+    }
+
+    if (
+        [
+            'txt',
+            'md',
+            'json',
+            'xml',
+            'csv',
+            'js',
+            'ts',
+            'vue',
+            'php',
+            'py',
+            'java',
+            'c',
+            'cpp',
+            'h',
+            'sql',
+            'sh',
+            'yaml',
+            'yml',
+            'css',
+            'html',
+            'svg'
+        ].includes(
+            extension
+        )
+    ) {
+        return 'file'
+    }
+
+    return 'file'
+}
+
+
+function humanFileType(
+    file
+) {
+    const mime =
+        String(
+            file?.mime_type ||
+            ''
+        ).toLowerCase()
+
+    if (
+        mime ===
+        'application/pdf'
+    ) {
+        return 'PDF'
+    }
+
+    if (
+        mime ===
+        'image/svg+xml'
+    ) {
+        return 'SVG'
+    }
+
+    if (
+        mime.startsWith(
+            'image/'
+        )
+    ) {
+        return 'Image'
+    }
+
+    if (
+        mime.startsWith(
+            'audio/'
+        )
+    ) {
+        return 'Audio'
+    }
+
+    if (
+        mime.startsWith(
+            'video/'
+        )
+    ) {
+        return 'Video'
+    }
+
+    return file.resource_type === 'link'
+        ? 'Link'
+        : file.resource_type === 'document'
+            ? 'Document'
+            : 'File'
 }
 
 
@@ -367,6 +733,38 @@ function openBreadcrumb(
     openFolder(
         folder
     )
+}
+
+
+function restoreFolderFromParent(
+    value
+) {
+    if (
+        value === null ||
+        value === undefined ||
+        value === ''
+    ) {
+        currentFolder.value =
+            null
+
+        return
+    }
+
+    const folder =
+        getItem(value)
+
+    if (
+        folder?.type ===
+        'folder'
+    ) {
+        currentFolder.value =
+            folder.id
+
+        return
+    }
+
+    currentFolder.value =
+        null
 }
 
 
@@ -428,6 +826,320 @@ function closeMenu() {
 
 function handleDocumentClick() {
     closeMenu()
+}
+
+
+function collectFolderDescendants(
+    folderId,
+    ids
+) {
+    folders.value
+        .filter(
+            folder =>
+                String(
+                    folder.parent_id
+                ) ===
+                String(
+                    folderId
+                )
+        )
+        .forEach(
+            folder => {
+                ids.add(
+                    String(
+                        folder.id
+                    )
+                )
+
+                collectFolderDescendants(
+                    folder.id,
+                    ids
+                )
+            }
+        )
+}
+
+
+const moveBlockedFolderIds =
+    computed(() => {
+        const blocked =
+            new Set()
+
+        const target =
+            moveTarget.value
+
+        if (
+            target?.type ===
+            'folder'
+        ) {
+            blocked.add(
+                String(
+                    target.id
+                )
+            )
+            collectFolderDescendants(
+                target.id,
+                blocked
+            )
+        }
+
+        return blocked
+    })
+
+
+const moveBrowserFolders =
+    computed(() => {
+        const activeParent =
+            moveBrowserFolderId.value
+
+        return folders.value
+            .filter(
+                folder => {
+                    const matchesParent =
+                        activeParent === null
+                            ? (
+                                folder.parent_id === null ||
+                                folder.parent_id === undefined
+                            )
+                            : String(
+                                folder.parent_id
+                            ) === String(
+                                activeParent
+                            )
+
+                    return (
+                        matchesParent &&
+                        !moveBlockedFolderIds.value.has(
+                            String(
+                                folder.id
+                            )
+                        )
+                    )
+                }
+            )
+            .sort(
+                (a, b) =>
+                    String(
+                        a.name ||
+                        ''
+                    ).localeCompare(
+                        String(
+                            b.name ||
+                            ''
+                        )
+                    )
+            )
+    })
+
+
+const moveBrowserBreadcrumbs =
+    computed(() => {
+        const trail = []
+
+        let cursor =
+            moveBrowserFolderId.value
+                ? getItem(
+                    moveBrowserFolderId.value
+                )
+                : null
+
+        while (cursor) {
+            trail.unshift(
+                cursor
+            )
+            cursor =
+                cursor.parent_id
+                    ? getItem(
+                        cursor.parent_id
+                    )
+                    : null
+        }
+
+        return trail
+    })
+
+
+const selectedMoveDestinationLabel =
+    computed(() => {
+        if (
+            moveDestination.value ===
+            '__root__'
+        ) {
+            return 'Project (root)'
+        }
+
+        const folder =
+            getItem(
+                moveDestination.value
+            )
+
+        return folder?.name || 'Selected folder'
+    })
+
+
+function browseMoveFolder(
+    folder
+) {
+    if (
+        !folder?.id ||
+        moveBlockedFolderIds.value.has(
+            String(
+                folder.id
+            )
+        )
+    ) {
+        return
+    }
+
+    moveBrowserFolderId.value =
+        folder.id
+}
+
+
+function browseMoveRoot() {
+    moveBrowserFolderId.value =
+        null
+}
+
+
+function browseMoveUp() {
+    if (
+        moveBrowserFolderId.value ===
+        null
+    ) {
+        return
+    }
+
+    const current =
+        getItem(
+            moveBrowserFolderId.value
+        )
+
+    moveBrowserFolderId.value =
+        current?.parent_id ??
+        null
+}
+
+
+function selectCurrentMoveDestination() {
+    moveDestination.value =
+        moveBrowserFolderId.value === null
+            ? '__root__'
+            : String(
+                moveBrowserFolderId.value
+            )
+
+    moveError.value =
+        ''
+}
+
+
+function openMoveDialog(
+    item
+) {
+    if (
+        props.disabled ||
+        !item?.id
+    ) {
+        return
+    }
+
+    openMenu.value =
+        null
+
+    moveTarget.value =
+        item
+
+    moveDestination.value =
+        item.parent_id !== null &&
+        item.parent_id !== undefined
+            ? String(
+                item.parent_id
+            )
+            : '__root__'
+
+    moveError.value =
+        ''
+
+    moveBrowserFolderId.value =
+        null
+}
+
+
+function closeMoveDialog() {
+    moveTarget.value =
+        null
+    moveDestination.value =
+        '__root__'
+    moveError.value =
+        ''
+    moveBrowserFolderId.value =
+        null
+}
+
+
+function confirmMove() {
+    if (!moveTarget.value) {
+        return
+    }
+
+    const destinationId =
+        moveDestination.value ===
+        '__root__'
+            ? null
+            : moveDestination.value
+
+    if (
+        String(
+            moveTarget.value.parent_id ?? '__root__'
+        ) ===
+        String(
+            destinationId ?? '__root__'
+        )
+    ) {
+        closeMoveDialog()
+        return
+    }
+
+    const destinationFolder =
+        destinationId !== null
+            ? getItem(destinationId)
+            : null
+
+    if (
+        destinationId !== null &&
+        destinationFolder?.type !==
+            'folder'
+    ) {
+        moveError.value =
+            'Please select a valid destination folder.'
+        return
+    }
+
+    update(
+        props.modelValue.map(
+            item =>
+                String(item.id) ===
+                String(
+                    moveTarget.value.id
+                )
+                    ? {
+                        ...item,
+                        parent_id:
+                            destinationId,
+                        parent_client_key:
+                            destinationFolder
+                                ? String(
+                                    destinationFolder.client_key ||
+                                    destinationFolder.id
+                                )
+                                : null
+                    }
+                    : item
+        )
+    )
+
+    closeMoveDialog()
 }
 
 
@@ -564,6 +1276,14 @@ async function createFolder() {
             .slice(2, 8)}`
 
 
+    const parent =
+        currentFolder.value
+            ? getItem(
+                currentFolder.value
+            )
+            : null
+
+
     const folder = {
         id:
             folderId,
@@ -581,9 +1301,10 @@ async function createFolder() {
             currentFolder.value,
 
         parent_client_key:
-            currentFolder.value
+            parent
                 ? String(
-                    currentFolder.value
+                    parent.client_key ||
+                    parent.id
                 )
                 : null,
 
@@ -658,15 +1379,291 @@ function resetFileDraft() {
 function openFileCreator() {
     resetFileDraft()
 
+    fileCreatorStep.value =
+        'type'
+
+    fileCreatorMode.value =
+        'create'
+
+    editingFileId.value =
+        null
+
 
     showFileCreator.value =
         true
 }
 
 
+function selectCreatorType(
+    type
+) {
+    if (
+        type !== 'document' &&
+        type !== 'link'
+    ) {
+        return
+    }
+
+    fileDraft.resource_type =
+        type
+
+    fileDraft.name =
+        type === 'link'
+            ? 'New external link'
+            : 'New document'
+
+    fileDraft.url =
+        ''
+
+    fileDraft.requires_client_signature =
+        type === 'document'
+            ? fileDraft.requires_client_signature
+            : false
+
+    fileDraft.template_name =
+        ''
+
+    fileErrors.value =
+        {}
+
+    fileCreatorStep.value =
+        'details'
+}
+
+
+function backToTypeSelection() {
+    if (
+        fileCreatorMode.value ===
+        'edit'
+    ) {
+        return
+    }
+
+    fileCreatorStep.value =
+        'type'
+}
+
+
+function canDownloadResource(
+    item
+) {
+    return (
+        item?.type ===
+            'file' &&
+        item?.resource_type ===
+            'file'
+    )
+}
+
+
+function openFileEditor(
+    item
+) {
+    if (
+        props.disabled ||
+        !item?.id ||
+        item?.type !== 'file'
+    ) {
+        return
+    }
+
+    openMenu.value =
+        null
+
+    fileDraft.name =
+        String(
+            item.name ||
+            ''
+        )
+
+    fileDraft.resource_type =
+        String(
+            item.resource_type ||
+            'file'
+        )
+
+    fileDraft.requirement_level =
+        String(
+            item.requirement_level ||
+            'recommended'
+        )
+
+    fileDraft.requires_client_signature =
+        fileDraft.resource_type ===
+            'document' &&
+        Boolean(
+            item.requires_client_signature
+        )
+
+    fileDraft.client_visible =
+        Boolean(
+            item.client_visible ??
+            true
+        )
+
+    fileDraft.template_name =
+        String(
+            item.template_name ||
+            ''
+        )
+
+    fileDraft.content =
+        String(
+            item.content ||
+            ''
+        )
+
+    fileDraft.url =
+        String(
+            item.url ||
+            ''
+        )
+
+    fileErrors.value =
+        {}
+
+    fileCreatorMode.value =
+        'edit'
+
+    editingFileId.value =
+        item.id
+
+    fileCreatorStep.value =
+        'details'
+
+    showFileCreator.value =
+        true
+}
+
+
+function parentMetadata() {
+    const parent =
+        currentFolder.value
+            ? getItem(
+                currentFolder.value
+            )
+            : null
+
+    return {
+        parentId:
+            currentFolder.value,
+        parentClientKey:
+            parent
+                ? String(
+                    parent.client_key ||
+                    parent.id
+                )
+                : null
+    }
+}
+
+
+function createUploadedFileItems(
+    filesList
+) {
+    const files =
+        Array.from(
+            filesList || []
+        )
+
+    if (!files.length) {
+        return
+    }
+
+    const {
+        parentId,
+        parentClientKey
+    } = parentMetadata()
+
+    const newItems =
+        files.map(
+            file => {
+                const fileId =
+                    `file_${Date.now()}_${Math.random()
+                        .toString(36)
+                        .slice(2, 8)}`
+
+                return {
+                    id: fileId,
+                    client_key: fileId,
+                    type: 'file',
+                    name: file.name,
+                    resource_type:
+                        normalizeUploadedResourceType(
+                            file
+                        ),
+                    requirement_level: 'recommended',
+                    requires_client_signature: false,
+                    client_visible: true,
+                    template_name: file.name,
+                    content: '',
+                    url: '',
+                    mime_type: file.type || 'application/octet-stream',
+                    extension: extensionFromName(file.name),
+                    size: Number(file.size || 0),
+                    parent_id: parentId,
+                    parent_client_key: parentClientKey
+                }
+            }
+        )
+
+    update([
+        ...props.modelValue,
+        ...newItems
+    ])
+
+    const last =
+        newItems[
+            newItems.length - 1
+        ]
+
+    selectedItem.value =
+        last?.id ||
+        null
+}
+
+
+function handleUploadChange(
+    event
+) {
+    const selectedFiles =
+        event?.target?.files ||
+        null
+
+    if (selectedFiles) {
+        emit(
+            'upload-files',
+            {
+                files: selectedFiles,
+                folderId: currentFolder.value,
+                parent: currentFolder.value
+                    ? getItem(
+                        currentFolder.value
+                    )
+                    : null
+            }
+        )
+    }
+
+    if (event?.target) {
+        event.target.value =
+            ''
+    }
+}
+
+
 function closeFileCreator() {
     showFileCreator.value =
         false
+
+    fileCreatorStep.value =
+        'type'
+
+    fileCreatorMode.value =
+        'create'
+
+    editingFileId.value =
+        null
 
 
     fileErrors.value =
@@ -685,7 +1682,7 @@ function saveFileDraft() {
 
     if (!name) {
         fileErrors.value.name =
-            'Document name is required.'
+            'Name is required.'
 
         return
     }
@@ -697,16 +1694,28 @@ function saveFileDraft() {
         !fileDraft.url.trim()
     ) {
         fileErrors.value.url =
-            'URL is required.'
+            'External URL is required.'
 
         return
     }
 
 
     const fileId =
-        `file_${Date.now()}_${Math.random()
-            .toString(36)
-            .slice(2, 8)}`
+        fileCreatorMode.value ===
+        'edit' &&
+        editingFileId.value
+            ? editingFileId.value
+            : `file_${Date.now()}_${Math.random()
+                .toString(36)
+                .slice(2, 8)}`
+
+
+    const parent =
+        currentFolder.value
+            ? getItem(
+                currentFolder.value
+            )
+            : null
 
 
     const file = {
@@ -728,9 +1737,12 @@ function saveFileDraft() {
             fileDraft.requirement_level,
 
         requires_client_signature:
-            Boolean(
-                fileDraft.requires_client_signature
-            ),
+            fileDraft.resource_type ===
+            'document'
+                ? Boolean(
+                    fileDraft.requires_client_signature
+                )
+                : false,
 
         client_visible:
             Boolean(
@@ -753,18 +1765,40 @@ function saveFileDraft() {
             currentFolder.value,
 
         parent_client_key:
-            currentFolder.value
+            parent
                 ? String(
-                    currentFolder.value
+                    parent.client_key ||
+                    parent.id
                 )
                 : null
     }
 
 
-    update([
-        ...props.modelValue,
-        file
-    ])
+    if (
+        fileCreatorMode.value ===
+            'edit' &&
+        editingFileId.value
+    ) {
+        update(
+            props.modelValue.map(
+                item =>
+                    String(item.id) ===
+                    String(
+                        editingFileId.value
+                    )
+                        ? {
+                            ...item,
+                            ...file
+                        }
+                        : item
+            )
+        )
+    } else {
+        update([
+            ...props.modelValue,
+            file
+        ])
+    }
 
 
     selectedItem.value =
@@ -774,10 +1808,6 @@ function saveFileDraft() {
     closeFileCreator()
 
 
-    emit(
-        'open-document',
-        file
-    )
 }
 
 
@@ -1012,19 +2042,9 @@ function handleGlobalKeydown(
             return
         }
 
-
-        if (
-            item.type ===
-            'folder'
-        ) {
-            openFolder(
-                item
-            )
-        } else {
-            openDocument(
-                item
-            )
-        }
+        openResource(
+            item
+        )
     }
 }
 
@@ -1039,19 +2059,9 @@ function handleItemKeydown(
     ) {
         event.preventDefault()
 
-
-        if (
-            item.type ===
-            'folder'
-        ) {
-            openFolder(
-                item
-            )
-        } else {
-            openDocument(
-                item
-            )
-        }
+        openResource(
+            item
+        )
 
 
         return
@@ -1120,6 +2130,22 @@ onUnmounted(() => {
         handleDocumentClick
     )
 })
+
+
+watch(
+    () => [
+        props.initialFolderId,
+        props.modelValue.length
+    ],
+    () => {
+        restoreFolderFromParent(
+            props.initialFolderId
+        )
+    },
+    {
+        immediate: true
+    }
+)
 </script>
 
 
@@ -1301,6 +2327,121 @@ onUnmounted(() => {
                         aria-hidden="true"
                     />
                 </button>
+
+
+                <button
+                    v-if="
+                        !disabled
+                    "
+                    type="button"
+                    aria-label="Upload file"
+                    class="
+                        flex
+                        h-8
+                        w-8
+                        items-center
+                        justify-center
+                    "
+                    :class="
+                        allowUploadControl
+                            ? 'text-accent'
+                            : 'cursor-not-allowed text-dark/30'
+                    "
+                    :title="
+                        allowUploadControl
+                            ? 'Upload file'
+                            : 'Upload is disabled in blueprint structure. Use Project Files workspace.'
+                    "
+                    :disabled="
+                        !allowUploadControl
+                    "
+                    @click="
+                        allowUploadControl && uploadInput?.click()
+                    "
+                >
+                    <i
+                        class="
+                            bi
+                            bi-upload
+                            text-lg
+                            transition-colors
+                            hover:text-accent/70
+                        "
+                        aria-hidden="true"
+                    />
+                </button>
+
+
+                    <button
+                        v-if="
+                            !disabled
+                        "
+                        type="button"
+                        aria-label="Upload folder"
+                        class="
+                            flex
+                            h-8
+                            w-8
+                            items-center
+                            justify-center
+                        "
+                        :class="
+                            allowUploadControl
+                                ? 'text-accent'
+                                : 'cursor-not-allowed text-dark/30'
+                        "
+                        :title="
+                            allowUploadControl
+                                ? 'Upload folder'
+                                : 'Upload is disabled in blueprint structure. Use Project Files workspace.'
+                        "
+                        :disabled="
+                            !allowUploadControl
+                        "
+                        @click="
+                            allowUploadControl && uploadDirectoryInput?.click()
+                        "
+                    >
+                        <i
+                            class="
+                                bi
+                                bi-folder-symlink
+                                text-lg
+                                transition-colors
+                                hover:text-accent/70
+                            "
+                            aria-hidden="true"
+                        />
+                    </button>
+
+
+                <input
+                    v-if="
+                        allowUploadControl
+                    "
+                    ref="uploadInput"
+                    type="file"
+                    multiple
+                    class="hidden"
+                    @change="
+                        handleUploadChange
+                    "
+                >
+
+
+                <input
+                    v-if="
+                        allowUploadControl
+                    "
+                    ref="uploadDirectoryInput"
+                    type="file"
+                    webkitdirectory
+                    multiple
+                    class="hidden"
+                    @change="
+                        handleUploadChange
+                    "
+                >
             </div>
         </div>
 
@@ -1311,266 +2452,8 @@ onUnmounted(() => {
                 flex
                 min-h-[520px]
                 flex-col
-                lg:flex-row
             "
         >
-            <!-- Folder tree -->
-            <aside
-                class="
-                    w-full
-                    shrink-0
-                    border-b
-                    border-accent
-                    lg:w-64
-                    lg:border-b-0
-                    lg:border-r
-                "
-            >
-                <nav
-                    class="
-                        max-h-[280px]
-                        overflow-y-auto
-                        lg:max-h-[calc(100vh-300px)]
-                    "
-                >
-                    <!-- Project -->
-                    <button
-                        type="button"
-                        class="
-                            flex
-                            w-full
-                            items-center
-                            justify-between
-                            gap-3
-                            border-b
-                            border-accent
-                            px-5
-                            py-4
-                            text-left
-                            font-mono
-                            text-xs
-                            font-bold
-                            uppercase
-                            transition-colors
-                            duration-200
-                        "
-                        :class="
-                            !currentFolder
-                                ? 'bg-accent text-light'
-                                : 'bg-light text-dark hover:bg-accent hover:text-light'
-                        "
-                        @click="
-                            openRoot
-                        "
-                    >
-                        <span
-                            class="
-                                min-w-0
-                                truncate
-                            "
-                        >
-                            Project
-                        </span>
-
-
-                        <span
-                            class="
-                                shrink-0
-                                text-[10px]
-                                font-normal
-                                opacity-50
-                            "
-                        >
-                            {{
-                                folders.filter(
-                                    folder =>
-                                        !folder.parent_id
-                                ).length +
-                                files.filter(
-                                    file =>
-                                        !file.parent_id
-                                ).length
-                            }}
-                        </span>
-                    </button>
-
-
-                    <!-- Folders -->
-                    <template
-                        v-for="
-                            folder
-                            in rootFolders
-                        "
-                        :key="
-                            folder.id
-                        "
-                    >
-                        <button
-                            type="button"
-                            class="
-                                flex
-                                w-full
-                                items-center
-                                justify-between
-                                gap-3
-                                border-b
-                                border-accent
-                                py-4
-                                text-left
-                                font-mono
-                                text-xs
-                                font-bold
-                                uppercase
-                                transition-colors
-                                duration-200
-                            "
-                            :style="{
-                                paddingLeft:
-                                    `${20 + folderDepth(folder.id) * 16}px`,
-                                paddingRight:
-                                    '20px'
-                            }"
-                            :class="
-                                String(
-                                    currentFolder
-                                ) ===
-                                String(
-                                    folder.id
-                                )
-                                    ? 'bg-accent text-light'
-                                    : 'bg-light text-dark hover:bg-accent hover:text-light'
-                            "
-                            @click="
-                                openFolder(
-                                    folder
-                                )
-                            "
-                            @contextmenu.prevent="
-                                startRename(
-                                    folder
-                                )
-                            "
-                        >
-                            <span
-                                class="
-                                    min-w-0
-                                    truncate
-                                "
-                            >
-                                {{
-                                    folder.name
-                                }}
-                            </span>
-
-
-                            <span
-                                class="
-                                    shrink-0
-                                    text-[10px]
-                                    font-normal
-                                    opacity-50
-                                "
-                            >
-                                {{
-                                    itemCount(
-                                        folder.id
-                                    )
-                                }}
-                            </span>
-                        </button>
-
-
-                        <!-- Nested folders -->
-                        <template
-                            v-for="
-                                child
-                                in childrenOf(
-                                    folder.id
-                                )
-                            "
-                            :key="
-                                child.id
-                            "
-                        >
-                            <button
-                                type="button"
-                                class="
-                                    flex
-                                    w-full
-                                    items-center
-                                    justify-between
-                                    gap-3
-                                    border-b
-                                    border-accent
-                                    py-4
-                                    text-left
-                                    font-mono
-                                    text-xs
-                                    font-bold
-                                    uppercase
-                                    transition-colors
-                                    duration-200
-                                "
-                                :style="{
-                                    paddingLeft:
-                                        `${20 + folderDepth(child.id) * 16}px`,
-                                    paddingRight:
-                                        '20px'
-                                }"
-                                :class="
-                                    String(
-                                        currentFolder
-                                    ) ===
-                                    String(
-                                        child.id
-                                    )
-                                        ? 'bg-accent text-light'
-                                        : 'bg-light text-dark hover:bg-accent hover:text-light'
-                                "
-                                @click="
-                                    openFolder(
-                                        child
-                                    )
-                                "
-                                @contextmenu.prevent="
-                                    startRename(
-                                        child
-                                    )
-                                "
-                            >
-                                <span
-                                    class="
-                                        min-w-0
-                                        truncate
-                                    "
-                                >
-                                    {{
-                                        child.name
-                                    }}
-                                </span>
-
-
-                                <span
-                                    class="
-                                        shrink-0
-                                        text-[10px]
-                                        font-normal
-                                        opacity-50
-                                    "
-                                >
-                                    {{
-                                        itemCount(
-                                            child.id
-                                        )
-                                    }}
-                                </span>
-                            </button>
-                        </template>
-                    </template>
-                </nav>
-            </aside>
-
-
             <!-- File area -->
             <main
                 class="
@@ -1578,185 +2461,6 @@ onUnmounted(() => {
                     flex-1
                 "
             >
-                <!-- Document creator -->
-                <div
-                    v-if="
-                        showFileCreator
-                    "
-                    class="
-                        border-b
-                        border-accent
-                        bg-accent/[0.025]
-                        p-5
-                        sm:p-6
-                    "
-                >
-                    <div
-                        class="
-                            flex
-                            items-start
-                            justify-between
-                            gap-5
-                        "
-                    >
-                        <div>
-                            <h3
-                                class="
-                                    h2
-                                    mt-2
-                                    text-accent
-                                "
-                            >
-                                Create document
-                            </h3>
-                        </div>
-                    </div>
-
-
-                    <div
-                        class="
-                            mt-8
-                            grid
-                            gap-8
-                            md:grid-cols-2
-                        "
-                    >
-                        <FormField
-                            id="file-name"
-                            v-model="
-                                fileDraft.name
-                            "
-                            name="name"
-                            type="text"
-                            label="Document name"
-                            placeholder="Project brief"
-                            required
-                            :error="
-                                fileErrors.name ||
-                                ''
-                            "
-                        />
-
-
-                        <FormField
-                            id="file-resource-type"
-                            v-model="
-                                fileDraft.resource_type
-                            "
-                            name="resource_type"
-                            type="select"
-                            label="Type"
-                            :options="[
-                                {
-                                    label: 'Document',
-                                    value: 'document'
-                                },
-                                {
-                                    label: 'Link',
-                                    value: 'link'
-                                }
-                            ]"
-                        />
-
-
-                        <FormField
-                            id="file-requirement"
-                            v-model="
-                                fileDraft.requirement_level
-                            "
-                            name="requirement_level"
-                            type="select"
-                            label="Requirement"
-                            :options="[
-                                {
-                                    label: 'Required',
-                                    value: 'required'
-                                },
-                                {
-                                    label: 'Recommended',
-                                    value: 'recommended'
-                                },
-                                {
-                                    label: 'Optional',
-                                    value: 'optional'
-                                }
-                            ]"
-                        />
-
-
-                        <FormField
-                            id="file-signature"
-                            v-model="
-                                fileDraft.requires_client_signature
-                            "
-                            name="requires_client_signature"
-                            type="select"
-                            label="Client signature"
-                            :options="[
-                                {
-                                    label: 'Not required',
-                                    value: false
-                                },
-                                {
-                                    label: 'Required',
-                                    value: true
-                                }
-                            ]"
-                        />
-
-
-                        <FormField
-                            v-if="
-                                fileDraft.resource_type ===
-                                'link'
-                            "
-                            id="file-url"
-                            v-model="
-                                fileDraft.url
-                            "
-                            name="url"
-                            type="text"
-                            label="URL"
-                            placeholder="https://example.com"
-                            required
-                            :error="
-                                fileErrors.url ||
-                                ''
-                            "
-                        />
-                    </div>
-
-
-                    <div
-                        class="
-                            mt-8
-                            flex
-                            flex-wrap
-                            gap-5
-                        "
-                    >
-                        <Button
-                            type="button"
-                            text="cancel"
-                            align="right"
-                            @click="
-                                closeFileCreator
-                            "
-                        />
-
-                        <Button
-                            type="button"
-                            text="create document"
-                            variant="accent"
-                            align="right"
-                            @click="
-                                saveFileDraft
-                            "
-                        />
-                    </div>
-                </div>
-
-
                 <!-- Items -->
                 <div
                     class="
@@ -1791,15 +2495,11 @@ onUnmounted(() => {
                                 : 'hover:bg-accent/[0.04]'
                         "
                         tabindex="0"
-                        @click="
-                            selectItem(
-                                item
-                            )
+                        @click.stop="
+                            selectItem(item)
                         "
-                        @dblclick="
-                            item.type === 'folder'
-                                ? openFolder(item)
-                                : openDocument(item)
+                        @dblclick.stop="
+                            openResource(item)
                         "
                         @keydown="
                             handleItemKeydown(
@@ -1918,7 +2618,9 @@ onUnmounted(() => {
                                             ? 'Folder'
                                             : item.resource_type === 'link'
                                                 ? 'Link'
-                                                : 'Document'
+                                                : item.resource_type === 'document'
+                                                    ? 'Document'
+                                                    : humanFileType(item)
                                     }}
                                 </span>
                             </div>
@@ -1953,6 +2655,7 @@ onUnmounted(() => {
 
                                     <Tag
                                         v-if="
+                                            item.resource_type === 'document' &&
                                             item.requires_client_signature
                                         "
                                         text="signature"
@@ -2049,6 +2752,120 @@ onUnmounted(() => {
                                         "
                                         @click="
                                             openMenu = null;
+                                            openResource(item)
+                                        "
+                                    >
+                                        <span>
+                                            Open
+                                        </span>
+                                    </button>
+
+
+                                    <button
+                                        v-if="
+                                            canDownloadResource(item)
+                                        "
+                                        type="button"
+                                        class="
+                                            flex
+                                            w-full
+                                            items-center
+                                            gap-3
+                                            px-3
+                                            py-2.5
+                                            text-left
+                                            p
+                                            text-dark
+                                            transition-colors
+                                            hover:bg-dark
+                                            hover:text-light
+                                        "
+                                        @click="
+                                            openMenu = null;
+                                            downloadFile(item)
+                                        "
+                                    >
+                                        <span>
+                                            Download
+                                        </span>
+                                    </button>
+
+
+                                    <button
+                                        v-if="
+                                            item.type === 'file'
+                                        "
+                                        type="button"
+                                        class="
+                                            flex
+                                            w-full
+                                            items-center
+                                            gap-3
+                                            px-3
+                                            py-2.5
+                                            text-left
+                                            p
+                                            text-dark
+                                            transition-colors
+                                            hover:bg-dark
+                                            hover:text-light
+                                        "
+                                        @click="
+                                            openMenu = null;
+                                            openFileEditor(item)
+                                        "
+                                    >
+                                        <span>
+                                            Edit
+                                        </span>
+                                    </button>
+
+
+                                    <button
+                                        type="button"
+                                        class="
+                                            flex
+                                            w-full
+                                            items-center
+                                            gap-3
+                                            px-3
+                                            py-2.5
+                                            text-left
+                                            p
+                                            text-dark
+                                            transition-colors
+                                            hover:bg-dark
+                                            hover:text-light
+                                        "
+                                        @click="
+                                            openMenu = null;
+                                            openMoveDialog(item)
+                                        "
+                                    >
+                                        <span>
+                                            Move
+                                        </span>
+                                    </button>
+
+
+                                    <button
+                                        type="button"
+                                        class="
+                                            flex
+                                            w-full
+                                            items-center
+                                            gap-3
+                                            px-3
+                                            py-2.5
+                                            text-left
+                                            p
+                                            text-dark
+                                            transition-colors
+                                            hover:bg-dark
+                                            hover:text-light
+                                        "
+                                        @click="
+                                            openMenu = null;
                                             startRename(item)
                                         "
                                     >
@@ -2093,6 +2910,591 @@ onUnmounted(() => {
         </div>
 
 
+        <div
+            v-if="
+                moveTarget
+            "
+            class="
+                fixed
+                inset-0
+                z-40
+                flex
+                items-center
+                justify-center
+                bg-black/50
+                p-4
+            "
+            @click.self="
+                closeMoveDialog
+            "
+        >
+            <div
+                class="
+                    w-full
+                    max-w-lg
+                    border
+                    border-accent
+                    bg-light
+                    p-6
+                    sm:p-8
+                "
+            >
+                <h3
+                    class="
+                        h2
+                        text-left
+                        text-accent
+                    "
+                >
+                    Move item
+                </h3>
+
+                <p
+                    class="
+                        mt-4
+                        p
+                        uppercase
+                        text-dark/60
+                    "
+                >
+                    Move
+                    <strong>
+                        {{ moveTarget?.name }}
+                    </strong>
+                    to:
+                </p>
+
+                <div
+                    class="
+                        mt-5
+                        border
+                        border-accent/30
+                    "
+                >
+                    <div
+                        class="
+                            flex
+                            items-center
+                            justify-between
+                            gap-3
+                            border-b
+                            border-accent/20
+                            px-4
+                            py-3
+                        "
+                    >
+                        <div
+                            class="
+                                flex
+                                min-w-0
+                                items-center
+                                gap-2
+                                overflow-x-auto
+                            "
+                        >
+                            <button
+                                type="button"
+                                class="
+                                    p
+                                    uppercase
+                                    transition-colors
+                                    hover:text-accent
+                                "
+                                @click="
+                                    browseMoveRoot
+                                "
+                            >
+                                Project
+                            </button>
+
+                            <template
+                                v-for="
+                                    crumb
+                                    in moveBrowserBreadcrumbs
+                                "
+                                :key="
+                                    crumb.id
+                                "
+                            >
+                                <span
+                                    class="
+                                        p
+                                        text-dark/40
+                                    "
+                                >
+                                    /
+                                </span>
+
+                                <button
+                                    type="button"
+                                    class="
+                                        p
+                                        uppercase
+                                        transition-colors
+                                        hover:text-accent
+                                    "
+                                    @click="
+                                        browseMoveFolder(crumb)
+                                    "
+                                >
+                                    {{ crumb.name }}
+                                </button>
+                            </template>
+                        </div>
+
+                        <button
+                            type="button"
+                            class="
+                                font-mono
+                                text-xs
+                                font-bold
+                                uppercase
+                                text-dark/60
+                                transition-colors
+                                hover:text-accent
+                            "
+                            @click="
+                                browseMoveUp
+                            "
+                        >
+                            Up
+                        </button>
+                    </div>
+
+                    <div
+                        class="
+                            max-h-64
+                            overflow-y-auto
+                            divide-y
+                            divide-accent/15
+                        "
+                    >
+                        <button
+                            v-for="
+                                folder
+                                in moveBrowserFolders
+                            "
+                            :key="
+                                folder.id
+                            "
+                            type="button"
+                            class="
+                                flex
+                                w-full
+                                items-center
+                                justify-between
+                                gap-3
+                                px-4
+                                py-3
+                                text-left
+                                transition-colors
+                                hover:bg-accent/[0.05]
+                            "
+                            @click="
+                                browseMoveFolder(folder)
+                            "
+                        >
+                            <span
+                                class="
+                                    font-mono
+                                    text-xs
+                                    font-bold
+                                    uppercase
+                                "
+                            >
+                                {{ folder.name }}
+                            </span>
+
+                            <i
+                                class="
+                                    bi
+                                    bi-chevron-right
+                                    text-dark/50
+                                "
+                                aria-hidden="true"
+                            />
+                        </button>
+
+                        <p
+                            v-if="
+                                !moveBrowserFolders.length
+                            "
+                            class="
+                                p-4
+                                text-center
+                                font-mono
+                                text-xs
+                                uppercase
+                                text-dark/50
+                            "
+                        >
+                            No folders here
+                        </p>
+                    </div>
+
+                    <div
+                        class="
+                            border-t
+                            border-accent/20
+                            px-4
+                            py-3
+                            flex
+                            items-center
+                            justify-between
+                            gap-3
+                        "
+                    >
+                        <span
+                            class="
+                                p
+                                uppercase
+                                text-dark/60
+                            "
+                        >
+                            Selected: {{ selectedMoveDestinationLabel }}
+                        </span>
+
+                        <Button
+                            type="button"
+                            text="select this location"
+                            align="right"
+                            @click="
+                                selectCurrentMoveDestination
+                            "
+                        />
+                    </div>
+                </div>
+
+                <p
+                    v-if="
+                        moveError
+                    "
+                    class="
+                        mt-3
+                        p
+                        uppercase
+                        text-red-700
+                    "
+                >
+                    {{ moveError }}
+                </p>
+
+                <div
+                    class="
+                        mt-8
+                        flex
+                        flex-wrap
+                        gap-4
+                        justify-end
+                    "
+                >
+                    <Button
+                        type="button"
+                        text="cancel"
+                        align="right"
+                        @click="
+                            closeMoveDialog
+                        "
+                    />
+
+                    <Button
+                        type="button"
+                        text="move"
+                        variant="accent"
+                        align="right"
+                        @click="
+                            confirmMove
+                        "
+                    />
+                </div>
+            </div>
+        </div>
+
+
+        <div
+            v-if="
+                showFileCreator
+            "
+            class="
+                fixed
+                inset-0
+                z-40
+                flex
+                items-center
+                justify-center
+                bg-black/50
+                p-4
+            "
+            @click.self="
+                closeFileCreator
+            "
+        >
+            <div
+                class="
+                    w-full
+                    max-w-2xl
+                    border
+                    border-accent
+                    bg-light
+                    p-6
+                    sm:p-8
+                "
+            >
+                <h3
+                    class="
+                        h2
+                        text-left
+                        text-accent
+                    "
+                >
+                    {{
+                        fileCreatorMode ===
+                        'edit'
+                            ? 'Edit file'
+                            : 'Create file'
+                    }}
+                </h3>
+
+                <div
+                    v-if="
+                        fileCreatorStep ===
+                        'type'
+                    "
+                    class="
+                        mt-6
+                        space-y-4
+                    "
+                >
+                    <p
+                        class="
+                            p
+                            uppercase
+                            text-dark/60
+                        "
+                    >
+                        What do you want to create?
+                    </p>
+
+                    <div
+                        class="
+                            grid
+                            gap-3
+                            sm:grid-cols-2
+                        "
+                    >
+                        <button
+                            type="button"
+                            class="
+                                flex
+                                items-center
+                                justify-center
+                                border
+                                border-accent
+                                px-4
+                                py-4
+                                font-mono
+                                text-xs
+                                font-bold
+                                uppercase
+                                text-accent
+                                transition-colors
+                                hover:bg-accent
+                                hover:text-light
+                            "
+                            @click="
+                                selectCreatorType('document')
+                            "
+                        >
+                            Document
+                        </button>
+
+                        <button
+                            type="button"
+                            class="
+                                flex
+                                items-center
+                                justify-center
+                                border
+                                border-accent
+                                px-4
+                                py-4
+                                font-mono
+                                text-xs
+                                font-bold
+                                uppercase
+                                text-accent
+                                transition-colors
+                                hover:bg-accent
+                                hover:text-light
+                            "
+                            @click="
+                                selectCreatorType('link')
+                            "
+                        >
+                            External link
+                        </button>
+                    </div>
+                </div>
+
+                <div
+                    v-else
+                    class="
+                        mt-6
+                        grid
+                        gap-6
+                        md:grid-cols-2
+                    "
+                >
+                    <FormField
+                        id="file-name"
+                        v-model="
+                            fileDraft.name
+                        "
+                        name="name"
+                        type="text"
+                        :label="
+                            fileDraft.resource_type === 'link'
+                                ? 'Link name'
+                                : 'Document name'
+                        "
+                        :placeholder="
+                            fileDraft.resource_type === 'link'
+                                ? 'Client Drive'
+                                : 'Project brief'
+                        "
+                        required
+                        :error="
+                            fileErrors.name ||
+                            ''
+                        "
+                    />
+
+                    <FormField
+                        v-if="
+                            fileDraft.resource_type ===
+                            'link'
+                        "
+                        id="file-url"
+                        v-model="
+                            fileDraft.url
+                        "
+                        name="url"
+                        type="text"
+                        label="External URL"
+                        placeholder="https://example.com"
+                        required
+                        :error="
+                            fileErrors.url ||
+                            ''
+                        "
+                    />
+
+                    <FormField
+                        id="file-requirement"
+                        v-model="
+                            fileDraft.requirement_level
+                        "
+                        name="requirement_level"
+                        type="select"
+                        label="Tag"
+                        :options="[
+                            {
+                                label: 'Required',
+                                value: 'required'
+                            },
+                            {
+                                label: 'Recommended',
+                                value: 'recommended'
+                            },
+                            {
+                                label: 'Optional',
+                                value: 'optional'
+                            }
+                        ]"
+                    />
+
+                    <FormField
+                        v-if="
+                            fileDraft.resource_type ===
+                            'document'
+                        "
+                        id="file-signature"
+                        v-model="
+                            fileDraft.requires_client_signature
+                        "
+                        name="requires_client_signature"
+                        type="select"
+                        label="Client signature"
+                        :options="[
+                            {
+                                label: 'Not required',
+                                value: false
+                            },
+                            {
+                                label: 'Required',
+                                value: true
+                            }
+                        ]"
+                    />
+                </div>
+
+                <div
+                    class="
+                        mt-8
+                        flex
+                        flex-wrap
+                        gap-4
+                        justify-end
+                    "
+                >
+                    <Button
+                        type="button"
+                        text="cancel"
+                        align="right"
+                        @click="
+                            closeFileCreator
+                        "
+                    />
+
+                    <Button
+                        v-if="
+                            fileCreatorStep !==
+                                'type' &&
+                            fileCreatorMode !==
+                                'edit'
+                        "
+                        type="button"
+                        text="back"
+                        align="right"
+                        @click="
+                            backToTypeSelection
+                        "
+                    />
+
+                    <Button
+                        v-if="
+                            fileCreatorStep !==
+                            'type'
+                        "
+                        type="button"
+                        :text="
+                            fileCreatorMode === 'edit'
+                                ? 'save changes'
+                                : fileDraft.resource_type === 'link'
+                                    ? 'create external link'
+                                    : 'create document'
+                        "
+                        variant="accent"
+                        align="right"
+                        @click="
+                            saveFileDraft
+                        "
+                    />
+                </div>
+            </div>
+        </div>
+
+
         <!-- Delete confirmation -->
         <AdminConfirmDialog
             :open="
@@ -2103,12 +3505,16 @@ onUnmounted(() => {
             :title="
                 deleteTarget?.type === 'folder'
                     ? 'Delete folder?'
-                    : 'Delete document?'
+                    : getResourceType(deleteTarget) === 'document'
+                        ? 'Delete document?'
+                        : 'Delete file?'
             "
             :text="
                 deleteTarget?.type === 'folder'
                     ? `${deleteTarget?.name || 'This folder'} and everything inside it will be removed.`
-                    : `${deleteTarget?.name || 'This document'} will be removed from the project.`
+                    : getResourceType(deleteTarget) === 'document'
+                        ? `${deleteTarget?.name || 'This document'} will be removed from the project.`
+                        : `${deleteTarget?.name || 'This file'} will be removed from the project.`
             "
             confirm-label="Delete"
             :busy="
@@ -2121,5 +3527,6 @@ onUnmounted(() => {
                 confirmDelete
             "
         />
+
     </div>
 </template>

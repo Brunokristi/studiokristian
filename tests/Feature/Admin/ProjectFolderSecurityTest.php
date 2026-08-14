@@ -28,6 +28,24 @@ class ProjectFolderSecurityTest extends TestCase
         $this->actingAs($contact, 'client')->get("/client/files/{$file->id}/download")->assertForbidden();
     }
 
+    public function test_unauthorized_users_cannot_upload_project_files(): void
+    {
+        Storage::fake('local');
+        [$project] = $this->clientProject();
+
+        $this->withHeader('Accept', 'application/json')->post("/admin/client-portal/api/projects/{$project->id}/files", [
+            'client_visible' => true,
+            'file' => UploadedFile::fake()->create('test.txt', 1, 'text/plain'),
+        ])->assertUnauthorized();
+
+        $this->actingAs(User::factory()->create(['is_admin' => false]))->withHeader('Accept', 'application/json')->post("/admin/client-portal/api/projects/{$project->id}/files", [
+            'client_visible' => true,
+            'file' => UploadedFile::fake()->create('test.txt', 1, 'text/plain'),
+        ])->assertForbidden();
+
+        $this->assertDatabaseCount('project_files', 0);
+    }
+
     public function test_folder_from_another_project_cannot_be_used_as_upload_target(): void
     {
         Storage::fake('local');
@@ -37,7 +55,7 @@ class ProjectFolderSecurityTest extends TestCase
 
         $this->actingAs(User::factory()->create(['is_admin' => true]))->withHeader('Accept', 'application/json')->post("/admin/client-portal/api/projects/{$project->id}/files", [
             'folder_id' => $foreignFolder->id, 'files' => [UploadedFile::fake()->image('photo.jpg')], 'client_visible' => true,
-        ])->assertNotFound();
+        ])->assertUnprocessable()->assertJsonValidationErrors('folder_id');
         $this->assertDatabaseCount('project_files', 0);
     }
 

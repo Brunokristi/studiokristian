@@ -22,7 +22,7 @@ class DocumentVariableRenderer
 
             $content = preg_replace(
                 '/\{\{\s*'.preg_quote($variable, '/').'\s*\}\}/',
-                (string) $value,
+                e((string) $value),
                 $content,
             );
         }

@@ -11,8 +11,11 @@ class ContractBlockDocumentService
     public function validate(array $document): array
     {
         if (! isset($document['blocks']) || ! is_array($document['blocks'])) throw new InvalidArgumentException('Contract document requires a blocks array.');
-        foreach ($document['blocks'] as $block) $this->validateBlock($block);
-        return ['blocks' => array_values($document['blocks'])];
+
+        return [
+            'version' => (int) ($document['version'] ?? 1),
+            'blocks' => array_values(array_map(fn ($block) => $this->validateBlock($block), $document['blocks'])),
+        ];
     }
 
     public function render(array $document, array $values): string
@@ -21,11 +24,19 @@ class ContractBlockDocumentService
         return implode('', array_map(fn (array $block) => $this->renderBlock($block, $values), $document['blocks']));
     }
 
-    private function validateBlock(mixed $block): void
+    private function validateBlock(mixed $block): array
     {
         if (! is_array($block) || ! in_array($block['type'] ?? null, self::TYPES, true)) throw new InvalidArgumentException('Unsupported contract block type.');
-        $allowed = ['type', 'content', 'level', 'items', 'rows', 'conditions', 'mode', 'blocks'];
+
+        $allowed = ['id', 'type', 'content', 'level', 'items', 'rows', 'conditions', 'mode', 'blocks', 'key', 'data', 'meta'];
         if (array_diff(array_keys($block), $allowed)) throw new InvalidArgumentException('Unsupported contract block attribute.');
+
+        if (isset($block['id']) && (! is_string($block['id']) || trim($block['id']) === '')) throw new InvalidArgumentException('Contract block id must be a non-empty string.');
+
+        if (in_array($block['type'], ['bullet_list', 'numbered_list'], true) && empty($block['items']) && isset($block['content']) && is_string($block['content'])) {
+            $block['items'] = array_values(array_filter(array_map('trim', preg_split('/\r?\n+/', $block['content']) ?: []), fn ($item) => $item !== ''));
+        }
+
         if (isset($block['conditions'])) {
             foreach ($block['conditions'] as $condition) {
                 if (! is_array($condition) || ! preg_match('/^[a-z][a-z0-9_]*$/', $condition['field'] ?? '') || ! in_array($condition['operator'] ?? null, ['equals', 'not_equals', 'checked', 'unchecked'], true)) {
@@ -33,7 +44,12 @@ class ContractBlockDocumentService
                 }
             }
         }
-        foreach ($block['blocks'] ?? [] as $child) $this->validateBlock($child);
+
+        $block['blocks'] = array_values(array_map(fn ($child) => $this->validateBlock($child), $block['blocks'] ?? []));
+
+        return array_merge($block, [
+            'blocks' => $block['blocks'],
+        ]);
     }
 
     private function renderBlock(array $block, array $values): string
@@ -68,7 +84,12 @@ class ContractBlockDocumentService
     private function renderList(array $block): string
     {
         $tag = $block['type'] === 'bullet_list' ? 'ul' : 'ol';
-        return '<'.$tag.'>'.implode('', array_map(fn ($item) => '<li>'.e((string) $item).'</li>', $block['items'] ?? [])).'</'.$tag.'>';
+        $items = $block['items'] ?? [];
+        if (! is_array($items)) {
+            $items = array_values(array_filter(array_map('trim', preg_split('/\r?\n+/', (string) ($block['content'] ?? '')) ?: []), fn ($item) => $item !== ''));
+        }
+
+        return '<'.$tag.'>'.implode('', array_map(fn ($item) => '<li>'.e((string) $item).'</li>', $items)).'</'.$tag.'>';
     }
 
     private function renderTable(array $block): string

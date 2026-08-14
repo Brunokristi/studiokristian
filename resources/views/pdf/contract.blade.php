@@ -1,4 +1,6 @@
 <!DOCTYPE html><html lang="sk"><head><meta charset="utf-8"><style>
-@page { margin: 26mm 22mm; } body { font-family: DejaVu Sans, sans-serif; color: #171717; font-size: 10pt; line-height: 1.55; }
+@page { margin: 26mm 22mm; } body { font-family: DejaVu Sans, sans-serif; color: #171717; font-size: 10pt; line-height: 1.6; }
 header { border-bottom: 1px solid #bbb; margin-bottom: 24px; padding-bottom: 12px; } h1 { font-size: 20pt; margin: 0 0 6px; } .meta { color: #666; font-size: 9pt; }
-</style></head><body><header><h1>{{ $contract->title }}</h1><div class="meta">Verzia {{ $contract->version }}@if($contract->number) · {{ $contract->number }}@endif</div></header><main>{!! nl2br(e($contract->rendered_content)) !!}</main></body></html>
+main h1, main h2, main h3 { line-height: 1.2; margin: 18px 0 8px; } main p { margin: 0 0 10px; } main ul, main ol { margin: 0 0 12px 20px; padding: 0; } main li { margin: 4px 0; }
+main table { width: 100%; border-collapse: collapse; margin: 0 0 12px; } main td, main th { border: 1px solid #ddd; padding: 6px 8px; vertical-align: top; } main th { background: #f6f6f6; } .page-break { page-break-after: always; }
+</style></head><body><header><h1>{{ $contract->title }}</h1><div class="meta">Verzia {{ $contract->version }}@if($contract->number) · {{ $contract->number }}@endif</div></header><main>{!! $contract->rendered_content !!}</main></body></html>

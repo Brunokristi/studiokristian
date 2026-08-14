@@ -12,6 +12,8 @@ use App\Http\Controllers\Admin\ClientPortal\ProjectController as AdminProjectCon
 use App\Http\Controllers\Admin\ClientPortal\ServiceProductController as AdminServiceProductController;
 use App\Http\Controllers\Admin\ClientPortal\ProjectFileController as AdminProjectFileController;
 use App\Http\Controllers\Admin\ClientPortal\ServiceBlueprintController as AdminServiceBlueprintController;
+use App\Http\Controllers\Admin\ClientPortal\ServiceBlueprintDocumentController as AdminServiceBlueprintDocumentController;
+use App\Http\Controllers\Admin\ClientPortal\ServiceBlueprintFileController as AdminServiceBlueprintFileController;
 use App\Http\Controllers\Admin\ClientPortal\ContractAuthoringController as AdminContractAuthoringController;
 use App\Http\Controllers\Admin\ClientPortal\ContractClauseController as AdminContractClauseController;
 use App\Http\Controllers\Admin\ClientPortal\ProjectDeliverableController as AdminProjectDeliverableController;
@@ -60,6 +62,7 @@ Route::prefix('client')->name('client.')->group(function () {
             ->name('contracts.accept');
         Route::get('/contracts/{contract}/download', [ClientContractController::class, 'download'])
             ->name('contracts.download');
+        Route::get('/files/{file}/open', [ClientProjectFileController::class, 'open'])->name('files.open');
         Route::get('/files/{file}/download', [ClientProjectFileController::class, 'download'])->name('files.download');
         Route::post('/projects/{project}/tickets', [ClientProjectTicketController::class, 'store'])->name('tickets.store');
         Route::get('/offers/{offer}', [ClientPriceOfferController::class, 'show'])->name('offers.show');
@@ -130,8 +133,10 @@ Route::prefix('admin/client-portal')->middleware(['auth', 'admin'])->name('admin
         Route::post('/projects/{project}/folders', [AdminProjectFileController::class, 'storeFolder'])->name('projects.folders.store');
         Route::put('/projects/{project}/folders/{folder}', [AdminProjectFileController::class, 'updateFolder'])->name('projects.folders.update');
         Route::post('/projects/{project}/files', [AdminProjectFileController::class, 'upload'])->name('projects.files.upload');
+        Route::delete('/projects/{project}/files/{file}', [AdminProjectFileController::class, 'destroy'])->name('projects.files.destroy');
+        Route::patch('/projects/{project}/files/{file}', [AdminProjectFileController::class, 'rename'])->name('projects.files.rename');
         Route::get('/projects/{project}/files/{file}/download', [AdminProjectFileController::class, 'download'])->name('projects.files.download');
-        Route::get('/projects/{project}/files/{file}/preview', [AdminProjectFileController::class, 'preview'])->name('projects.files.preview');
+        Route::get('/projects/{project}/files/{file}/open', [AdminProjectFileController::class, 'open'])->name('projects.files.open');
         Route::post('/projects/{project}/coworkers', [AdminProjectCoworkerController::class, 'store'])->name('projects.coworkers.store');
         Route::post('/projects/{project}/contacts/invite', [AdminProjectCoworkerController::class, 'inviteContact'])->name('projects.contacts.invite');
         Route::get('/projects/{project}/tickets', [AdminProjectTicketController::class, 'index'])->name('projects.tickets.index');
@@ -149,6 +154,10 @@ Route::prefix('admin/client-portal')->middleware(['auth', 'admin'])->name('admin
         Route::post('/service-products/{serviceProduct}/blueprint', [AdminServiceBlueprintController::class, 'create'])->name('service-products.blueprint.create');
         Route::post('/service-products/{serviceProduct}/blueprint/drafts', [AdminServiceBlueprintController::class, 'draft'])->name('service-products.blueprint.draft');
         Route::put('/blueprint-versions/{version}', [AdminServiceBlueprintController::class, 'update'])->name('blueprint-versions.update');
+        Route::post('/blueprint-versions/{version}/files', [AdminServiceBlueprintFileController::class, 'upload'])->name('blueprint-versions.files.upload');
+        Route::get('/blueprint-folders/{folder}/open', [AdminServiceBlueprintFileController::class, 'open'])->name('blueprint-folders.files.open');
+        Route::get('/blueprint-folders/{folder}/download', [AdminServiceBlueprintFileController::class, 'download'])->name('blueprint-folders.files.download');
+        Route::put('/blueprint-folders/{folder}/document', [AdminServiceBlueprintDocumentController::class, 'update'])->name('blueprint-folders.document.update');
         Route::post('/blueprint-versions/{version}/publish', [AdminServiceBlueprintController::class, 'publish'])->name('blueprint-versions.publish');
         Route::post('/service-products/{serviceProduct}/contract-template', [AdminContractAuthoringController::class, 'createTemplate'])->name('contract-templates.create');
         Route::post('/contract-templates/{template}/drafts', [AdminContractAuthoringController::class, 'draft'])->name('contract-templates.draft');

@@ -67,6 +67,47 @@ class PriceOfferAndFileAccessTest extends TestCase
         $this->actingAs($contact, 'client')->get(route('client.files.download', $internal))->assertForbidden();
     }
 
+    public function test_client_open_endpoint_respects_visibility_and_uses_inline_for_svg(): void
+    {
+        [$project, $contact] = $this->domain();
+
+        $svgPath = 'client-portal/files/logo.svg';
+        Storage::disk('local')->put($svgPath, '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10"></svg>');
+
+        $svg = ProjectFile::query()->create([
+            'project_id' => $project->id,
+            'original_filename' => 'logo.svg',
+            'display_name' => 'logo.svg',
+            'extension' => 'svg',
+            'storage_path' => $svgPath,
+            'disk' => 'local',
+            'mime_type' => 'image/svg+xml',
+            'size' => strlen(Storage::disk('local')->get($svgPath)),
+            'checksum' => hash('sha256', Storage::disk('local')->get($svgPath)),
+            'visibility' => 'client',
+        ]);
+
+        $response = $this->actingAs($contact, 'client')->get(route('client.files.open', $svg));
+        $response->assertOk();
+        $this->assertStringContainsString('inline', (string) $response->headers->get('Content-Disposition'));
+
+        Storage::disk('local')->put('client-portal/files/secret.bin', 'secret');
+        $internal = ProjectFile::query()->create([
+            'project_id' => $project->id,
+            'original_filename' => 'secret.bin',
+            'display_name' => 'secret.bin',
+            'extension' => 'bin',
+            'storage_path' => 'client-portal/files/secret.bin',
+            'disk' => 'local',
+            'mime_type' => 'application/octet-stream',
+            'size' => 6,
+            'checksum' => hash('sha256', 'secret'),
+            'visibility' => 'internal',
+        ]);
+
+        $this->actingAs($contact, 'client')->get(route('client.files.open', $internal))->assertForbidden();
+    }
+
     public function test_file_download_is_tenant_isolated_even_when_id_is_known(): void
     {
         [$project] = $this->domain();
