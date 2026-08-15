@@ -1,33 +1,451 @@
 <script setup>
-import { onMounted, ref } from 'vue'
-import { RouterLink } from 'vue-router'
-import api, { errorMessage } from '../../composables/useAdminApi'
+import {
+    computed,
+    onMounted,
+    ref
+} from 'vue'
+
+
+import {
+    RouterLink,
+    useRouter
+} from 'vue-router'
+
+
+import api, {
+    errorMessage
+} from '../../composables/useAdminApi'
+
+
 import AdminPageHeader from '../../components/AdminPageHeader.vue'
+import AdminDataTable from '../../components/AdminDataTable.vue'
+import Tag from '@shared/components/Tag.vue'
 
-const projects = ref([])
-const error = ref('')
-const loading = ref(true)
 
-onMounted(async () => {
-    try { projects.value = (await api.get('/portfolio')).data }
-    catch (exception) { error.value = errorMessage(exception) }
-    finally { loading.value = false }
-})
+const router =
+    useRouter()
+
+
+const projects =
+    ref([])
+
+
+const loading =
+    ref(true)
+
+
+const error =
+    ref('')
+
+
+const columns = [
+    {
+        key: 'name',
+        label: 'Project',
+        sortable: true
+    },
+
+
+    {
+        key: 'company',
+        label: 'Client',
+        sortable: true
+    },
+
+
+    {
+        key: 'images_count',
+        label: 'Images'
+    },
+
+
+    {
+        key: 'features_count',
+        label: 'Features'
+    },
+
+
+    {
+        key: 'is_published',
+        label: 'Status',
+        sortable: true
+    },
+
+
+    {
+        key: 'url',
+        label: 'URL'
+    }
+]
+
+
+const statusOptions =
+    computed(() => [
+        {
+            label: 'All statuses',
+            value: ''
+        },
+
+
+        {
+            label: 'Published',
+            value: true
+        },
+
+
+        {
+            label: 'Hidden',
+            value: false
+        }
+    ])
+
+
+const search =
+    ref('')
+
+
+const status =
+    ref('')
+
+
+const filteredProjects =
+    computed(() => {
+        const query =
+            search.value
+                .trim()
+                .toLowerCase()
+
+
+        return projects.value.filter(
+            project => {
+                const matchesSearch =
+                    !query ||
+                    [
+                        project.name,
+                        project.company,
+                        project.url
+                    ]
+                        .filter(Boolean)
+                        .some(
+                            value =>
+                                String(
+                                    value
+                                )
+                                    .toLowerCase()
+                                    .includes(
+                                        query
+                                    )
+                        )
+
+
+                const matchesStatus =
+                    status.value === '' ||
+                    Boolean(
+                        project.is_published
+                    ) ===
+                        (
+                            status.value === true ||
+                            status.value === 'true'
+                        )
+
+
+                return (
+                    matchesSearch &&
+                    matchesStatus
+                )
+            }
+        )
+    })
+
+
+async function loadPortfolio() {
+    loading.value =
+        true
+
+
+    error.value =
+        ''
+
+
+    try {
+        const response =
+            await api.get(
+                '/portfolio'
+            )
+
+
+        projects.value =
+            Array.isArray(
+                response.data
+            )
+                ? response.data
+                : response.data.data || []
+    } catch (
+        exception
+    ) {
+        error.value =
+            errorMessage(
+                exception
+            )
+    } finally {
+        loading.value =
+            false
+    }
+}
+
+
+function openProject(
+    project
+) {
+    if (
+        !project?.id
+    ) {
+        return
+    }
+
+
+    router.push({
+        name:
+            'portfolio.edit',
+
+        params: {
+            id:
+                project.id
+        }
+    })
+}
+
+
+function createPortfolioEntry() {
+    /*
+     * Portfolio entries are existing projects,
+     * so there is no separate portfolio creation page.
+     *
+     * If you later want a project picker here,
+     * this is the place to open it.
+     */
+}
+
+
+onMounted(
+    loadPortfolio
+)
 </script>
 
+
 <template>
-    <div class="space-y-6">
-        <AdminPageHeader title="Portfolio" eyebrow="Website publishing" description="Every portfolio entry is an existing project. Choose what appears publicly and edit its website content." />
-        <p v-if="error" class="admin-error">{{ error }}</p>
-        <p v-if="loading">Loading…</p>
-        <div v-else class="border border-dark bg-light">
-            <article v-for="project in projects" :key="project.id" class="grid gap-3 border-b border-dark p-4 last:border-0 md:grid-cols-[minmax(0,1fr)_120px_120px_140px_auto] md:items-center">
-                <div><strong>{{ project.name }}</strong><small class="mt-1 block text-neutral-500">{{ project.company || 'No client' }} · /{{ project.url }}</small></div>
-                <span class="font-mono text-xs font-bold uppercase" :class="project.is_published ? 'text-green-700' : 'text-neutral-500'">{{ project.is_published ? 'Published' : 'Hidden' }}</span>
-                <small>{{ project.images_count }} images</small><small>{{ project.features_count }} features</small>
-                <RouterLink class="admin-button" :to="{ name: 'portfolio.edit', params: { id: project.id } }">Edit content</RouterLink>
-            </article>
-            <p v-if="!projects.length" class="p-12 text-center">No projects yet. Create a project first.</p>
-        </div>
+    <div
+        class="
+            w-full
+            space-y-12
+            lg:space-y-14
+        "
+    >
+        <!-- Page header -->
+        <AdminPageHeader
+            title="Portfolio"
+            description="Choose which projects appear publicly and manage their website content."
+            :breadcrumbs="[
+                {
+                    label: 'Portfolio'
+                }
+            ]"
+        />
+
+
+        <!-- Portfolio table -->
+        <AdminDataTable
+            v-model:search="
+                search
+            "
+            title="Portfolio"
+            search-placeholder="Search projects, clients or URLs"
+            :columns="
+                columns
+            "
+            :rows="
+                filteredProjects
+            "
+            :loading="
+                loading
+            "
+            :filters="[
+                {
+                    key: 'status',
+                    label: 'Status',
+                    type: 'select',
+                    options: statusOptions
+                }
+            ]"
+            :filter-values="{
+                status
+            }"
+            :sort="
+                null
+            "
+            :direction="
+                'asc'
+            "
+            empty-title="No portfolio projects found."
+            empty-text="Create a project first, then add it to your portfolio."
+            add-label=" "
+            @row-click="
+                openProject
+            "
+            @add="
+                createPortfolioEntry
+            "
+        >
+            <!-- Project -->
+            <template
+                #cell-name="{
+                    row
+                }"
+            >
+                <div
+                    class="
+                        min-w-0
+                    "
+                >
+                    <p
+                        class="
+                            p
+                            font-medium
+                            uppercase
+                        "
+                    >
+                        {{
+                            row.name
+                        }}
+                    </p>
+
+
+                    <p
+                        v-if="
+                            row.project_code
+                        "
+                        class="
+                            p
+                            mt-1
+                            text-dark/40
+                        "
+                    >
+                        {{
+                            row.project_code
+                        }}
+                    </p>
+                </div>
+            </template>
+
+
+            <!-- Client -->
+            <template
+                #cell-company="{
+                    value
+                }"
+            >
+                <span class="p">
+                    {{
+                        value ||
+                        'No client'
+                    }}
+                </span>
+            </template>
+
+
+            <!-- Images -->
+            <template
+                #cell-images_count="{
+                    value
+                }"
+            >
+                <span class="p">
+                    {{
+                        value ??
+                        0
+                    }}
+                </span>
+            </template>
+
+
+            <!-- Features -->
+            <template
+                #cell-features_count="{
+                    value
+                }"
+            >
+                <span class="p">
+                    {{
+                        value ??
+                        0
+                    }}
+                </span>
+            </template>
+
+
+            <!-- Status -->
+            <template
+                #cell-is_published="{
+                    value
+                }"
+            >
+                <Tag
+                    :text="
+                        value
+                            ? 'published'
+                            : 'hidden'
+                    "
+                />
+            </template>
+
+
+            <!-- URL -->
+            <template
+                #cell-url="{
+                    value
+                }"
+            >
+                <span
+                    class="
+                        p
+                        text-dark/50
+                    "
+                >
+                    /
+                    {{
+                        value ||
+                        '—'
+                    }}
+                </span>
+            </template>
+
+
+            <!-- Empty state -->
+            <template
+                #empty-action
+            >
+                <RouterLink
+                    :to="{
+                        name:
+                            'projects.index'
+                    }"
+                    class="
+                        inline-flex
+                        border-b
+                        border-dark
+                        pb-1
+                        font-mono
+                        text-xs
+                        font-bold
+                        uppercase
+                        transition-colors
+                        hover:border-accent
+                        hover:text-accent
+                    "
+                >
+                    Create project
+                </RouterLink>
+            </template>
+        </AdminDataTable>
     </div>
 </template>

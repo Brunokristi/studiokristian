@@ -54,6 +54,12 @@ class CoworkerController extends Controller
                 'per_page' => $paginated->perPage(),
                 'total' => $paginated->total(),
             ],
+            'current_user' => request()->user() ? [
+                'id' => request()->user()->id,
+                'name' => request()->user()->name,
+                'email' => request()->user()->email,
+                'is_admin' => (bool) request()->user()->is_admin,
+            ] : null,
         ]);
     }
 

@@ -4,19 +4,23 @@ import {
     onBeforeUnmount,
     onMounted,
     reactive,
-    ref
+    ref,
+    watch
 } from 'vue'
 
 
 import {
     RouterLink,
+    useRoute,
     useRouter
 } from 'vue-router'
 
 
 import api, {
-    errorMessage
+    errorMessage,
+    validationErrors
 } from '../../composables/useAdminApi'
+import useAutosavePolicy from '../../composables/useAutosavePolicy'
 
 
 import AdminPageHeader from '../../components/AdminPageHeader.vue'
@@ -42,8 +46,26 @@ const props =
     })
 
 
+const route =
+    useRoute()
+
+
 const router =
     useRouter()
+
+
+const {
+    enabled: autosaveEnabled,
+    setLastSavedAt,
+    setStatus
+} =
+    useAutosavePolicy()
+
+
+const projectId =
+    ref(
+        props.id || ''
+    )
 
 
 const project =
@@ -66,7 +88,15 @@ const busy =
     ref(false)
 
 
-const showArchiveConfirm =
+const saving =
+    ref(false)
+
+
+const errors =
+    ref({})
+
+
+const showDeleteConfirm =
     ref(false)
 
 
@@ -76,6 +106,21 @@ const tickets =
 
 const contactOptions =
     ref([])
+
+
+const lookups =
+    ref({
+        companies: [],
+        service_products: []
+    })
+
+
+const coworkers =
+    ref([])
+
+
+const currentUser =
+    ref(null)
 
 
 const coworker =
@@ -100,6 +145,37 @@ const resendingCoworkerId =
 
 const resendingContactId =
     ref(null)
+
+
+const projectForm =
+    reactive({
+        company_id: '',
+        service_product_id: '',
+        name: '',
+        summary: '',
+        internal_notes: '',
+        portal_status: 'draft',
+        started_at: '',
+        completed_at: '',
+        contact_ids: [],
+        coworker_ids: []
+    })
+
+
+const projectAutosaveTimer =
+    ref(null)
+
+
+const suppressProjectAutosave =
+    ref(false)
+
+
+const lastSavedProjectSnapshot =
+    ref('')
+
+
+const initialCompany =
+    ref('')
 
 
 const projectFolders =
@@ -229,6 +305,133 @@ const ticketAssigneeOptions =
             })
         )
     ])
+
+
+const pageTitle = computed(() => projectForm.name || project.value?.name || 'New project')
+
+
+const selectedCompanyName = computed(() => {
+    const company = lookups.value.companies.find(item => String(item.id) === String(projectForm.company_id))
+    return company?.name || ''
+})
+
+
+const statusOptions = [
+    {
+        label: 'Draft',
+        value: 'draft'
+    },
+
+
+    {
+        label: 'Active',
+        value: 'active'
+    },
+
+
+    {
+        label: 'On hold',
+        value: 'on_hold'
+    },
+
+
+    {
+        label: 'Completed',
+        value: 'completed'
+    },
+
+
+    {
+        label: 'Archived',
+        value: 'archived'
+    }
+]
+
+
+const serviceOptions = computed(() => lookups.value.service_products.map(product => ({
+    label: product.active ? product.name : `${product.name} (inactive)`,
+    value: String(product.id),
+    disabled: !product.active && String(product.id) !== String(projectForm.service_product_id),
+})))
+
+
+const contactAssignmentOptions = computed(() => contactOptions.value.map(contact => ({
+    label: `${contact.first_name || ''} ${contact.last_name || ''}`.trim() || contact.email || 'Contact',
+    value: contact.id,
+})))
+
+
+const coworkerAssignmentOptions = computed(() => {
+    const options = []
+    const seen = new Set()
+
+
+    const pushOption = user => {
+        const id = Number(user?.id || 0)
+
+
+        if (!id || seen.has(id)) {
+            return
+        }
+
+
+        seen.add(id)
+
+
+        options.push({
+            label: `${user.name || 'Coworker'}${user.email ? ` · ${user.email}` : ''}`,
+            value: id,
+        })
+    }
+
+
+    if (currentUser.value?.is_admin) {
+        pushOption(currentUser.value)
+    }
+
+
+    for (const coworker of coworkers.value) {
+        pushOption(coworker)
+    }
+
+
+    return options
+})
+
+
+const projectReady = computed(() => Boolean(projectId.value))
+
+
+function normalizeCompanyPrefill() {
+    const raw = route.query.company_id ?? route.query.client_id ?? ''
+    const value = Array.isArray(raw) ? raw[0] : raw
+    return String(value || '').trim()
+}
+
+
+function getProjectAutosaveSnapshot() {
+    return JSON.stringify({
+        company_id: String(projectForm.company_id || '').trim(),
+        service_product_id: String(projectForm.service_product_id || '').trim(),
+        name: String(projectForm.name || '').trim(),
+        summary: String(projectForm.summary || ''),
+        internal_notes: String(projectForm.internal_notes || ''),
+        portal_status: String(projectForm.portal_status || 'draft'),
+        started_at: String(projectForm.started_at || ''),
+        completed_at: String(projectForm.completed_at || ''),
+        contact_ids: [...projectForm.contact_ids].map(value => Number(value)).filter(Number.isFinite).sort((a, b) => a - b),
+        coworker_ids: [...projectForm.coworker_ids].map(value => Number(value)).filter(Number.isFinite).sort((a, b) => a - b),
+    })
+}
+
+
+function canAutosaveProject() {
+    return Boolean(
+        String(projectForm.company_id || '').trim() &&
+        String(projectForm.service_product_id || '').trim() &&
+        String(projectForm.name || '').trim()
+    )
+}
 
 
 const ticketPriorityOptions = [
@@ -553,6 +756,171 @@ function foldersPayloadForSave() {
 }
 
 
+function applyProjectToForm(projectData) {
+    if (!projectData) {
+        return
+    }
+
+
+    project.value = projectData
+    projectId.value = String(projectData.id || projectId.value || '')
+    initialCompany.value = String(projectData.company_id || initialCompany.value || '')
+
+
+    Object.assign(projectForm, {
+        company_id: String(projectData.company_id || ''),
+        service_product_id: String(projectData.service_product_id || ''),
+        name: projectData.name || '',
+        summary: projectData.summary || '',
+        internal_notes: projectData.internal_notes || '',
+        portal_status: projectData.status || 'draft',
+        started_at: projectData.started_at || '',
+        completed_at: projectData.completed_at || '',
+        contact_ids: (projectData.contacts || []).map(contact => contact.id),
+        coworker_ids: (projectData.coworkers || []).map(coworker => coworker.id),
+    })
+
+
+    lastSavedProjectSnapshot.value = getProjectAutosaveSnapshot()
+}
+
+
+async function loadLookupsAndCoworkers() {
+    const [lookupsResponse, coworkersResponse] = await Promise.all([
+        api.get('/lookups'),
+        api.get('/coworkers', { params: { per_page: 1000 } }),
+    ])
+
+
+    lookups.value = lookupsResponse.data || { companies: [], service_products: [] }
+    coworkers.value = coworkersResponse.data?.data || []
+    currentUser.value = coworkersResponse.data?.current_user || null
+}
+
+
+async function loadContacts(companyId, preserve = false) {
+    if (!companyId) {
+        contactOptions.value = []
+        if (!preserve) {
+            projectForm.contact_ids = []
+        }
+
+        return
+    }
+
+
+    const response = await api.get(`/companies/${companyId}/contacts/options`)
+    contactOptions.value = response.data || []
+
+
+    if (!preserve) {
+        projectForm.contact_ids = projectForm.contact_ids.filter(id =>
+            contactOptions.value.some(contact => String(contact.id) === String(id))
+        )
+    }
+}
+
+
+async function loadProjectDetails(id) {
+    const response = await api.get(`/projects/${id}`)
+    const projectData = response.data.data
+
+
+    applyProjectToForm(projectData)
+    projectFolders.value = normalizeProjectFolders(projectData?.folders || [], projectFolders.value || [])
+    tickets.value = (await api.get(`/projects/${id}/tickets`)).data
+    await loadContacts(projectData.company_id, true)
+}
+
+
+async function saveProjectForm() {
+    if (saving.value || !canAutosaveProject()) {
+        return
+    }
+
+
+    suppressProjectAutosave.value = true
+    saving.value = true
+    setStatus('saving')
+    error.value = ''
+    errors.value = {}
+
+
+    try {
+        const payload = {
+            company_id: projectForm.company_id,
+            service_product_id: projectForm.service_product_id,
+            name: projectForm.name,
+            summary: projectForm.summary,
+            internal_notes: projectForm.internal_notes,
+            portal_status: projectForm.portal_status,
+            started_at: projectForm.started_at,
+            completed_at: projectForm.completed_at,
+            contact_ids: projectForm.contact_ids,
+            coworker_ids: projectForm.coworker_ids,
+        }
+
+
+        if (projectId.value) {
+            const response = await api.put(`/projects/${projectId.value}`, payload)
+            project.value = response.data.data || project.value
+            await loadProjectDetails(projectId.value)
+        } else {
+            const response = await api.post('/projects', payload)
+            const createdId = String(response.data.data.id)
+
+
+            projectId.value = createdId
+            project.value = response.data.data || project.value
+            await router.replace({ name: 'projects.show', params: { id: createdId } })
+            await loadProjectDetails(createdId)
+        }
+
+
+        lastSavedProjectSnapshot.value = getProjectAutosaveSnapshot()
+        setLastSavedAt()
+    } catch (exception) {
+        errors.value = validationErrors(exception)
+        showError(errorMessage(exception))
+    } finally {
+        saving.value = false
+        setStatus('idle')
+        suppressProjectAutosave.value = false
+    }
+}
+
+
+function scheduleProjectAutosave() {
+    if (
+        suppressProjectAutosave.value ||
+        loading.value ||
+        saving.value ||
+        !autosaveEnabled.value ||
+        !canAutosaveProject()
+    ) {
+        return
+    }
+
+
+    const snapshot = getProjectAutosaveSnapshot()
+    if (lastSavedProjectSnapshot.value && snapshot === lastSavedProjectSnapshot.value) {
+        return
+    }
+
+
+    if (projectAutosaveTimer.value) {
+        clearTimeout(projectAutosaveTimer.value)
+    }
+
+
+    projectAutosaveTimer.value = setTimeout(() => {
+        if (!saving.value && autosaveEnabled.value && canAutosaveProject()) {
+            void saveProjectForm()
+        }
+    }, 600)
+}
+
+
 function normalizeOpenUrl(
     value
 ) {
@@ -644,41 +1012,54 @@ async function load() {
     loading.value =
         true
 
+    suppressProjectAutosave.value = true
+
 
     try {
-        const response =
-            await api.get(
-                `/projects/${props.id}`
-            )
+        await loadLookupsAndCoworkers()
 
 
-        project.value =
-            response.data.data
+        const projectRouteId = String(props.id || projectId.value || '').trim()
 
 
-        projectFolders.value =
-            normalizeProjectFolders(
-                project.value?.folders ||
-                [],
-                projectFolders.value ||
-                []
-            )
+        if (projectRouteId) {
+            projectId.value = projectRouteId
+            await loadProjectDetails(projectRouteId)
+        } else {
+            const companyId = normalizeCompanyPrefill()
+
+            if (!companyId) {
+                showError('Create projects from a client detail page so the client is assigned automatically.')
+                await router.replace({ name: 'clients.index' })
+                return
+            }
 
 
-        tickets.value =
-            (
-                await api.get(
-                    `/projects/${props.id}/tickets`
-                )
-            ).data
+            project.value = null
+            projectFolders.value = []
+            tickets.value = []
 
 
-        contactOptions.value =
-            (
-                await api.get(
-                    `/companies/${project.value.company.id}/contacts/options`
-                )
-            ).data
+            Object.assign(projectForm, {
+                company_id: companyId,
+                service_product_id: '',
+                name: '',
+                summary: '',
+                internal_notes: '',
+                portal_status: 'draft',
+                started_at: '',
+                completed_at: '',
+                contact_ids: [],
+                coworker_ids: [],
+            })
+
+
+            initialCompany.value = companyId
+            await loadContacts(companyId, true)
+
+
+            lastSavedProjectSnapshot.value = getProjectAutosaveSnapshot()
+        }
     } catch (
         exception
     ) {
@@ -690,8 +1071,54 @@ async function load() {
     } finally {
         loading.value =
             false
+
+
+        suppressProjectAutosave.value = false
     }
 }
+
+
+watch(
+    () => projectForm.company_id,
+    async (value, oldValue) => {
+        if (
+            oldValue !== undefined &&
+            value !== oldValue
+        ) {
+            await loadContacts(
+                value,
+                String(value) === String(initialCompany.value)
+            )
+        }
+    }
+)
+
+
+watch(
+    () => ({
+        ...projectForm
+    }),
+    () => {
+        scheduleProjectAutosave()
+    },
+    {
+        deep: true
+    }
+)
+
+
+watch(
+    () => props.id,
+    value => {
+        const nextId = String(value || '').trim()
+
+
+        if (nextId !== projectId.value) {
+            projectId.value = nextId
+            void load()
+        }
+    }
+)
 
 
 onMounted(
@@ -715,7 +1142,7 @@ async function togglePublishing() {
     try {
         const response =
             await api.put(
-                `/projects/${props.id}/publishing`,
+                `/projects/${projectId.value}/publishing`,
                 {
                     is_published:
                         !project.value.is_published
@@ -740,13 +1167,13 @@ async function togglePublishing() {
 }
 
 
-function requestArchive() {
-    showArchiveConfirm.value =
+function requestDelete() {
+    showDeleteConfirm.value =
         true
 }
 
 
-function closeArchiveConfirm() {
+function closeDeleteConfirm() {
     if (
         busy.value
     ) {
@@ -754,12 +1181,12 @@ function closeArchiveConfirm() {
     }
 
 
-    showArchiveConfirm.value =
+    showDeleteConfirm.value =
         false
 }
 
 
-async function archive() {
+async function destroyProject() {
     if (
         busy.value
     ) {
@@ -772,19 +1199,22 @@ async function archive() {
 
 
     try {
-        await api.post(
-            `/projects/${props.id}/archive`
+        await api.delete(
+            `/projects/${projectId.value}`
         )
 
 
-        showArchiveConfirm.value =
+        showDeleteConfirm.value =
             false
 
 
-        router.push({
-            name:
-                'projects.index'
-        })
+        if (window.history.length > 1) {
+            router.back()
+        } else {
+            router.push({
+                name: 'clients.index'
+            })
+        }
     } catch (
         exception
     ) {
@@ -803,7 +1233,7 @@ async function archive() {
 async function inviteCoworker() {
     try {
         await api.post(
-            `/projects/${props.id}/coworkers`,
+            `/projects/${projectId.value}/coworkers`,
             coworker
         )
 
@@ -841,7 +1271,7 @@ async function inviteContact(
 
     try {
         await api.post(
-            `/projects/${props.id}/contacts/invite`,
+            `/projects/${projectId.value}/contacts/invite`,
             {
                 contact_id:
                     contactId
@@ -879,7 +1309,7 @@ async function resendCoworkerInvitation(
 
     try {
         await api.post(
-            `/projects/${props.id}/coworkers/${userId}/resend-invitation`
+            `/projects/${projectId.value}/coworkers/${userId}/resend-invitation`
         )
     } catch (
         exception
@@ -913,7 +1343,7 @@ async function resendContactInvitation(
 
     try {
         await api.post(
-            `/projects/${props.id}/contacts/${contactId}/resend-invitation`
+            `/projects/${projectId.value}/contacts/${contactId}/resend-invitation`
         )
     } catch (
         exception
@@ -941,7 +1371,7 @@ async function createTicket() {
 
     try {
         await api.post(
-            `/projects/${props.id}/tickets`,
+            `/projects/${projectId.value}/tickets`,
             ticketForm
         )
 
@@ -960,7 +1390,7 @@ async function createTicket() {
         tickets.value =
             (
                 await api.get(
-                    `/projects/${props.id}/tickets`
+                    `/projects/${projectId.value}/tickets`
                 )
             ).data
     } catch (
@@ -981,7 +1411,7 @@ async function moveTicket(
 ) {
     try {
         await api.put(
-            `/projects/${props.id}/tickets/${ticket.id}`,
+            `/projects/${projectId.value}/tickets/${ticket.id}`,
             {
                 status,
                 priority:
@@ -995,7 +1425,7 @@ async function moveTicket(
         tickets.value =
             (
                 await api.get(
-                    `/projects/${props.id}/tickets`
+                    `/projects/${projectId.value}/tickets`
                 )
             ).data
     } catch (
@@ -1065,7 +1495,7 @@ async function saveProjectStructure() {
     try {
         const response =
             await api.put(
-                `/projects/${props.id}/structure`,
+                `/projects/${projectId.value}/structure`,
                 {
                     folders:
                         foldersPayloadForSave()
@@ -1487,20 +1917,7 @@ function openPortfolioEditor() {
 
         params: {
             id:
-                props.id
-        }
-    })
-}
-
-
-function openProjectEditor() {
-    router.push({
-        name:
-            'projects.edit',
-
-        params: {
-            id:
-                props.id
+                projectId.value
         }
     })
 }
@@ -1635,12 +2052,12 @@ onBeforeUnmount(() => {
             <!-- Header -->
             <AdminPageHeader
                 :title="
-                    project?.name ||
-                    'Project'
+                    pageTitle
                 "
                 :description="
-                    project?.summary ||
-                    'Project workspace and delivery.'
+                    projectReady
+                        ? (project?.summary || 'Project workspace and delivery.')
+                        : 'Create the project here. Changes save automatically.'
                 "
                 :eyebrow="
                     project?.project_code ||
@@ -1655,16 +2072,12 @@ onBeforeUnmount(() => {
                     },
 
                     {
-                        label:
-                            project?.name ||
-                            'Project'
+                        label: pageTitle
                     }
                 ]"
             >
                 <div
-                    v-if="
-                        project
-                    "
+                    v-if="projectReady"
                     class="
                         flex
                         flex-wrap
@@ -1673,83 +2086,6 @@ onBeforeUnmount(() => {
                         gap-y-3
                     "
                 >
-                    <Button
-                        type="button"
-                        :text="
-                            project.is_published
-                                ? 'shown on website'
-                                : 'show on website'
-                        "
-                        :variant="
-                            project.is_published
-                                ? 'accent'
-                                : 'dark'
-                        "
-                        :loading="
-                            busy
-                        "
-                        :disabled="
-                            busy
-                        "
-                        align="left"
-                        @click="
-                            togglePublishing
-                        "
-                    />
-
-
-                    <button
-                        type="button"
-                        class="
-                            font-mono
-                            text-sm
-                            font-bold
-                            text-dark
-                            transition-colors
-                            hover:text-accent
-                        "
-                        @click="
-                            openPortfolioEditor
-                        "
-                    >
-                        edit website content
-                    </button>
-
-
-                    <button
-                        type="button"
-                        class="
-                            font-mono
-                            text-sm
-                            font-bold
-                            text-dark
-                            transition-colors
-                            hover:text-accent
-                        "
-                        @click="
-                            requestArchive
-                        "
-                    >
-                        archive
-                    </button>
-
-
-                    <button
-                        type="button"
-                        class="
-                            font-mono
-                            text-sm
-                            font-bold
-                            text-accent
-                            transition-colors
-                            hover:text-dark
-                        "
-                        @click="
-                            openProjectEditor
-                        "
-                    >
-                        edit project
-                    </button>
                 </div>
             </AdminPageHeader>
 
@@ -1777,264 +2113,137 @@ onBeforeUnmount(() => {
             </div>
 
 
-            <template
-                v-else-if="
-                    project
-                "
-            >
+            <template v-else>
                 <!-- Project information -->
-                <section
-                    class="
-                        space-y-8
-                    "
-                >
-                    <h2
-                        class="
-                            h2
-                            text-accent
-                        "
-                    >
-                        Project information
-                    </h2>
+                <section class="space-y-8">
+                    <div class="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+                        <div>
+                            <h2 class="h2 text-accent">Project information</h2>
+                        </div>
+                    </div>
 
 
-                    <div
-                        class="
-                            grid
-                            grid-cols-1
-                            gap-8
-                            md:grid-cols-2
-                            md:gap-20
-                        "
-                    >
-                        <section
-                            class="
-                                space-y-8
-                            "
-                        >
-                            <div
-                                class="
-                                    grid
-                                    grid-cols-[120px_1fr]
-                                    gap-x-6
-                                    gap-y-5
-                                "
-                            >
-                                <p
-                                    class="
-                                        p
-                                        uppercase
-                                        text-dark/40
-                                    "
-                                >
-                                    Client
-                                </p>
+                    <div class="grid grid-cols-1 gap-8 md:grid-cols-2 md:gap-20">
+                        <section class="space-y-8">
+                            <FormField
+                                id="project-name"
+                                v-model="projectForm.name"
+                                name="name"
+                                type="text"
+                                label="Project name"
+                                placeholder="Project name"
+                                required
+                                :error="errors.name?.[0] || ''"
+                            />
+
+                            <FormField
+                                id="project-service"
+                                v-model="projectForm.service_product_id"
+                                name="service_product_id"
+                                type="select"
+                                label="Service product"
+                                :options="serviceOptions"
+                                required
+                                :error="errors.service_product_id?.[0] || ''"
+                            />
+
+                            <FormField
+                                id="project-status"
+                                v-model="projectForm.portal_status"
+                                name="portal_status"
+                                type="select"
+                                label="Status"
+                                :options="statusOptions"
+                                :error="errors.portal_status?.[0] || ''"
+                            />
 
 
-                                <button
-                                    type="button"
-                                    class="
-                                        p
-                                        text-left
-                                        transition-colors
-                                        hover:text-accent
-                                    "
-                                    @click="
-                                        openClient
-                                    "
-                                >
-                                    {{
-                                        project.company?.name ||
-                                        '—'
-                                    }}
-                                </button>
+                            <div class="grid gap-7 sm:grid-cols-2">
+                                <FormField
+                                    id="project-started"
+                                    v-model="projectForm.started_at"
+                                    name="started_at"
+                                    type="date"
+                                    label="Started"
+                                    :error="errors.started_at?.[0] || ''"
+                                />
 
 
-                                <p
-                                    class="
-                                        p
-                                        uppercase
-                                        text-dark/40
-                                    "
-                                >
-                                    Service
-                                </p>
-
-
-                                <p class="p">
-                                    {{
-                                        project.service_product?.name ||
-                                        '—'
-                                    }}
-                                </p>
-
-
-                                <p
-                                    class="
-                                        p
-                                        uppercase
-                                        text-dark/40
-                                    "
-                                >
-                                    Blueprint
-                                </p>
-
-
-                                <p class="p">
-                                    {{
-                                        project.blueprint_version?.name ||
-                                        '—'
-                                    }}
-
-                                    <span
-                                        v-if="
-                                            project.blueprint_version?.version
-                                        "
-                                    >
-                                        v{{
-                                            project.blueprint_version.version
-                                        }}
-                                    </span>
-                                </p>
-
-
-                                <p
-                                    class="
-                                        p
-                                        uppercase
-                                        text-dark/40
-                                    "
-                                >
-                                    Started
-                                </p>
-
-
-                                <p class="p">
-                                    {{
-                                        project.started_at ||
-                                        '—'
-                                    }}
-                                </p>
-                            </div>
-                        </section>
-
-
-                        <section
-                            class="
-                                space-y-8
-                            "
-                        >
-                            <div
-                                class="
-                                    flex
-                                    items-center
-                                    justify-between
-                                    border-b
-                                    border-accent
-                                    pb-4
-                                "
-                            >
-                                <h3
-                                    class="
-                                        h3
-                                        text-accent
-                                    "
-                                >
-                                    Status
-                                </h3>
-
-
-                                <Tag
-                                    :text="
-                                        project.status
-                                    "
+                                <FormField
+                                    id="project-completed"
+                                    v-model="projectForm.completed_at"
+                                    name="completed_at"
+                                    type="date"
+                                    label="Completed"
+                                    :error="errors.completed_at?.[0] || ''"
                                 />
                             </div>
-
-
-                            <div
-                                v-if="
-                                    project.configuration &&
-                                    Object.keys(
-                                        project.configuration
-                                    ).length
-                                "
-                                class="
-                                    grid
-                                    grid-cols-1
-                                    gap-5
-                                    sm:grid-cols-2
-                                "
-                            >
-                                <div
-                                    v-for="
-                                        (
-                                            value,
-                                            key
-                                        ) in project.configuration
-                                    "
-                                    :key="
-                                        key
-                                    "
-                                    class="
-                                        border-b
-                                        border-accent/20
-                                        pb-3
-                                    "
-                                >
-                                    <p
-                                        class="
-                                            p
-                                            uppercase
-                                            text-dark/40
-                                        "
-                                    >
-                                        {{
-                                            key.replaceAll(
-                                                '_',
-                                                ' '
-                                            )
-                                        }}
-                                    </p>
-
-
-                                    <p
-                                        class="
-                                            p
-                                            mt-1
-                                        "
-                                    >
-                                        {{
-                                            Array.isArray(
-                                                value
-                                            )
-                                                ? value.join(
-                                                    ', '
-                                                )
-                                                : value
-                                        }}
-                                    </p>
-                                </div>
-                            </div>
-
-
-                            <div
-                                v-else
-                            >
-                                <p
-                                    class="
-                                        p
-                                        text-dark/40
-                                    "
-                                >
-                                    No additional project configuration.
-                                </p>
-                            </div>
                         </section>
+
+
+                        <section class="space-y-8">
+                            <FormField
+                                id="project-summary"
+                                v-model="projectForm.summary"
+                                name="summary"
+                                type="textarea"
+                                label="Summary"
+                                placeholder="Brief description of the project"
+                                :error="errors.summary?.[0] || ''"
+                            />
+
+                            <FormField
+                                id="project-notes"
+                                v-model="projectForm.internal_notes"
+                                name="internal_notes"
+                                type="textarea"
+                                label="Internal notes"
+                                placeholder="Visible only to your team"
+                                :error="errors.internal_notes?.[0] || ''"
+                            />
+                        </section>
+                    </div>
+
+
+                    <div class="space-y-8">
+                        <div>
+                            <h3 class="h2 text-accent text-left">Assigned people</h3>
+                        </div>
+
+
+                        <div class="grid grid-cols-1 gap-8 md:grid-cols-2">
+                            <FormField
+                                id="project-contacts"
+                                v-model="projectForm.contact_ids"
+                                name="contact_ids"
+                                type="select"
+                                label="Client contacts"
+                                placeholder="Select contacts"
+                                multiple
+                                :options="contactAssignmentOptions"
+                                :disabled="!projectForm.company_id || saving"
+                                :error="errors.contact_ids?.[0] || ''"
+                            />
+
+
+                            <FormField
+                                id="project-coworkers"
+                                v-model="projectForm.coworker_ids"
+                                name="coworker_ids"
+                                type="select"
+                                label="Coworkers"
+                                placeholder="Select coworkers"
+                                multiple
+                                :options="coworkerAssignmentOptions"
+                                :disabled="saving"
+                                :error="errors.coworker_ids?.[0] || ''"
+                            />
+                        </div>
                     </div>
                 </section>
 
 
+                <template v-if="projectReady">
                 <!-- Tickets -->
                 <section
                     class="
@@ -2380,34 +2589,7 @@ onBeforeUnmount(() => {
                             >
                                 Project files
                             </h2>
-
-
-                            <p
-                                class="
-                                    p
-                                    mt-2
-                                    max-w-2xl
-                                    text-dark/50
-                                "
-                            >
-                                Manage the project's folders,
-                                documents and uploaded files.
-                            </p>
                         </div>
-
-
-                        <p
-                            v-if="
-                                structureSaving
-                            "
-                            class="
-                                p
-                                uppercase
-                                text-dark/40
-                            "
-                        >
-                            Saving...
-                        </p>
                     </div>
 
 
@@ -2437,358 +2619,12 @@ onBeforeUnmount(() => {
                             handleProjectStructureDownloadFile
                         "
                     />
-
-
-                    <ProjectFilesDrive
-                        :project-id="
-                            id
-                        "
-                    />
                 </section>
-
-
-                <!-- Team -->
-                <section
-                    class="
-                        space-y-8
-                    "
-                >
-                    <h2
-                        class="
-                            h2
-                            text-accent
-                        "
-                    >
-                        Team
-                    </h2>
-
-
-                    <div
-                        class="
-                            grid
-                            grid-cols-1
-                            gap-12
-                            md:grid-cols-2
-                            md:gap-20
-                        "
-                    >
-                        <!-- Coworkers -->
-                        <section
-                            class="
-                                space-y-8
-                            "
-                        >
-                            <div
-                                class="
-                                    border-b
-                                    border-accent
-                                    pb-4
-                                "
-                            >
-                                <h3
-                                    class="
-                                        h3
-                                        text-accent
-                                    "
-                                >
-                                    Coworkers
-                                </h3>
-                            </div>
-
-
-                            <div
-                                v-if="
-                                    project.coworkers?.length
-                                "
-                                class="
-                                    divide-y
-                                    divide-accent/20
-                                "
-                            >
-                                <article
-                                    v-for="
-                                        user in project.coworkers
-                                    "
-                                    :key="
-                                        user.id
-                                    "
-                                    class="
-                                        flex
-                                        flex-col
-                                        gap-4
-                                        py-5
-                                        sm:flex-row
-                                        sm:items-center
-                                        sm:justify-between
-                                    "
-                                >
-                                    <div>
-                                        <p
-                                            class="
-                                                p
-                                                font-medium
-                                            "
-                                        >
-                                            {{
-                                                user.name
-                                            }}
-                                        </p>
-
-
-                                        <p
-                                            class="
-                                                p
-                                                mt-1
-                                                text-dark/40
-                                            "
-                                        >
-                                            {{
-                                                user.email
-                                            }}
-                                        </p>
-                                    </div>
-
-
-                                    <Button
-                                        type="button"
-                                        :text="
-                                            resendingCoworkerId === user.id
-                                                ? 'resending...'
-                                                : 'resend invitation'
-                                        "
-                                        :loading="
-                                            resendingCoworkerId === user.id
-                                        "
-                                        :disabled="
-                                            Boolean(
-                                                resendingCoworkerId
-                                            )
-                                        "
-                                        align="left"
-                                        @click="
-                                            resendCoworkerInvitation(
-                                                user.id
-                                            )
-                                        "
-                                    />
-                                </article>
-                            </div>
-
-
-                            <p
-                                v-else
-                                class="
-                                    p
-                                    text-dark/40
-                                "
-                            >
-                                No coworkers yet.
-                            </p>
-
-
-                            <form
-                                class="
-                                    space-y-8
-                                    border-t
-                                    border-accent
-                                    pt-8
-                                "
-                                @submit.prevent="
-                                    inviteCoworker
-                                "
-                            >
-                                <h4
-                                    class="
-                                        h3
-                                        text-accent
-                                    "
-                                >
-                                    Invite coworker
-                                </h4>
-
-
-                                <FormField
-                                    id="coworker-name"
-                                    v-model="
-                                        coworker.name
-                                    "
-                                    name="name"
-                                    type="text"
-                                    label="Name"
-                                    placeholder="Full name"
-                                    required
-                                />
-
-
-                                <FormField
-                                    id="coworker-email"
-                                    v-model="
-                                        coworker.email
-                                    "
-                                    name="email"
-                                    type="email"
-                                    label="Email"
-                                    placeholder="name@company.com"
-                                    required
-                                />
-
-
-                                <Button
-                                    type="submit"
-                                    text="invite coworker"
-                                    variant="accent"
-                                    align="left"
-                                />
-                            </form>
-                        </section>
-
-
-                        <!-- Client contacts -->
-                        <section
-                            class="
-                                space-y-8
-                            "
-                        >
-                            <div
-                                class="
-                                    border-b
-                                    border-accent
-                                    pb-4
-                                "
-                            >
-                                <h3
-                                    class="
-                                        h3
-                                        text-accent
-                                    "
-                                >
-                                    Client contacts
-                                </h3>
-                            </div>
-
-
-                            <div
-                                v-if="
-                                    project.contacts?.length
-                                "
-                                class="
-                                    divide-y
-                                    divide-accent/20
-                                "
-                            >
-                                <article
-                                    v-for="
-                                        contact in project.contacts
-                                    "
-                                    :key="
-                                        contact.id
-                                    "
-                                    class="
-                                        flex
-                                        flex-col
-                                        gap-4
-                                        py-5
-                                        sm:flex-row
-                                        sm:items-center
-                                        sm:justify-between
-                                    "
-                                >
-                                    <div>
-                                        <p
-                                            class="
-                                                p
-                                                font-medium
-                                            "
-                                        >
-                                            {{
-                                                contact.name
-                                            }}
-                                        </p>
-
-
-                                        <p
-                                            class="
-                                                p
-                                                mt-1
-                                                text-dark/40
-                                            "
-                                        >
-                                            {{
-                                                contact.email
-                                            }}
-                                        </p>
-                                    </div>
-
-
-                                    <Button
-                                        type="button"
-                                        :text="
-                                            resendingContactId === contact.id
-                                                ? 'resending...'
-                                                : 'resend invitation'
-                                        "
-                                        :loading="
-                                            resendingContactId === contact.id
-                                        "
-                                        :disabled="
-                                            Boolean(
-                                                resendingContactId
-                                            )
-                                        "
-                                        align="left"
-                                        @click="
-                                            resendContactInvitation(
-                                                contact.id
-                                            )
-                                        "
-                                    />
-                                </article>
-                            </div>
-
-
-                            <p
-                                v-else
-                                class="
-                                    p
-                                    text-dark/40
-                                "
-                            >
-                                No client contacts have access yet.
-                            </p>
-
-
-                            <FormField
-                                id="invite-contact"
-                                name="contact"
-                                type="select"
-                                label="Invite another contact"
-                                placeholder="Select contact"
-                                :options="
-                                    contactOptions.map(
-                                        contact => ({
-                                            label:
-                                                `${contact.first_name} ${contact.last_name} · ${contact.email}`,
-                                            value:
-                                                contact.id
-                                        })
-                                    )
-                                "
-                                @update:model-value="
-                                    inviteContact
-                                "
-                            />
-                        </section>
-                    </div>
-                </section>
-
 
                 <!-- Danger zone -->
                 <section
                     class="
-                        space-y-5
-                        border-t
-                        border-accent
-                        pt-8
+                        space-y-8
                     "
                 >
                     <div>
@@ -2796,54 +2632,45 @@ onBeforeUnmount(() => {
                             class="
                                 h2
                                 text-accent
+                                text-left
                             "
                         >
                             Danger zone
                         </h2>
-
-
-                        <p
-                            class="
-                                p
-                                mt-2
-                                text-dark/50
-                            "
-                        >
-                            Archive this project when it is no longer active.
-                        </p>
                     </div>
 
 
                     <Button
                         type="button"
-                        text="archive project"
+                        text="delete project"
                         align="left"
                         :disabled="
                             busy
                         "
                         @click="
-                            requestArchive
+                            requestDelete
                         "
                     />
                 </section>
+                </template>
             </template>
 
 
             <AdminConfirmDialog
                 :open="
-                    showArchiveConfirm
+                    showDeleteConfirm
                 "
-                title="Archive project?"
-                text="The project will be removed from active projects but will remain in historical records."
-                confirm-label="Archive project"
+                title="Delete project?"
+                text="This will permanently delete the project and its related records."
+                confirm-label="Delete project"
                 :busy="
                     busy
                 "
                 @close="
-                    closeArchiveConfirm
+                    closeDeleteConfirm
                 "
                 @confirm="
-                    archive
+                    destroyProject
                 "
             />
         </template>

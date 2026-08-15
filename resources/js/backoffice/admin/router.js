@@ -3,7 +3,6 @@ import Dashboard from './pages/Dashboard.vue'
 import ClientsIndex from './pages/clients/ClientsIndex.vue'
 import ClientForm from './pages/clients/ClientForm.vue'
 import ContactForm from './pages/contacts/ContactForm.vue'
-import ProjectForm from './pages/projects/ProjectForm.vue'
 import ProjectWorkspace from './pages/projects/ProjectWorkspace.vue'
 import ProjectsIndex from './pages/projects/ProjectsIndex.vue'
 import ServiceProductsIndex from './pages/service-products/ServiceProductsIndex.vue'
@@ -25,9 +24,9 @@ const router = createRouter({
         { path: '/clients/:companyId/contacts/create', name: 'contacts.create', component: ContactForm, props: true },
         { path: '/clients/:companyId/contacts/:id/edit', name: 'contacts.edit', component: ContactForm, props: true },
         { path: '/projects', name: 'projects.index', component: ProjectsIndex },
-        { path: '/projects/create', name: 'projects.create', component: ProjectForm },
+        { path: '/projects/create', name: 'projects.create', component: ProjectWorkspace },
         { path: '/projects/:id', name: 'projects.show', component: ProjectWorkspace, props: true },
-        { path: '/projects/:id/edit', name: 'projects.edit', component: ProjectForm, props: true },
+        { path: '/projects/:id/edit', name: 'projects.edit', component: ProjectWorkspace, props: true },
         { path: '/service-products', name: 'service-products.index', component: ServiceProductsIndex },
         { path: '/service-products/create', name: 'service-products.create', component: ServiceProductDetail, props: { create: true } },
         { path: '/service-products/:id', name: 'service-products.show', component: ServiceProductDetail, props: true },

@@ -727,11 +727,12 @@ onBeforeUnmount(() => {
         >
             {{ label }}
 
+
             <span
                 v-if="required"
                 class="
-                    text-accent
                     p
+                    text-accent
                 "
                 aria-hidden="true"
             >
@@ -740,13 +741,14 @@ onBeforeUnmount(() => {
         </label>
 
 
-        <!-- Text / Search / Email / Password -->
+        <!-- Text / Search / Email / Password / Date -->
         <input
             v-if="
                 type === 'text' ||
                 type === 'search' ||
                 type === 'email' ||
-                type === 'password'
+                type === 'password' ||
+                type === 'date'
             "
             :id="id"
             :name="name"
@@ -773,7 +775,6 @@ onBeforeUnmount(() => {
                 box-border
                 h-6
                 w-full
-                appearance-none
                 border-0
                 border-b
                 border-dark
@@ -787,6 +788,7 @@ onBeforeUnmount(() => {
                 duration-200
                 placeholder:text-dark/30
                 focus:border-accent
+                focus:outline-none
                 focus:ring-0
                 disabled:cursor-not-allowed
                 disabled:opacity-50
@@ -863,6 +865,7 @@ onBeforeUnmount(() => {
                     duration-200
                     placeholder:text-dark/30
                     focus:border-accent
+                    focus:outline-none
                     focus:ring-0
                     disabled:cursor-not-allowed
                     disabled:opacity-50
@@ -884,6 +887,7 @@ onBeforeUnmount(() => {
                     handleBlur
                 "
             >
+
 
             <div
                 v-if="
@@ -919,6 +923,7 @@ onBeforeUnmount(() => {
                 >
                     Searching addresses...
                 </p>
+
 
                 <button
                     v-else
@@ -1001,6 +1006,7 @@ onBeforeUnmount(() => {
                 duration-200
                 placeholder:text-dark/30
                 focus:border-accent
+                focus:outline-none
                 focus:ring-0
                 disabled:cursor-not-allowed
                 disabled:opacity-50
@@ -1066,9 +1072,8 @@ onBeforeUnmount(() => {
                         text-light
                     "
                 >
-                    {{
-                        option.label
-                    }}
+                    {{ option.label }}
+
 
                     <button
                         type="button"
@@ -1109,7 +1114,7 @@ onBeforeUnmount(() => {
                     border-dark
                     bg-transparent
                     px-0
-                    py-1
+                    py-0
                     text-left
                     text-dark
                     outline-none
@@ -1117,6 +1122,7 @@ onBeforeUnmount(() => {
                     duration-200
                     hover:border-accent
                     focus:border-accent
+                    focus:outline-none
                     focus:ring-0
                     disabled:cursor-not-allowed
                     disabled:opacity-50
@@ -1162,6 +1168,7 @@ onBeforeUnmount(() => {
                             )
                     }}
                 </span>
+
 
                 <span
                     class="
@@ -1224,22 +1231,19 @@ onBeforeUnmount(() => {
                         items-center
                         justify-between
                         border-0
-                        bg-light
                         px-4
                         py-3
                         text-left
-                        text-dark
                         transition-colors
                         duration-200
                         hover:bg-dark
                         hover:text-light
                     "
-                    :class="{
-                        'bg-dark text-light':
-                            isOptionSelected(
-                                option
-                            )
-                    }"
+                    :class="
+                        isOptionSelected(option)
+                            ? 'bg-dark text-light'
+                            : 'bg-light text-dark'
+                    "
                     role="option"
                     :aria-selected="
                         isOptionSelected(
@@ -1253,10 +1257,9 @@ onBeforeUnmount(() => {
                     "
                 >
                     <span>
-                        {{
-                            option.label
-                        }}
+                        {{ option.label }}
                     </span>
+
 
                     <span
                         v-if="
@@ -1314,6 +1317,7 @@ onBeforeUnmount(() => {
                 "
             >
 
+
             <button
                 type="button"
                 :disabled="disabled"
@@ -1340,6 +1344,7 @@ onBeforeUnmount(() => {
                     duration-200
                     hover:border-accent
                     focus:border-accent
+                    focus:outline-none
                     focus:ring-0
                     disabled:cursor-not-allowed
                     disabled:opacity-50
@@ -1366,6 +1371,7 @@ onBeforeUnmount(() => {
                               'Choose file'
                     }}
                 </span>
+
 
                 <span
                     class="
@@ -1426,6 +1432,7 @@ onBeforeUnmount(() => {
                 >
                     {{ token }}
 
+
                     <button
                         type="button"
                         aria-label="Remove"
@@ -1444,6 +1451,7 @@ onBeforeUnmount(() => {
                     </button>
                 </span>
             </div>
+
 
             <input
                 :id="id"
@@ -1476,6 +1484,7 @@ onBeforeUnmount(() => {
                     duration-200
                     placeholder:text-dark/30
                     focus:border-accent
+                    focus:outline-none
                     focus:ring-0
                     disabled:cursor-not-allowed
                     disabled:opacity-50
@@ -1496,9 +1505,7 @@ onBeforeUnmount(() => {
 
         <!-- Error -->
         <p
-            v-if="
-                error
-            "
+            v-if="error"
             class="
                 p
                 mt-2

@@ -29,9 +29,15 @@ class ProjectInstantiationService
 
         return DB::transaction(function () use ($data, $actor, $company, $product, $blueprintVersion, $configuration) {
             $url = ($data['url'] ?? null) ?: $this->uniqueSlug($data['name']);
+            $name = (string) ($data['name'] ?? '');
+            $summary = (string) ($data['summary'] ?? '');
             $project = Project::query()->create([
                 ...collect($data)->only(['name', 'url', 'project_code', 'summary', 'internal_notes', 'portal_status', 'started_at', 'completed_at'])->all(),
                 'url' => $url,
+                // Portfolio uses projects directly, so each created project must be portfolio-ready.
+                'name_translations' => ['en' => $name],
+                'summary_translations' => $summary !== '' ? ['en' => $summary] : null,
+                'is_published' => false,
                 'company_id' => $company->id, 'service_product_id' => $product->id,
                 'service_blueprint_version_id' => $blueprintVersion?->id,
                 'configuration' => $configuration,
@@ -66,7 +72,11 @@ class ProjectInstantiationService
             }
 
             $contactIds = collect($data['contact_ids'] ?? [])->map(fn ($id) => (int) $id)->all();
-            $coworkerIds = collect($data['coworker_ids'] ?? [])->map(fn ($id) => (int) $id)->all();
+            $coworkerIds = collect($data['coworker_ids'] ?? [])->map(fn ($id) => (int) $id)->filter(fn ($id) => $id > 0)->unique()->values()->all();
+
+            if ($actor->is_admin) {
+                $coworkerIds = collect($coworkerIds)->push($actor->id)->unique()->values()->all();
+            }
 
             $project->contacts()->sync($contactIds);
             $project->coworkers()->sync($coworkerIds);
@@ -88,7 +98,7 @@ class ProjectInstantiationService
                 }
 
                 if (! empty($coworkerIds)) {
-                    $coworkers = User::query()->whereIn('id', $coworkerIds)->get();
+                    $coworkers = User::query()->whereIn('id', $coworkerIds)->where('is_admin', false)->get();
                     foreach ($coworkers as $coworker) {
                         $coworker->notify(new ProjectInvitationNotification($project, route('login')));
                     }

@@ -57,19 +57,28 @@ class ProjectController extends Controller
     {
         $currentContactIds = $project->contacts()->pluck('client_contacts.id')->map(fn ($id) => (int) $id)->all();
         $currentCoworkerIds = $project->coworkers()->pluck('users.id')->map(fn ($id) => (int) $id)->all();
+        $currentAdminId = $request->user()?->is_admin ? (int) $request->user()->id : null;
 
         $nextContactIds = collect($request->validated('contact_ids', []))->map(fn ($id) => (int) $id)->all();
-        $nextCoworkerIds = collect($request->validated('coworker_ids', []))->map(fn ($id) => (int) $id)->all();
+        $nextCoworkerIds = collect($request->validated('coworker_ids', []))->map(fn ($id) => (int) $id)->filter(fn ($id) => $id > 0)->unique()->values();
+
+        if ($currentAdminId) {
+            $nextCoworkerIds = $nextCoworkerIds->push($currentAdminId)->unique()->values();
+        }
+
+        $nextCoworkerIds = $nextCoworkerIds->all();
 
         $addedContactIds = array_values(array_diff($nextContactIds, $currentContactIds));
         $addedCoworkerIds = array_values(array_diff($nextCoworkerIds, $currentCoworkerIds));
 
-        DB::transaction(function () use ($request, $project) {
+        DB::transaction(function () use ($request, $project, $nextCoworkerIds) {
             $data = $request->safe()->except(['contact_ids', 'coworker_ids']);
-            $data['url'] = $data['url'] ?: $project->url;
+            $data['url'] = isset($data['url']) && $data['url'] !== ''
+                ? $data['url']
+                : $project->url;
             $project->update($data);
             $project->contacts()->sync($request->validated('contact_ids', []));
-            $project->coworkers()->sync($request->validated('coworker_ids', []));
+            $project->coworkers()->sync($nextCoworkerIds);
             if ($project->portal_status !== 'archived') {
                 $project->update(['archived_at' => null]);
             }
@@ -92,7 +101,7 @@ class ProjectController extends Controller
             }
 
             if (! empty($addedCoworkerIds)) {
-                $coworkers = User::query()->whereIn('id', $addedCoworkerIds)->get();
+                $coworkers = User::query()->whereIn('id', $addedCoworkerIds)->where('is_admin', false)->get();
                 foreach ($coworkers as $coworker) {
                     $coworker->notify(new ProjectInvitationNotification($project, route('login')));
                 }
@@ -105,6 +114,43 @@ class ProjectController extends Controller
     public function archive(Project $project): Response
     {
         $project->update(['portal_status' => 'archived', 'archived_at' => now()]);
+
+        return response()->noContent();
+    }
+
+    public function destroy(Project $project): Response
+    {
+        DB::transaction(function () use ($project) {
+            $contractIds = $project->contracts()->pluck('id');
+
+            if ($contractIds->isNotEmpty()) {
+                DB::table('contract_acceptances')
+                    ->whereIn('contract_instance_id', $contractIds)
+                    ->delete();
+
+                $project->contracts()->delete();
+            }
+
+            $priceOfferIds = $project->priceOffers()->pluck('id');
+
+            if ($priceOfferIds->isNotEmpty()) {
+                DB::table('price_offer_acceptances')
+                    ->whereIn('price_offer_id', $priceOfferIds)
+                    ->delete();
+
+                $project->priceOffers()->delete();
+            }
+
+            DB::table('project_documents')
+                ->where('project_id', $project->id)
+                ->delete();
+
+            $project->files()->delete();
+            $project->contacts()->detach();
+            $project->coworkers()->detach();
+
+            $project->delete();
+        });
 
         return response()->noContent();
     }
