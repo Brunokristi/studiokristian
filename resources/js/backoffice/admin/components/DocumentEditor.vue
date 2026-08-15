@@ -2,6 +2,7 @@
 import {
     computed,
     nextTick,
+    onMounted,
     onUnmounted,
     ref,
     watch
@@ -118,6 +119,7 @@ const hasPendingSave = ref(false)
 const autosaveTimer = ref(null)
 const imageInput = ref(null)
 const savedSelection = ref(null)
+const commandMenuRoot = ref(null)
 
 const saveRevision = ref(0)
 const pendingRevision = ref(0)
@@ -780,10 +782,33 @@ function updateSelectionUI() {
         return
     }
 
+    const selection =
+        instance.state.selection
+
+    const parent =
+        instance.state.doc.resolve(
+            selection.from
+        ).parent
+
+    const isEmptyParagraph =
+        parent?.type.name ===
+            'paragraph' &&
+        parent.textContent === ''
+
+    if (!isEmptyParagraph) {
+        insertHandle.value.visible =
+            false
+
+        insertHandle.value.coords =
+            null
+
+        return
+    }
+
     try {
         const coords =
             instance.view.coordsAtPos(
-                instance.state.selection.from
+                selection.from
             )
 
         insertHandle.value.visible =
@@ -1374,6 +1399,36 @@ function handleLinkButton() {
 }
 
 
+function handleCommandMenuOutsideClick(event) {
+    if (
+        !commandMenu.value.open ||
+        !commandMenuRoot.value ||
+        !event.target ||
+        !(event.target instanceof Node)
+    ) {
+        return
+    }
+
+    if (
+        commandMenuRoot.value.contains(
+            event.target
+        )
+    ) {
+        return
+    }
+
+    closeMenus()
+}
+
+
+onMounted(() => {
+    document.addEventListener(
+        'mousedown',
+        handleCommandMenuOutsideClick
+    )
+})
+
+
 const editor = useEditor({
     editable:
         props.editable,
@@ -1575,6 +1630,11 @@ watch(
 
 
 onUnmounted(() => {
+    document.removeEventListener(
+        'mousedown',
+        handleCommandMenuOutsideClick
+    )
+
     clearAutosaveTimer()
     editor.value?.destroy()
 })
@@ -1603,51 +1663,131 @@ onUnmounted(() => {
                 shrink-0
                 items-center
                 justify-between
-                border-b
-                border-accent
-                bg-light/95
+                bg-accent
                 px-4
-                backdrop-blur
                 sm:px-6
                 lg:px-8
                 -mx-10
                 -mt-10
+                text-light
             "
         >
-            <button
-                type="button"
-                class="
-                    group
-                    flex
-                    items-center
-                    gap-2
-                    font-mono
-                    text-xs
-                    font-bold
-                    uppercase
-                    tracking-wide
-                    text-dark
-                    transition-colors
-                    hover:text-accent
-                "
-                @click="
-                    handleBack
-                "
-            >
-                <span
+
+            <div class="flex gap-10">
+                <button
+                    type="button"
                     class="
-                        transition-transform
-                        duration-200
-                        group-hover:-translate-x-1
+                        p
+                        hover:text-dark
+                    "
+                    @click="
+                        handleBack
                     "
                 >
-                    ←
-                </span>
+                    <i class="bi bi-arrow-left" />
+                </button>
 
-                <span>
-                    Back
-                </span>
-            </button>
+                <div class="flex gap-4">
+                    <button
+                        type="button"
+                        class="
+                            p
+                            hover:text-dark
+                        "
+                        title="Undo"
+                        @click="
+                            editor
+                                ?.chain()
+                                .focus()
+                                .undo()
+                                .run()
+                        "
+                    >
+                       <i class="bi bi-arrow-counterclockwise" />
+                    </button>
+
+
+                    <button
+                        type="button"
+                        class="
+                            p
+                            hover:text-dark
+
+                        "
+                        title="Redo"
+                        @click="
+                            editor
+                                ?.chain()
+                                .focus()
+                                .redo()
+                                .run()
+                        "
+                    >
+                        <i class="bi bi-arrow-clockwise" />
+                    </button>
+                </div>
+
+                <div class="flex gap-4">
+                    <button
+                        type="button"
+                        class="
+                            p
+                            font-bold
+                            hover:text-dark
+                        "
+                        title="Bold"
+                        @click="
+                            editor
+                                ?.chain()
+                                .focus()
+                                .toggleBold()
+                                .run()
+                        "
+                    >
+                        B
+                    </button>
+
+
+                    <button
+                        type="button"
+                        class="
+                            p
+                            italic
+                            hover:text-dark
+                        "
+                        title="Italic"
+                        @click="
+                            editor
+                                ?.chain()
+                                .focus()
+                                .toggleItalic()
+                                .run()
+                        "
+                    >
+                        I
+                    </button>
+
+
+                    <button
+                        type="button"
+                        class="
+                            p
+                            underline
+                            hover:text-dark
+                        "
+                        title="Underline"
+                        @click="
+                            editor
+                                ?.chain()
+                                .focus()
+                                .toggleUnderline()
+                                .run()
+                        "
+                    >
+                        U
+                    </button>
+                </div>
+            </div>
 
 
             <div
@@ -1664,7 +1804,7 @@ onUnmounted(() => {
                     font-bold
                     uppercase
                     tracking-[0.14em]
-                    text-accent
+                    text-light
                     md:block
                 "
             >
@@ -1704,289 +1844,6 @@ onUnmounted(() => {
         </header>
 
 
-        <!-- Formatting toolbar -->
-        <div
-            v-if="
-                editable
-            "
-            class="
-                sticky
-                top-6
-                z-20
-                border-b
-                border-accent
-                bg-light
-                -mx-10
-            "
-        >
-            <div
-                class="
-                    mx-auto
-                    flex
-                    w-full
-                    max-w-[900px]
-                    items-center
-                    gap-1
-                    overflow-x-auto
-                    px-4
-                    py-2
-                    sm:px-6
-                "
-            >
-                <!-- Text formatting -->
-                <button
-                    type="button"
-                    class="
-                        editor-tool
-                        font-bold
-                    "
-                    title="Bold"
-                    @click="
-                        editor
-                            ?.chain()
-                            .focus()
-                            .toggleBold()
-                            .run()
-                    "
-                >
-                    B
-                </button>
-
-
-                <button
-                    type="button"
-                    class="
-                        editor-tool
-                        italic
-                    "
-                    title="Italic"
-                    @click="
-                        editor
-                            ?.chain()
-                            .focus()
-                            .toggleItalic()
-                            .run()
-                    "
-                >
-                    I
-                </button>
-
-
-                <button
-                    type="button"
-                    class="
-                        editor-tool
-                        underline
-                    "
-                    title="Underline"
-                    @click="
-                        editor
-                            ?.chain()
-                            .focus()
-                            .toggleUnderline()
-                            .run()
-                    "
-                >
-                    U
-                </button>
-
-
-                <button
-                    type="button"
-                    class="
-                        editor-tool
-                    "
-                    title="Link"
-                    @click="
-                        handleLinkButton
-                    "
-                >
-                    Link
-                </button>
-
-
-                <span
-                    class="
-                        mx-2
-                        h-5
-                        w-px
-                        shrink-0
-                        bg-dark/10
-                    "
-                />
-
-
-                <!-- Blocks -->
-                <button
-                    type="button"
-                    class="
-                        editor-tool
-                    "
-                    @click="
-                        editor
-                            ?.chain()
-                            .focus()
-                            .setParagraph()
-                            .run()
-                    "
-                >
-                    Text
-                </button>
-
-
-                <button
-                    type="button"
-                    class="
-                        editor-tool
-                    "
-                    @click="
-                        editor
-                            ?.chain()
-                            .focus()
-                            .setHeading({
-                                level: 1
-                            })
-                            .run()
-                    "
-                >
-                    H1
-                </button>
-
-
-                <button
-                    type="button"
-                    class="
-                        editor-tool
-                    "
-                    @click="
-                        editor
-                            ?.chain()
-                            .focus()
-                            .setHeading({
-                                level: 2
-                            })
-                            .run()
-                    "
-                >
-                    H2
-                </button>
-
-
-                <button
-                    type="button"
-                    class="
-                        editor-tool
-                    "
-                    @click="
-                        editor
-                            ?.chain()
-                            .focus()
-                            .toggleBulletList()
-                            .run()
-                    "
-                >
-                    • List
-                </button>
-
-
-                <button
-                    type="button"
-                    class="
-                        editor-tool
-                    "
-                    @click="
-                        editor
-                            ?.chain()
-                            .focus()
-                            .toggleOrderedList()
-                            .run()
-                    "
-                >
-                    1. List
-                </button>
-
-
-                <button
-                    type="button"
-                    class="
-                        editor-tool
-                    "
-                    @click="
-                        editor
-                            ?.chain()
-                            .focus()
-                            .toggleTaskList()
-                            .run()
-                    "
-                >
-                    ✓ Tasks
-                </button>
-
-
-                <button
-                    type="button"
-                    class="
-                        editor-tool
-                    "
-                    @click="
-                        openCommandMenu(
-                            'plus'
-                        )
-                    "
-                >
-                    + Insert
-                </button>
-
-
-                <span
-                    class="
-                        mx-2
-                        h-5
-                        w-px
-                        shrink-0
-                        bg-dark/10
-                    "
-                />
-
-
-                <button
-                    type="button"
-                    class="
-                        editor-tool
-                    "
-                    title="Undo"
-                    @click="
-                        editor
-                            ?.chain()
-                            .focus()
-                            .undo()
-                            .run()
-                    "
-                >
-                    Undo
-                </button>
-
-
-                <button
-                    type="button"
-                    class="
-                        editor-tool
-                    "
-                    title="Redo"
-                    @click="
-                        editor
-                            ?.chain()
-                            .focus()
-                            .redo()
-                            .run()
-                    "
-                >
-                    Redo
-                </button>
-            </div>
-        </div>
-
-
         <!-- Writing area -->
         <main
             class="
@@ -2009,82 +1866,6 @@ onUnmounted(() => {
                     lg:py-20
                 "
             >
-                <!-- Document heading -->
-                <div
-                    class="
-                        mb-12
-                        border-b
-                        border-dark/10
-                        pb-10
-                    "
-                >
-                    <input
-                        v-model="
-                            titleModel
-                        "
-                        type="text"
-                        :readonly="
-                            !editable
-                        "
-                        placeholder="Untitled"
-                        class="
-                            block
-                            w-full
-                            border-0
-                            bg-transparent
-                            p-0
-                            font-serif
-                            text-4xl
-                            font-bold
-                            leading-[1.05]
-                            tracking-[-0.035em]
-                            text-dark
-                            outline-none
-                            placeholder:text-dark/20
-                            sm:text-5xl
-                            lg:text-6xl
-                        "
-                        @blur="
-                            queueAutosave(
-                                true
-                            )
-                        "
-                    />
-
-
-                    <textarea
-                        v-model="
-                            subtitleModel
-                        "
-                        rows="1"
-                        :readonly="
-                            !editable
-                        "
-                        placeholder="Add a subtitle..."
-                        class="
-                            mt-5
-                            block
-                            w-full
-                            resize-none
-                            border-0
-                            bg-transparent
-                            p-0
-                            text-lg
-                            leading-relaxed
-                            text-dark/50
-                            outline-none
-                            placeholder:text-dark/25
-                            sm:text-xl
-                        "
-                        @blur="
-                            queueAutosave(
-                                true
-                            )
-                        "
-                    />
-                </div>
-
-
                 <!-- Editor -->
                 <div
                     class="
@@ -2116,19 +1897,15 @@ onUnmounted(() => {
                                 h-8
                                 w-8
                                 place-items-center
-                                border
-                                border-dark/15
-                                bg-light
-                                font-mono
-                                text-lg
-                                font-light
+                                bg-accent
+                                text-light
                                 leading-none
-                                text-dark/50
-                                shadow-sm
                                 transition-all
                                 hover:border-accent
-                                hover:bg-accent
-                                hover:text-light
+                                hover:bg-light
+                                hover:text-accent
+                                border
+                                border-accent
                             "
                             aria-label="Insert block"
                             @mousedown.prevent
@@ -2138,7 +1915,7 @@ onUnmounted(() => {
                                 )
                             "
                         >
-                            +
+                            <i class="bi bi-plus-lg" />
                         </button>
                     </div>
 
@@ -2149,57 +1926,6 @@ onUnmounted(() => {
                         "
                         class="
                             article-editor
-                        "
-                    />
-                </div>
-
-
-                <!-- End of document -->
-                <div
-                    v-if="
-                        editable
-                    "
-                    class="
-                        mt-16
-                        flex
-                        items-center
-                        gap-4
-                        text-dark/20
-                    "
-                >
-                    <span
-                        class="
-                            h-px
-                            flex-1
-                            bg-dark/10
-                        "
-                    />
-
-                    <button
-                        type="button"
-                        class="
-                            font-mono
-                            text-[10px]
-                            font-bold
-                            uppercase
-                            tracking-[0.14em]
-                            transition-colors
-                            hover:text-accent
-                        "
-                        @click="
-                            openCommandMenu(
-                                'plus'
-                            )
-                        "
-                    >
-                        Add block
-                    </button>
-
-                    <span
-                        class="
-                            h-px
-                            flex-1
-                            bg-dark/10
                         "
                     />
                 </div>
@@ -2217,7 +1943,23 @@ onUnmounted(() => {
             "
             :tippy-options="{
                 duration: 120,
-                placement: 'top'
+                placement: 'top',
+                interactive: true,
+                hideOnClick: true,
+                onClickOutside: (instance, event) => {
+                    const editorEl =
+                        editor?.view?.dom
+
+                    if (
+                        event.target instanceof Node &&
+                        editorEl &&
+                        editorEl.contains(event.target)
+                    ) {
+                        return
+                    }
+
+                    instance.hide()
+                }
             }"
         >
             <div
@@ -2225,16 +1967,19 @@ onUnmounted(() => {
                     flex
                     items-center
                     border
-                    border-dark/10
+                    border-accent
                     bg-light
-                    shadow-xl
                 "
             >
                 <button
                     type="button"
                     class="
-                        bubble-tool
+                        p
                         font-bold
+                        px-4
+                        py-2
+                        hover:text-light
+                        hover:bg-accent
                     "
                     @click="
                         editor
@@ -2251,8 +1996,12 @@ onUnmounted(() => {
                 <button
                     type="button"
                     class="
-                        bubble-tool
+                        p
                         italic
+                        px-4
+                        py-2
+                        hover:text-light
+                        hover:bg-accent
                     "
                     @click="
                         editor
@@ -2269,8 +2018,12 @@ onUnmounted(() => {
                 <button
                     type="button"
                     class="
-                        bubble-tool
+                        p
                         underline
+                        px-4
+                        py-2
+                        hover:text-light
+                        hover:bg-accent
                     "
                     @click="
                         editor
@@ -2287,7 +2040,11 @@ onUnmounted(() => {
                 <button
                     type="button"
                     class="
-                        bubble-tool
+                        p
+                        px-4
+                        py-2
+                        hover:text-light
+                        hover:bg-accent
                     "
                     @click="
                         handleLinkButton
@@ -2305,6 +2062,7 @@ onUnmounted(() => {
                 commandMenu.open &&
                 commandMenu.coords
             "
+            ref="commandMenuRoot"
             class="
                 fixed
                 z-40
@@ -2322,51 +2080,14 @@ onUnmounted(() => {
                 class="
                     overflow-hidden
                     border
-                    border-dark/15
+                    border-accent
                     bg-light
-                    shadow-2xl
                 "
             >
                 <div
                     class="
-                        border-b
-                        border-dark/10
-                        px-4
-                        py-3
-                    "
-                >
-                    <input
-                        v-model="
-                            commandMenu.query
-                        "
-                        type="text"
-                        placeholder="Search blocks..."
-                        class="
-                            w-full
-                            border-0
-                            bg-transparent
-                            p-0
-                            font-mono
-                            text-xs
-                            font-bold
-                            uppercase
-                            tracking-[0.1em]
-                            text-dark
-                            outline-none
-                            placeholder:text-dark/25
-                        "
-                        @keydown.escape.stop.prevent="
-                            closeMenus
-                        "
-                    />
-                </div>
-
-
-                <div
-                    class="
                         max-h-80
                         overflow-y-auto
-                        p-1
                     "
                 >
                     <button
@@ -2400,8 +2121,7 @@ onUnmounted(() => {
                     >
                         <span
                             class="
-                                text-sm
-                                font-medium
+                                h3
                             "
                         >
                             {{
@@ -2411,10 +2131,9 @@ onUnmounted(() => {
 
                         <span
                             class="
-                                text-[11px]
-                                text-dark/35
+                                p
                                 transition-colors
-                                group-hover:text-light/60
+                                group-hover:text-light
                             "
                         >
                             {{
@@ -2459,29 +2178,6 @@ onUnmounted(() => {
 
 
 <style scoped>
-.editor-tool {
-    flex-shrink: 0;
-    padding: 0.45rem 0.6rem;
-    border: 1px solid transparent;
-    color: rgb(23 23 23 / 0.65);
-    font-family: monospace;
-    font-size: 0.7rem;
-    font-weight: 700;
-    line-height: 1;
-    white-space: nowrap;
-    text-transform: uppercase;
-    transition:
-        color 180ms ease,
-        border-color 180ms ease,
-        background-color 180ms ease;
-}
-
-.editor-tool:hover {
-    border-color: rgb(23 23 23 / 0.12);
-    color: var(--color-accent);
-    background: rgb(23 23 23 / 0.025);
-}
-
 .bubble-tool {
     min-width: 38px;
     padding: 0.55rem 0.7rem;
