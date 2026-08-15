@@ -1,5 +1,6 @@
 <script setup>
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import api, { errorMessage } from '../../composables/useAdminApi'
 import AdminPageHeader from '../../components/AdminPageHeader.vue'
 import DocumentEditor from '../../components/DocumentEditor.vue'
@@ -10,7 +11,10 @@ const loading = ref(true)
 const error = ref('')
 const structureSaveTimer = ref(null)
 const structureSaving = ref(false)
+const route = useRoute()
+const router = useRouter()
 const storageFolderKey = ref(null)
+const syncingDocumentRoute = ref(false)
 
 const storageInitialFolderId = computed(() => {
     if (
@@ -39,6 +43,38 @@ const documentSaveInFlight = ref(false)
 const documentSaveError = ref('')
 const documentSaveRevision = ref(0)
 const documentSavedRevision = ref(0)
+
+function storageDocumentRouteKey(item) {
+    return String(item?.client_key || item?.id || '').trim()
+}
+
+function findStorageDocumentByRouteKey(key) {
+    const value = String(key || '').trim()
+
+    if (!value) {
+        return null
+    }
+
+    return (storageFolders.value || []).find(
+        item =>
+            item?.type === 'file' &&
+            item?.resource_type === 'document' &&
+            (String(item.client_key || '') === value || String(item.id || '') === value)
+    )
+}
+
+async function setStorageDocumentRoute(key) {
+    const value = String(key || '').trim()
+    const nextQuery = { ...route.query }
+
+    if (value) {
+        nextQuery.document = value
+    } else {
+        delete nextQuery.document
+    }
+
+    await router.replace({ query: nextQuery })
+}
 
 async function load() {
     try {
@@ -175,9 +211,25 @@ function readDocumentEnvelope(content) {
     }
 }
 
-function openStorageDocument(item) {
+async function openStorageDocument(item, options = {}) {
+    const { updateRoute = true } = options
+
     if (!item?.id) {
         return
+    }
+
+    if (updateRoute) {
+        const key = storageDocumentRouteKey(item)
+
+        if (key && String(route.query.document || '') !== key) {
+            syncingDocumentRoute.value = true
+
+            try {
+                await setStorageDocumentRoute(key)
+            } finally {
+                syncingDocumentRoute.value = false
+            }
+        }
     }
 
     const envelope = readDocumentEnvelope(item.content || '')
@@ -204,6 +256,34 @@ function openStorageDocument(item) {
 
 function handleStorageOpenFolder(folder) {
     storageFolderKey.value = folder?.client_key ?? folder?.id ?? null
+}
+
+function syncStorageDocumentFromRoute() {
+    if (syncingDocumentRoute.value) {
+        return
+    }
+
+    const routeKey = String(route.query.document || '').trim()
+
+    if (!routeKey) {
+        if (documentEditorOpen.value) {
+            documentEditorOpen.value = false
+        }
+
+        return
+    }
+
+    const currentKey = storageDocumentRouteKey(documentTemplate.value)
+
+    if (documentEditorOpen.value && currentKey === routeKey) {
+        return
+    }
+
+    const match = findStorageDocumentByRouteKey(routeKey)
+
+    if (match) {
+        void openStorageDocument(match, { updateRoute: false })
+    }
 }
 
 function updateDocumentBlocks(value) {
@@ -328,8 +408,16 @@ function handleStorageDownloadFile(item) {
     error.value = 'This internal storage entry has no storage-backed binary to download.'
 }
 
-function handleDocumentBack() {
+async function handleDocumentBack() {
     documentEditorOpen.value = false
+
+    syncingDocumentRoute.value = true
+
+    try {
+        await setStorageDocumentRoute('')
+    } finally {
+        syncingDocumentRoute.value = false
+    }
 }
 
 function isPersistedFolder(value) {
@@ -396,6 +484,16 @@ onBeforeUnmount(() => {
         clearTimeout(structureSaveTimer.value)
     }
 })
+
+watch(
+    () => [route.query.document, storageFolders.value.length],
+    () => {
+        syncStorageDocumentFromRoute()
+    },
+    {
+        immediate: true,
+    }
+)
 </script>
 
 <template>

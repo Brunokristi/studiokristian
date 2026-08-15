@@ -272,6 +272,10 @@ const documentSavedRevision =
     ref(0)
 
 
+const syncingDocumentRoute =
+    ref(false)
+
+
 /*
 |--------------------------------------------------------------------------
 | Ticket drag and drop
@@ -1796,6 +1800,23 @@ watch(
 )
 
 
+watch(
+    () => [
+        route.query.document,
+        projectFolders.value.length
+    ],
+
+    () => {
+        syncProjectDocumentFromRoute()
+    },
+
+    {
+        immediate:
+            true
+    }
+)
+
+
 onMounted(
     load
 )
@@ -2573,13 +2594,131 @@ function readDocumentEnvelope(
 }
 
 
-function openProjectDocument(
+function projectDocumentRouteKey(
     item
 ) {
+    return String(
+        item?.client_key ||
+        item?.id ||
+        ''
+    ).trim()
+}
+
+
+function findProjectDocumentByRouteKey(
+    key
+) {
+    const value =
+        String(
+            key ||
+            ''
+        ).trim()
+
+
+    if (!value) {
+        return null
+    }
+
+
+    return (
+        projectFolders.value ||
+        []
+    ).find(
+        item =>
+            item?.type ===
+                'file' &&
+            item?.resource_type ===
+                'document' &&
+            (
+                String(
+                    item.client_key ||
+                    ''
+                ) ===
+                    value ||
+                String(
+                    item.id ||
+                    ''
+                ) ===
+                    value
+            )
+    )
+}
+
+
+async function setProjectDocumentRoute(
+    key
+) {
+    const value =
+        String(
+            key ||
+            ''
+        ).trim()
+
+
+    const nextQuery = {
+        ...route.query
+    }
+
+
+    if (value) {
+        nextQuery.document =
+            value
+    } else {
+        delete nextQuery.document
+    }
+
+
+    await router.replace({
+        query: nextQuery
+    })
+}
+
+
+async function openProjectDocument(
+    item,
+    options = {}
+) {
+    const {
+        updateRoute =
+            true
+    } = options
+
+
     if (
         !item?.id
     ) {
         return
+    }
+
+
+    if (updateRoute) {
+        const key =
+            projectDocumentRouteKey(
+                item
+            )
+
+
+        if (
+            key &&
+            String(
+                route.query.document ||
+                ''
+            ) !==
+                key
+        ) {
+            syncingDocumentRoute.value =
+                true
+
+
+            try {
+                await setProjectDocumentRoute(
+                    key
+                )
+            } finally {
+                syncingDocumentRoute.value =
+                    false
+            }
+        }
     }
 
 
@@ -2679,6 +2818,67 @@ function handleProjectFilesOpenFolder(
         folder?.client_key ??
         folder?.id ??
         null
+}
+
+
+function syncProjectDocumentFromRoute() {
+    if (
+        syncingDocumentRoute.value
+    ) {
+        return
+    }
+
+
+    const routeKey =
+        String(
+            route.query.document ||
+            ''
+        ).trim()
+
+
+    if (!routeKey) {
+        if (
+            documentEditorOpen.value
+        ) {
+            documentEditorOpen.value =
+                false
+        }
+
+
+        return
+    }
+
+
+    const currentKey =
+        projectDocumentRouteKey(
+            documentTemplate.value
+        )
+
+
+    if (
+        documentEditorOpen.value &&
+        currentKey ===
+            routeKey
+    ) {
+        return
+    }
+
+
+    const match =
+        findProjectDocumentByRouteKey(
+            routeKey
+        )
+
+
+    if (match) {
+        void openProjectDocument(
+            match,
+            {
+                updateRoute:
+                    false
+            }
+        )
+    }
 }
 
 
@@ -2911,9 +3111,23 @@ async function saveProjectDocument(
 }
 
 
-function handleDocumentBack() {
+async function handleDocumentBack() {
     documentEditorOpen.value =
         false
+
+
+    syncingDocumentRoute.value =
+        true
+
+
+    try {
+        await setProjectDocumentRoute(
+            ''
+        )
+    } finally {
+        syncingDocumentRoute.value =
+            false
+    }
 }
 
 

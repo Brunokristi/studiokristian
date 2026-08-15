@@ -118,9 +118,6 @@ const hasPendingSave = ref(false)
 const autosaveTimer = ref(null)
 const imageInput = ref(null)
 const savedSelection = ref(null)
-const titleEditInput = ref(null)
-const isEditingTitle = ref(false)
-const titleDraft = ref('')
 
 const saveRevision = ref(0)
 const pendingRevision = ref(0)
@@ -174,77 +171,6 @@ const subtitleModel = computed({
         markDirty()
     }
 })
-
-
-function startTitleEdit() {
-    if (
-        !props.editable
-    ) {
-        return
-    }
-
-
-    titleDraft.value =
-        String(
-            titleModel.value ||
-            ''
-        )
-
-
-    isEditingTitle.value =
-        true
-
-
-    nextTick(() => {
-        titleEditInput.value?.focus()
-        titleEditInput.value?.select()
-    })
-}
-
-
-function commitTitleEdit() {
-    if (
-        !isEditingTitle.value
-    ) {
-        return
-    }
-
-
-    const nextTitle =
-        String(
-            titleDraft.value ||
-            ''
-        ).trim() ||
-        'Untitled document'
-
-
-    isEditingTitle.value =
-        false
-
-
-    if (
-        nextTitle !==
-        titleModel.value
-    ) {
-        titleModel.value =
-            nextTitle
-
-
-        queueAutosave(
-            true
-        )
-    }
-}
-
-
-function cancelTitleEdit() {
-    isEditingTitle.value =
-        false
-
-
-    titleDraft.value =
-        ''
-}
 
 
 const signatureStatusLabel =
@@ -718,6 +644,7 @@ function buildSavePayload() {
             'Untitled document',
 
         subtitle:
+            subtitleModel.value ||
             '',
 
         document_schema:
@@ -1730,81 +1657,22 @@ onUnmounted(() => {
                     hidden
                     max-w-[40rem]
                     -translate-x-1/2
+                    truncate
                     px-4
+                    font-mono
+                    text-xs
+                    font-bold
+                    uppercase
+                    tracking-[0.14em]
+                    text-accent
                     md:block
                 "
             >
-                <input
-                    v-if="
-                        isEditingTitle
-                    "
-                    ref="
-                        titleEditInput
-                    "
-                    v-model="
-                        titleDraft
-                    "
-                    type="text"
-                    class="
-                        w-full
-                        border-0
-                        border-b
-                        border-accent
-                        bg-transparent
-                        p-0
-                        font-mono
-                        text-xs
-                        font-bold
-                        uppercase
-                        tracking-[0.14em]
-                        text-accent
-                        text-center
-                        outline-none
-                        focus:outline-none
-                        focus:ring-0
-                        focus:border-accent
-                    "
-                    @blur="
-                        commitTitleEdit
-                    "
-                    @keydown.enter.prevent="
-                        commitTitleEdit
-                    "
-                    @keydown.esc.prevent="
-                        cancelTitleEdit
-                    "
-                />
-
-
-                <button
-                    v-else
-                    type="button"
-                    class="
-                        block
-                        w-full
-                        truncate
-                        font-mono
-                        text-xs
-                        font-bold
-                        uppercase
-                        tracking-[0.14em]
-                        text-accent
-                        transition-colors
-                        hover:text-dark
-                    "
-                    :disabled="
-                        !editable
-                    "
-                    @click="
-                        startTitleEdit
-                    "
-                >
-                    {{
-                        titleModel ||
-                        props.template?.name ||
-                        'Untitled document'
-                    }}
-                </button>
+                {{
+                    titleModel ||
+                    props.template?.name ||
+                    'Untitled document'
+                }}
             </div>
 
 
@@ -2141,6 +2009,82 @@ onUnmounted(() => {
                     lg:py-20
                 "
             >
+                <!-- Document heading -->
+                <div
+                    class="
+                        mb-12
+                        border-b
+                        border-dark/10
+                        pb-10
+                    "
+                >
+                    <input
+                        v-model="
+                            titleModel
+                        "
+                        type="text"
+                        :readonly="
+                            !editable
+                        "
+                        placeholder="Untitled"
+                        class="
+                            block
+                            w-full
+                            border-0
+                            bg-transparent
+                            p-0
+                            font-serif
+                            text-4xl
+                            font-bold
+                            leading-[1.05]
+                            tracking-[-0.035em]
+                            text-dark
+                            outline-none
+                            placeholder:text-dark/20
+                            sm:text-5xl
+                            lg:text-6xl
+                        "
+                        @blur="
+                            queueAutosave(
+                                true
+                            )
+                        "
+                    />
+
+
+                    <textarea
+                        v-model="
+                            subtitleModel
+                        "
+                        rows="1"
+                        :readonly="
+                            !editable
+                        "
+                        placeholder="Add a subtitle..."
+                        class="
+                            mt-5
+                            block
+                            w-full
+                            resize-none
+                            border-0
+                            bg-transparent
+                            p-0
+                            text-lg
+                            leading-relaxed
+                            text-dark/50
+                            outline-none
+                            placeholder:text-dark/25
+                            sm:text-xl
+                        "
+                        @blur="
+                            queueAutosave(
+                                true
+                            )
+                        "
+                    />
+                </div>
+
+
                 <!-- Editor -->
                 <div
                     class="
