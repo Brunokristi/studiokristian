@@ -10,7 +10,6 @@ import {
 
 
 import {
-    RouterLink,
     useRoute,
     useRouter
 } from 'vue-router'
@@ -20,20 +19,21 @@ import api, {
     errorMessage,
     validationErrors
 } from '../../composables/useAdminApi'
+
+
 import useAutosavePolicy from '../../composables/useAutosavePolicy'
 
 
 import AdminPageHeader from '../../components/AdminPageHeader.vue'
-import AdminDataTable from '../../components/AdminDataTable.vue'
 import AdminConfirmDialog from '../../components/AdminConfirmDialog.vue'
 import DocumentEditor from '../../components/DocumentEditor.vue'
-import ProjectFilesDrive from '../../components/ProjectFilesDrive.vue'
 import ServiceFileStructure from '../../components/ServiceFileStructure.vue'
+import ProjectTicket from '../../components/ProjectTicket.vue'
+
 
 
 import Button from '@shared/components/Button.vue'
 import FormField from '@shared/components/FormField.vue'
-import Tag from '@shared/components/Tag.vue'
 import Toast from '@shared/components/Toast.vue'
 
 
@@ -102,6 +102,7 @@ const showDeleteConfirm =
 
 const tickets =
     ref([])
+
 
 
 const contactOptions =
@@ -182,6 +183,59 @@ const projectFolders =
     ref([])
 
 
+const projectFilesFolderKey =
+    ref(null)
+
+
+const projectFilesInitialFolderId =
+    computed(() => {
+        if (
+            projectFilesFolderKey.value ===
+            null ||
+            projectFilesFolderKey.value ===
+            undefined ||
+            String(
+                projectFilesFolderKey.value
+            ).trim() ===
+            ''
+        ) {
+            return null
+        }
+
+
+        const key =
+            String(
+                projectFilesFolderKey.value
+            )
+
+
+        const folder =
+            (
+                projectFolders.value ||
+                []
+            ).find(
+                item =>
+                    item?.type ===
+                        'folder' &&
+                    (
+                        String(
+                            item.client_key ||
+                            ''
+                        ) ===
+                            key ||
+                        String(
+                            item.id
+                        ) ===
+                            key
+                    )
+            )
+
+
+        return folder?.id ??
+            null
+    })
+
+
 const structureSaveTimer =
     ref(null)
 
@@ -218,45 +272,147 @@ const documentSavedRevision =
     ref(0)
 
 
+/*
+|--------------------------------------------------------------------------
+| Ticket drag and drop
+|--------------------------------------------------------------------------
+*/
+
+const draggedTicket =
+    ref(null)
+
+
+const dragOverStatus =
+    ref('')
+
+
+function startTicketDrag(
+    ticket
+) {
+    dragOverStatus.value =
+        ''
+
+
+    draggedTicket.value =
+        ticket
+}
+
+
+function endTicketDrag() {
+    dragOverStatus.value =
+        ''
+
+
+    draggedTicket.value =
+        null
+}
+
+
+function handleTicketDragEnter(
+    status
+) {
+    if (
+        !draggedTicket.value
+    ) {
+        return
+    }
+
+
+    dragOverStatus.value =
+        status
+}
+
+
+function handleTicketDrop(
+    status
+) {
+    if (
+        !draggedTicket.value
+    ) {
+        return
+    }
+
+
+    const ticket =
+        draggedTicket.value
+
+
+    dragOverStatus.value =
+        ''
+
+
+    draggedTicket.value =
+        null
+
+
+    if (
+        ticket.status ===
+        status
+    ) {
+        return
+    }
+
+
+    moveTicket(
+        ticket,
+        status
+    )
+}
+
+
+/*
+|--------------------------------------------------------------------------
+| Ticket assignees
+|--------------------------------------------------------------------------
+*/
+
 const ticketAssignees =
     computed(() => {
-        const options = []
-        const seen = new Set()
+        const options =
+            []
+
+        const seen =
+            new Set()
 
 
-        const pushUser =
-            user => {
-                const id =
-                    Number(
-                        user?.id ||
-                        0
-                    )
+        function pushUser(
+            user
+        ) {
+            const id =
+                Number(
+                    user?.id ||
+                    0
+                )
 
 
-                if (
-                    !id ||
-                    seen.has(id)
-                ) {
-                    return
-                }
-
-
-                seen.add(id)
-
-
-                options.push({
-                    id,
-                    name:
-                        String(
-                            user?.name ||
-                            'Unknown user'
-                        ),
-                    is_admin:
-                        Boolean(
-                            user?.is_admin
-                        )
-                })
+            if (
+                !id ||
+                seen.has(id)
+            ) {
+                return
             }
+
+
+            seen.add(
+                id
+            )
+
+
+            options.push({
+                id,
+
+                name:
+                    String(
+                        user?.name ||
+                        'Unknown user'
+                    ),
+
+                is_admin:
+                    Boolean(
+                        user?.is_admin
+                    )
+            })
+        }
 
 
         const currentUser =
@@ -291,15 +447,18 @@ const ticketAssignees =
 const ticketAssigneeOptions =
     computed(() => [
         {
-            label: 'Unassigned',
-            value: null
-        },
+            label:
+                'Unassigned',
 
+            value:
+                null
+        },
 
         ...ticketAssignees.value.map(
             user => ({
                 label:
                     `${user.name}${user.is_admin ? ' (admin)' : ''}`,
+
                 value:
                     user.id
             })
@@ -307,213 +466,416 @@ const ticketAssigneeOptions =
     ])
 
 
-const pageTitle = computed(() => projectForm.name || project.value?.name || 'New project')
+/*
+|--------------------------------------------------------------------------
+| Project
+|--------------------------------------------------------------------------
+*/
+
+const pageTitle =
+    computed(() =>
+        projectForm.name ||
+        project.value?.name ||
+        'New project'
+    )
 
 
-const selectedCompanyName = computed(() => {
-    const company = lookups.value.companies.find(item => String(item.id) === String(projectForm.company_id))
-    return company?.name || ''
-})
+const selectedCompanyName =
+    computed(() => {
+        const company =
+            lookups.value.companies.find(
+                item =>
+                    String(
+                        item.id
+                    ) ===
+                    String(
+                        projectForm.company_id
+                    )
+            )
+
+
+        return (
+            company?.name ||
+            ''
+        )
+    })
+
+
+const projectReady =
+    computed(() =>
+        Boolean(
+            projectId.value
+        )
+    )
 
 
 const statusOptions = [
     {
-        label: 'Draft',
-        value: 'draft'
+        label:
+            'Draft',
+
+        value:
+            'draft'
     },
 
-
     {
-        label: 'Active',
-        value: 'active'
+        label:
+            'Active',
+
+        value:
+            'active'
     },
 
-
     {
-        label: 'On hold',
-        value: 'on_hold'
+        label:
+            'On hold',
+
+        value:
+            'on_hold'
     },
 
-
     {
-        label: 'Completed',
-        value: 'completed'
+        label:
+            'Completed',
+
+        value:
+            'completed'
     },
 
-
     {
-        label: 'Archived',
-        value: 'archived'
+        label:
+            'Archived',
+
+        value:
+            'archived'
     }
 ]
 
 
-const serviceOptions = computed(() => lookups.value.service_products.map(product => ({
-    label: product.active ? product.name : `${product.name} (inactive)`,
-    value: String(product.id),
-    disabled: !product.active && String(product.id) !== String(projectForm.service_product_id),
-})))
+const serviceOptions =
+    computed(() =>
+        lookups.value.service_products.map(
+            product => ({
+                label:
+                    product.active
+                        ? product.name
+                        : `${product.name} (inactive)`,
+
+                value:
+                    String(
+                        product.id
+                    ),
+
+                disabled:
+                    !product.active &&
+                    String(
+                        product.id
+                    ) !==
+                    String(
+                        projectForm.service_product_id
+                    )
+            })
+        )
+    )
 
 
-const contactAssignmentOptions = computed(() => contactOptions.value.map(contact => ({
-    label: `${contact.first_name || ''} ${contact.last_name || ''}`.trim() || contact.email || 'Contact',
-    value: contact.id,
-})))
+const contactAssignmentOptions =
+    computed(() =>
+        contactOptions.value.map(
+            contact => ({
+                label:
+                    `${contact.first_name || ''} ${contact.last_name || ''}`
+                        .trim() ||
+                    contact.email ||
+                    'Contact',
+
+                value:
+                    contact.id
+            })
+        )
+    )
 
 
-const coworkerAssignmentOptions = computed(() => {
-    const options = []
-    const seen = new Set()
+const coworkerAssignmentOptions =
+    computed(() => {
+        const options =
+            []
+
+        const seen =
+            new Set()
 
 
-    const pushOption = user => {
-        const id = Number(user?.id || 0)
+        function pushOption(
+            user
+        ) {
+            const id =
+                Number(
+                    user?.id ||
+                    0
+                )
 
 
-        if (!id || seen.has(id)) {
-            return
+            if (
+                !id ||
+                seen.has(id)
+            ) {
+                return
+            }
+
+
+            seen.add(
+                id
+            )
+
+
+            options.push({
+                label:
+                    `${user.name} ${user.is_admin ? '(admin)' : ''}`,
+                value:
+                    id
+            })
         }
 
 
-        seen.add(id)
+        if (
+            currentUser.value?.is_admin
+        ) {
+            pushOption(
+                currentUser.value
+            )
+        }
 
 
-        options.push({
-            label: `${user.name || 'Coworker'}${user.email ? ` · ${user.email}` : ''}`,
-            value: id,
-        })
-    }
+        for (
+            const coworker
+            of coworkers.value
+        ) {
+            pushOption(
+                coworker
+            )
+        }
 
 
-    if (currentUser.value?.is_admin) {
-        pushOption(currentUser.value)
-    }
-
-
-    for (const coworker of coworkers.value) {
-        pushOption(coworker)
-    }
-
-
-    return options
-})
-
-
-const projectReady = computed(() => Boolean(projectId.value))
-
-
-function normalizeCompanyPrefill() {
-    const raw = route.query.company_id ?? route.query.client_id ?? ''
-    const value = Array.isArray(raw) ? raw[0] : raw
-    return String(value || '').trim()
-}
-
-
-function getProjectAutosaveSnapshot() {
-    return JSON.stringify({
-        company_id: String(projectForm.company_id || '').trim(),
-        service_product_id: String(projectForm.service_product_id || '').trim(),
-        name: String(projectForm.name || '').trim(),
-        summary: String(projectForm.summary || ''),
-        internal_notes: String(projectForm.internal_notes || ''),
-        portal_status: String(projectForm.portal_status || 'draft'),
-        started_at: String(projectForm.started_at || ''),
-        completed_at: String(projectForm.completed_at || ''),
-        contact_ids: [...projectForm.contact_ids].map(value => Number(value)).filter(Number.isFinite).sort((a, b) => a - b),
-        coworker_ids: [...projectForm.coworker_ids].map(value => Number(value)).filter(Number.isFinite).sort((a, b) => a - b),
+        return options
     })
-}
 
 
-function canAutosaveProject() {
-    return Boolean(
-        String(projectForm.company_id || '').trim() &&
-        String(projectForm.service_product_id || '').trim() &&
-        String(projectForm.name || '').trim()
-    )
-}
-
+/*
+|--------------------------------------------------------------------------
+| Ticket options
+|--------------------------------------------------------------------------
+*/
 
 const ticketPriorityOptions = [
     {
-        label: 'Low',
-        value: 'low'
+        label:
+            'Low',
+
+        value:
+            'low'
     },
 
-
     {
-        label: 'Normal',
-        value: 'normal'
+        label:
+            'Normal',
+
+        value:
+            'normal'
     },
 
-
     {
-        label: 'High',
-        value: 'high'
+        label:
+            'High',
+
+        value:
+            'high'
     },
 
-
     {
-        label: 'Urgent',
-        value: 'urgent'
+        label:
+            'Urgent',
+
+        value:
+            'urgent'
     }
 ]
 
 
 const ticketStatusOptions = [
     {
-        label: 'New',
-        value: 'new'
+        label:
+            'New',
+
+        value:
+            'new'
     },
 
-
     {
-        label: 'In progress',
-        value: 'in_progress'
+        label:
+            'In progress',
+
+        value:
+            'in_progress'
     },
 
-
     {
-        label: 'Finished',
-        value: 'finished'
+        label:
+            'Finished',
+
+        value:
+            'finished'
     }
 ]
 
 
-const projectInfo = computed(() => [
-    {
-        label: 'Client',
-        value:
-            project.value?.company?.name ||
-            '—'
-    },
+/*
+|--------------------------------------------------------------------------
+| Project helpers
+|--------------------------------------------------------------------------
+*/
+
+function normalizeCompanyPrefill() {
+    const raw =
+        route.query.company_id ??
+        route.query.client_id ??
+        ''
 
 
-    {
-        label: 'Product',
-        value:
-            project.value?.service_product?.name ||
-            '—'
-    },
+    const value =
+        Array.isArray(
+            raw
+        )
+            ? raw[0]
+            : raw
 
 
-    {
-        label: 'Blueprint',
-        value:
-            project.value?.blueprint_version
-                ? `${project.value.blueprint_version.name || '—'} v${project.value.blueprint_version.version || ''}`
-                : '—'
-    },
+    return String(
+        value ||
+        ''
+    ).trim()
+}
 
 
-    {
-        label: 'Started',
-        value:
-            project.value?.started_at ||
-            '—'
-    }
-])
+function getProjectAutosaveSnapshot() {
+    return JSON.stringify({
+        company_id:
+            String(
+                projectForm.company_id ||
+                ''
+            ).trim(),
 
+        service_product_id:
+            String(
+                projectForm.service_product_id ||
+                ''
+            ).trim(),
+
+        name:
+            String(
+                projectForm.name ||
+                ''
+            ).trim(),
+
+        summary:
+            String(
+                projectForm.summary ||
+                ''
+            ),
+
+        internal_notes:
+            String(
+                projectForm.internal_notes ||
+                ''
+            ),
+
+        portal_status:
+            String(
+                projectForm.portal_status ||
+                'draft'
+            ),
+
+        started_at:
+            String(
+                projectForm.started_at ||
+                ''
+            ),
+
+        completed_at:
+            String(
+                projectForm.completed_at ||
+                ''
+            ),
+
+        contact_ids:
+            [
+                ...projectForm.contact_ids
+            ]
+                .map(
+                    value =>
+                        Number(
+                            value
+                        )
+                )
+                .filter(
+                    Number.isFinite
+                )
+                .sort(
+                    (
+                        a,
+                        b
+                    ) =>
+                        a - b
+                ),
+
+        coworker_ids:
+            [
+                ...projectForm.coworker_ids
+            ]
+                .map(
+                    value =>
+                        Number(
+                            value
+                        )
+                )
+                .filter(
+                    Number.isFinite
+                )
+                .sort(
+                    (
+                        a,
+                        b
+                    ) =>
+                        a - b
+                )
+    })
+}
+
+
+function canAutosaveProject() {
+    return Boolean(
+        String(
+            projectForm.company_id ||
+            ''
+        ).trim() &&
+
+        String(
+            projectForm.service_product_id ||
+            ''
+        ).trim() &&
+
+        String(
+            projectForm.name ||
+            ''
+        ).trim()
+    )
+}
+
+
+/*
+|--------------------------------------------------------------------------
+| Error handling
+|--------------------------------------------------------------------------
+*/
 
 function showError(
     message
@@ -532,6 +894,12 @@ function showError(
     })
 }
 
+
+/*
+|--------------------------------------------------------------------------
+| Project structure
+|--------------------------------------------------------------------------
+*/
 
 function isPersistedFolderId(
     value
@@ -622,7 +990,9 @@ function normalizeProjectFolders(
                 index
             ) => {
                 const previousItem =
-                    previous[index] ||
+                    previous[
+                        index
+                    ] ||
                     null
 
 
@@ -653,6 +1023,7 @@ function normalizeProjectFolders(
                     String(
                         item.id
                     ),
+
                     item.client_key
                 ]
             )
@@ -664,8 +1035,10 @@ function normalizeProjectFolders(
             ...item,
 
             parent_client_key:
-                item.parent_id !== null &&
-                item.parent_id !== undefined
+                item.parent_id !==
+                    null &&
+                item.parent_id !==
+                    undefined
                     ? (
                         idToClientKey.get(
                             String(
@@ -724,6 +1097,7 @@ function foldersPayloadForSave() {
                     String(
                         item.id
                     ),
+
                     String(
                         item.client_key
                     )
@@ -737,8 +1111,10 @@ function foldersPayloadForSave() {
             ...item,
 
             parent_client_key:
-                item.parent_id !== null &&
-                item.parent_id !== undefined
+                item.parent_id !==
+                    null &&
+                item.parent_id !==
+                    undefined
                     ? (
                         keyById.get(
                             String(
@@ -756,136 +1132,538 @@ function foldersPayloadForSave() {
 }
 
 
-function applyProjectToForm(projectData) {
-    if (!projectData) {
+/*
+|--------------------------------------------------------------------------
+| Project loading
+|--------------------------------------------------------------------------
+*/
+
+function applyProjectToForm(
+    projectData
+) {
+    if (
+        !projectData
+    ) {
         return
     }
 
 
-    project.value = projectData
-    projectId.value = String(projectData.id || projectId.value || '')
-    initialCompany.value = String(projectData.company_id || initialCompany.value || '')
+    project.value =
+        projectData
 
 
-    Object.assign(projectForm, {
-        company_id: String(projectData.company_id || ''),
-        service_product_id: String(projectData.service_product_id || ''),
-        name: projectData.name || '',
-        summary: projectData.summary || '',
-        internal_notes: projectData.internal_notes || '',
-        portal_status: projectData.status || 'draft',
-        started_at: projectData.started_at || '',
-        completed_at: projectData.completed_at || '',
-        contact_ids: (projectData.contacts || []).map(contact => contact.id),
-        coworker_ids: (projectData.coworkers || []).map(coworker => coworker.id),
-    })
+    projectId.value =
+        String(
+            projectData.id ||
+            projectId.value ||
+            ''
+        )
 
 
-    lastSavedProjectSnapshot.value = getProjectAutosaveSnapshot()
+    initialCompany.value =
+        String(
+            projectData.company_id ||
+            initialCompany.value ||
+            ''
+        )
+
+
+    Object.assign(
+        projectForm,
+        {
+            company_id:
+                String(
+                    projectData.company_id ||
+                    ''
+                ),
+
+            service_product_id:
+                String(
+                    projectData.service_product_id ||
+                    ''
+                ),
+
+            name:
+                projectData.name ||
+                '',
+
+            summary:
+                projectData.summary ||
+                '',
+
+            internal_notes:
+                projectData.internal_notes ||
+                '',
+
+            portal_status:
+                projectData.status ||
+                'draft',
+
+            started_at:
+                projectData.started_at ||
+                '',
+
+            completed_at:
+                projectData.completed_at ||
+                '',
+
+            contact_ids:
+                (
+                    projectData.contacts ||
+                    []
+                ).map(
+                    contact =>
+                        contact.id
+                ),
+
+            coworker_ids:
+                (
+                    projectData.coworkers ||
+                    []
+                ).map(
+                    coworker =>
+                        coworker.id
+                )
+        }
+    )
+
+
+    lastSavedProjectSnapshot.value =
+        getProjectAutosaveSnapshot()
 }
 
 
 async function loadLookupsAndCoworkers() {
-    const [lookupsResponse, coworkersResponse] = await Promise.all([
-        api.get('/lookups'),
-        api.get('/coworkers', { params: { per_page: 1000 } }),
-    ])
+    const [
+        lookupsResponse,
+        coworkersResponse
+    ] =
+        await Promise.all([
+            api.get(
+                '/lookups'
+            ),
+
+            api.get(
+                '/coworkers',
+                {
+                    params: {
+                        per_page:
+                            1000
+                    }
+                }
+            )
+        ])
 
 
-    lookups.value = lookupsResponse.data || { companies: [], service_products: [] }
-    coworkers.value = coworkersResponse.data?.data || []
-    currentUser.value = coworkersResponse.data?.current_user || null
-}
-
-
-async function loadContacts(companyId, preserve = false) {
-    if (!companyId) {
-        contactOptions.value = []
-        if (!preserve) {
-            projectForm.contact_ids = []
+    lookups.value =
+        lookupsResponse.data ||
+        {
+            companies: [],
+            service_products: []
         }
 
+
+    coworkers.value =
+        coworkersResponse.data?.data ||
+        []
+
+
+    currentUser.value =
+        coworkersResponse.data?.current_user ||
+        null
+}
+
+
+async function loadContacts(
+    companyId,
+    preserve = false
+) {
+    if (
+        !companyId
+    ) {
+        contactOptions.value =
+            []
+
+
+        if (
+            !preserve
+        ) {
+            projectForm.contact_ids =
+                []
+        }
+
+
         return
     }
 
 
-    const response = await api.get(`/companies/${companyId}/contacts/options`)
-    contactOptions.value = response.data || []
-
-
-    if (!preserve) {
-        projectForm.contact_ids = projectForm.contact_ids.filter(id =>
-            contactOptions.value.some(contact => String(contact.id) === String(id))
+    const response =
+        await api.get(
+            `/companies/${companyId}/contacts/options`
         )
+
+
+    contactOptions.value =
+        response.data ||
+        []
+
+
+    if (
+        !preserve
+    ) {
+        projectForm.contact_ids =
+            projectForm.contact_ids.filter(
+                id =>
+                    contactOptions.value.some(
+                        contact =>
+                            String(
+                                contact.id
+                            ) ===
+                            String(
+                                id
+                            )
+                    )
+            )
     }
 }
 
 
-async function loadProjectDetails(id) {
-    const response = await api.get(`/projects/${id}`)
-    const projectData = response.data.data
+async function loadProjectDetails(
+    id
+) {
+    const response =
+        await api.get(
+            `/projects/${id}`
+        )
 
 
-    applyProjectToForm(projectData)
-    projectFolders.value = normalizeProjectFolders(projectData?.folders || [], projectFolders.value || [])
-    tickets.value = (await api.get(`/projects/${id}/tickets`)).data
-    await loadContacts(projectData.company_id, true)
+    const projectData =
+        response.data.data
+
+
+    applyProjectToForm(
+        projectData
+    )
+
+
+    projectFolders.value =
+        normalizeProjectFolders(
+            projectData?.folders ||
+            [],
+
+            projectFolders.value ||
+            []
+        )
+
+
+    tickets.value =
+        (
+            await api.get(
+                `/projects/${id}/tickets`
+            )
+        ).data
+
+
+    await loadContacts(
+        projectData.company_id,
+        true
+    )
 }
 
+
+async function load() {
+    loading.value =
+        true
+
+
+    suppressProjectAutosave.value =
+        true
+
+
+    try {
+        await loadLookupsAndCoworkers()
+
+
+        const projectRouteId =
+            String(
+                props.id ||
+                projectId.value ||
+                ''
+            ).trim()
+
+
+        if (
+            projectRouteId
+        ) {
+            projectId.value =
+                projectRouteId
+
+
+            await loadProjectDetails(
+                projectRouteId
+            )
+        } else {
+            const companyId =
+                normalizeCompanyPrefill()
+
+
+            if (
+                !companyId
+            ) {
+                showError(
+                    'Create projects from a client detail page so the client is assigned automatically.'
+                )
+
+
+                await router.replace({
+                    name:
+                        'clients.index'
+                })
+
+
+                return
+            }
+
+
+            project.value =
+                null
+
+
+            projectFolders.value =
+                []
+
+
+            tickets.value =
+                []
+
+
+            Object.assign(
+                projectForm,
+                {
+                    company_id:
+                        companyId,
+
+                    service_product_id:
+                        '',
+
+                    name:
+                        '',
+
+                    summary:
+                        '',
+
+                    internal_notes:
+                        '',
+
+                    portal_status:
+                        'draft',
+
+                    started_at:
+                        '',
+
+                    completed_at:
+                        '',
+
+                    contact_ids:
+                        [],
+
+                    coworker_ids:
+                        []
+                }
+            )
+
+
+            initialCompany.value =
+                companyId
+
+
+            await loadContacts(
+                companyId,
+                true
+            )
+
+
+            lastSavedProjectSnapshot.value =
+                getProjectAutosaveSnapshot()
+        }
+    } catch (
+        exception
+    ) {
+        showError(
+            errorMessage(
+                exception
+            )
+        )
+    } finally {
+        loading.value =
+            false
+
+
+        suppressProjectAutosave.value =
+            false
+    }
+}
+
+
+/*
+|--------------------------------------------------------------------------
+| Project autosave
+|--------------------------------------------------------------------------
+*/
 
 async function saveProjectForm() {
-    if (saving.value || !canAutosaveProject()) {
+    if (
+        saving.value ||
+        !canAutosaveProject()
+    ) {
         return
     }
 
 
-    suppressProjectAutosave.value = true
-    saving.value = true
-    setStatus('saving')
-    error.value = ''
-    errors.value = {}
+    suppressProjectAutosave.value =
+        true
+
+
+    saving.value =
+        true
+
+
+    setStatus(
+        'saving'
+    )
+
+
+    error.value =
+        ''
+
+
+    errors.value =
+        {}
 
 
     try {
         const payload = {
-            company_id: projectForm.company_id,
-            service_product_id: projectForm.service_product_id,
-            name: projectForm.name,
-            summary: projectForm.summary,
-            internal_notes: projectForm.internal_notes,
-            portal_status: projectForm.portal_status,
-            started_at: projectForm.started_at,
-            completed_at: projectForm.completed_at,
-            contact_ids: projectForm.contact_ids,
-            coworker_ids: projectForm.coworker_ids,
+            company_id:
+                projectForm.company_id,
+
+            service_product_id:
+                projectForm.service_product_id,
+
+            name:
+                projectForm.name,
+
+            summary:
+                projectForm.summary,
+
+            internal_notes:
+                projectForm.internal_notes,
+
+            portal_status:
+                projectForm.portal_status,
+
+            started_at:
+                projectForm.started_at,
+
+            completed_at:
+                projectForm.completed_at,
+
+            contact_ids:
+                projectForm.contact_ids,
+
+            coworker_ids:
+                projectForm.coworker_ids
         }
 
 
-        if (projectId.value) {
-            const response = await api.put(`/projects/${projectId.value}`, payload)
-            project.value = response.data.data || project.value
-            await loadProjectDetails(projectId.value)
+        if (
+            projectId.value
+        ) {
+            const response =
+                await api.put(
+                    `/projects/${projectId.value}`,
+                    payload
+                )
+
+
+            project.value =
+                response.data.data ||
+                project.value
+
+
+            await loadProjectDetails(
+                projectId.value
+            )
         } else {
-            const response = await api.post('/projects', payload)
-            const createdId = String(response.data.data.id)
+            const response =
+                await api.post(
+                    '/projects',
+                    payload
+                )
 
 
-            projectId.value = createdId
-            project.value = response.data.data || project.value
-            await router.replace({ name: 'projects.show', params: { id: createdId } })
-            await loadProjectDetails(createdId)
+            const createdId =
+                String(
+                    response.data.data.id
+                )
+
+
+            projectId.value =
+                createdId
+
+
+            project.value =
+                response.data.data ||
+                project.value
+
+
+            await router.replace({
+                name:
+                    'projects.show',
+
+                params: {
+                    id:
+                        createdId
+                }
+            })
+
+
+            await loadProjectDetails(
+                createdId
+            )
         }
 
 
-        lastSavedProjectSnapshot.value = getProjectAutosaveSnapshot()
+        lastSavedProjectSnapshot.value =
+            getProjectAutosaveSnapshot()
+
+
         setLastSavedAt()
-    } catch (exception) {
-        errors.value = validationErrors(exception)
-        showError(errorMessage(exception))
+    } catch (
+        exception
+    ) {
+        errors.value =
+            validationErrors(
+                exception
+            )
+
+
+        showError(
+            errorMessage(
+                exception
+            )
+        )
     } finally {
-        saving.value = false
-        setStatus('idle')
-        suppressProjectAutosave.value = false
+        saving.value =
+            false
+
+
+        setStatus(
+            'idle'
+        )
+
+
+        suppressProjectAutosave.value =
+            false
     }
 }
 
@@ -902,192 +1680,74 @@ function scheduleProjectAutosave() {
     }
 
 
-    const snapshot = getProjectAutosaveSnapshot()
-    if (lastSavedProjectSnapshot.value && snapshot === lastSavedProjectSnapshot.value) {
+    const snapshot =
+        getProjectAutosaveSnapshot()
+
+
+    if (
+        lastSavedProjectSnapshot.value &&
+        snapshot ===
+            lastSavedProjectSnapshot.value
+    ) {
         return
     }
 
 
-    if (projectAutosaveTimer.value) {
-        clearTimeout(projectAutosaveTimer.value)
-    }
-
-
-    projectAutosaveTimer.value = setTimeout(() => {
-        if (!saving.value && autosaveEnabled.value && canAutosaveProject()) {
-            void saveProjectForm()
-        }
-    }, 600)
-}
-
-
-function normalizeOpenUrl(
-    value
-) {
-    const raw =
-        String(
-            value ||
-            ''
-        ).trim()
-
-
-    if (!raw) {
-        return ''
-    }
-
-
     if (
-        raw.startsWith('/') ||
-        raw.startsWith('#')
+        projectAutosaveTimer.value
     ) {
-        return raw
-    }
-
-
-    if (
-        /^[a-z][a-z\d+.-]*:/i.test(
-            raw
+        clearTimeout(
+            projectAutosaveTimer.value
         )
-    ) {
-        return raw
     }
 
 
-    return `https://${raw}`
-}
+    projectAutosaveTimer.value =
+        setTimeout(
+            () => {
+                if (
+                    !saving.value &&
+                    autosaveEnabled.value &&
+                    canAutosaveProject()
+                ) {
+                    void saveProjectForm()
+                }
+            },
 
-
-function readDocumentEnvelope(
-    content
-) {
-    try {
-        const parsed =
-            JSON.parse(
-                String(
-                    content ||
-                    ''
-                )
-            )
-
-
-        if (
-            parsed &&
-            typeof parsed === 'object' &&
-            !Array.isArray(parsed)
-        ) {
-            return {
-                title:
-                    String(
-                        parsed.title ||
-                        ''
-                    ),
-
-                subtitle:
-                    String(
-                        parsed.subtitle ||
-                        ''
-                    ),
-
-                doc:
-                    parsed.doc ||
-                    parsed
-            }
-        }
-    } catch {
-        // Legacy content is handled by the editor.
-    }
-
-
-    return {
-        title: '',
-        subtitle: '',
-        doc:
-            content ||
-            ''
-    }
-}
-
-
-async function load() {
-    loading.value =
-        true
-
-    suppressProjectAutosave.value = true
-
-
-    try {
-        await loadLookupsAndCoworkers()
-
-
-        const projectRouteId = String(props.id || projectId.value || '').trim()
-
-
-        if (projectRouteId) {
-            projectId.value = projectRouteId
-            await loadProjectDetails(projectRouteId)
-        } else {
-            const companyId = normalizeCompanyPrefill()
-
-            if (!companyId) {
-                showError('Create projects from a client detail page so the client is assigned automatically.')
-                await router.replace({ name: 'clients.index' })
-                return
-            }
-
-
-            project.value = null
-            projectFolders.value = []
-            tickets.value = []
-
-
-            Object.assign(projectForm, {
-                company_id: companyId,
-                service_product_id: '',
-                name: '',
-                summary: '',
-                internal_notes: '',
-                portal_status: 'draft',
-                started_at: '',
-                completed_at: '',
-                contact_ids: [],
-                coworker_ids: [],
-            })
-
-
-            initialCompany.value = companyId
-            await loadContacts(companyId, true)
-
-
-            lastSavedProjectSnapshot.value = getProjectAutosaveSnapshot()
-        }
-    } catch (
-        exception
-    ) {
-        showError(
-            errorMessage(
-                exception
-            )
+            600
         )
-    } finally {
-        loading.value =
-            false
-
-
-        suppressProjectAutosave.value = false
-    }
 }
 
+
+/*
+|--------------------------------------------------------------------------
+| Project watchers
+|--------------------------------------------------------------------------
+*/
 
 watch(
-    () => projectForm.company_id,
-    async (value, oldValue) => {
+    () =>
+        projectForm.company_id,
+
+    async (
+        value,
+        oldValue
+    ) => {
         if (
-            oldValue !== undefined &&
-            value !== oldValue
+            oldValue !==
+                undefined &&
+            value !==
+                oldValue
         ) {
             await loadContacts(
                 value,
-                String(value) === String(initialCompany.value)
+
+                String(
+                    value
+                ) ===
+                    String(
+                        initialCompany.value
+                    )
             )
         }
     }
@@ -1098,23 +1758,38 @@ watch(
     () => ({
         ...projectForm
     }),
+
     () => {
         scheduleProjectAutosave()
     },
+
     {
-        deep: true
+        deep:
+            true
     }
 )
 
 
 watch(
-    () => props.id,
+    () =>
+        props.id,
+
     value => {
-        const nextId = String(value || '').trim()
+        const nextId =
+            String(
+                value ||
+                ''
+            ).trim()
 
 
-        if (nextId !== projectId.value) {
-            projectId.value = nextId
+        if (
+            nextId !==
+            projectId.value
+        ) {
+            projectId.value =
+                nextId
+
+
             void load()
         }
     }
@@ -1125,6 +1800,12 @@ onMounted(
     load
 )
 
+
+/*
+|--------------------------------------------------------------------------
+| Project actions
+|--------------------------------------------------------------------------
+*/
 
 async function togglePublishing() {
     if (
@@ -1145,7 +1826,8 @@ async function togglePublishing() {
                 `/projects/${projectId.value}/publishing`,
                 {
                     is_published:
-                        !project.value.is_published
+                        !project.value
+                            .is_published
                 }
             )
 
@@ -1208,11 +1890,15 @@ async function destroyProject() {
             false
 
 
-        if (window.history.length > 1) {
+        if (
+            window.history.length >
+            1
+        ) {
             router.back()
         } else {
             router.push({
-                name: 'clients.index'
+                name:
+                    'clients.index'
             })
         }
     } catch (
@@ -1229,6 +1915,12 @@ async function destroyProject() {
     }
 }
 
+
+/*
+|--------------------------------------------------------------------------
+| Team
+|--------------------------------------------------------------------------
+*/
 
 async function inviteCoworker() {
     try {
@@ -1360,6 +2052,12 @@ async function resendContactInvitation(
 }
 
 
+/*
+|--------------------------------------------------------------------------
+| Tickets
+|--------------------------------------------------------------------------
+*/
+
 async function createTicket() {
     if (
         !ticketForm.title ||
@@ -1368,13 +2066,11 @@ async function createTicket() {
         return
     }
 
-
     try {
         await api.post(
             `/projects/${projectId.value}/tickets`,
             ticketForm
         )
-
 
         Object.assign(
             ticketForm,
@@ -1386,6 +2082,19 @@ async function createTicket() {
             }
         )
 
+        await nextTick()
+
+        const description =
+            document.getElementById(
+                'ticket-description'
+            )
+
+        if (
+            description &&
+            description.tagName === 'TEXTAREA'
+        ) {
+            description.style.height = 'auto'
+        }
 
         tickets.value =
             (
@@ -1405,29 +2114,140 @@ async function createTicket() {
 }
 
 
+async function saveTicket({
+    ticket,
+    data,
+    done
+}) {
+    try {
+        const response =
+            await api.put(
+                `/projects/${projectId.value}/tickets/${ticket.id}`,
+                {
+                    title:
+                        data.title,
+
+                    description:
+                        data.description,
+
+                    priority:
+                        data.priority,
+
+                    assigned_to:
+                        data.assigned_to,
+
+                    status:
+                        data.status
+                }
+            )
+
+
+        const updatedTicket =
+            response.data?.data ||
+            response.data ||
+            null
+
+
+        const index =
+            tickets.value.findIndex(
+                item =>
+                    String(
+                        item.id
+                    ) ===
+                    String(
+                        ticket.id
+                    )
+            )
+
+
+        if (
+            index !==
+            -1 &&
+            updatedTicket
+        ) {
+            tickets.value.splice(
+                index,
+                1,
+                updatedTicket
+            )
+        }
+
+
+        done()
+    } catch (
+        exception
+    ) {
+        showError(
+            errorMessage(
+                exception
+            )
+        )
+
+
+        done()
+    }
+}
+
+
 async function moveTicket(
     ticket,
     status
 ) {
+    if (
+        !ticket ||
+        !status ||
+        ticket.status ===
+            status
+    ) {
+        return
+    }
+
+
     try {
-        await api.put(
-            `/projects/${projectId.value}/tickets/${ticket.id}`,
-            {
-                status,
-                priority:
-                    ticket.priority,
-                assigned_to:
-                    ticket.assigned_to
-            }
-        )
+        const response =
+            await api.put(
+                `/projects/${projectId.value}/tickets/${ticket.id}`,
+                {
+                    status,
+
+                    priority:
+                        ticket.priority,
+
+                    assigned_to:
+                        ticket.assigned_to
+                }
+            )
 
 
-        tickets.value =
-            (
-                await api.get(
-                    `/projects/${projectId.value}/tickets`
-                )
-            ).data
+        const updatedTicket =
+            response.data?.data ||
+            response.data ||
+            null
+
+
+        const index =
+            tickets.value.findIndex(
+                item =>
+                    String(
+                        item.id
+                    ) ===
+                    String(
+                        ticket.id
+                    )
+            )
+
+
+        if (
+            index !==
+            -1 &&
+            updatedTicket
+        ) {
+            tickets.value.splice(
+                index,
+                1,
+                updatedTicket
+            )
+        }
     } catch (
         exception
     ) {
@@ -1445,11 +2265,46 @@ function ticketsFor(
 ) {
     return tickets.value.filter(
         ticket =>
+            ticket &&
             ticket.status ===
             status
     )
 }
 
+
+function createProjectTicket() {
+    const element =
+        document.getElementById(
+            'new-ticket'
+        )
+
+
+    element?.scrollIntoView({
+        behavior:
+            'smooth',
+
+        block:
+            'center'
+    })
+
+
+    requestAnimationFrame(
+        () => {
+            document
+                .getElementById(
+                    'ticket-title'
+                )
+                ?.focus()
+        }
+    )
+}
+
+
+/*
+|--------------------------------------------------------------------------
+| Files
+|--------------------------------------------------------------------------
+*/
 
 function queueStructureSave(
     value
@@ -1473,8 +2328,10 @@ function queueStructureSave(
                 structureSaveTimer.value =
                     null
 
+
                 void saveProjectStructure()
             },
+
             250
         )
 }
@@ -1507,6 +2364,7 @@ async function saveProjectStructure() {
             normalizeProjectFolders(
                 response.data?.folders ||
                 [],
+
                 projectFolders.value ||
                 []
             )
@@ -1522,6 +2380,44 @@ async function saveProjectStructure() {
         structureSaving.value =
             false
     }
+}
+
+
+function normalizeOpenUrl(
+    value
+) {
+    const raw =
+        String(
+            value ||
+            ''
+        ).trim()
+
+
+    if (
+        !raw
+    ) {
+        return ''
+    }
+
+
+    if (
+        raw.startsWith('/') ||
+        raw.startsWith('#')
+    ) {
+        return raw
+    }
+
+
+    if (
+        /^[a-z][a-z\d+.-]*:/i.test(
+            raw
+        )
+    ) {
+        return raw
+    }
+
+
+    return `https://${raw}`
 }
 
 
@@ -1547,6 +2443,7 @@ function handleProjectStructureOpenFile(
                 '_blank',
                 'noopener,noreferrer'
             )
+
 
             return
         }
@@ -1612,6 +2509,70 @@ function handleProjectStructureDownloadFile(
 }
 
 
+/*
+|--------------------------------------------------------------------------
+| Document editor
+|--------------------------------------------------------------------------
+*/
+
+function readDocumentEnvelope(
+    content
+) {
+    try {
+        const parsed =
+            JSON.parse(
+                String(
+                    content ||
+                    ''
+                )
+            )
+
+
+        if (
+            parsed &&
+            typeof parsed ===
+                'object' &&
+            !Array.isArray(
+                parsed
+            )
+        ) {
+            return {
+                title:
+                    String(
+                        parsed.title ||
+                        ''
+                    ),
+
+                subtitle:
+                    String(
+                        parsed.subtitle ||
+                        ''
+                    ),
+
+                doc:
+                    parsed.doc ||
+                    parsed
+            }
+        }
+    } catch {
+        // Legacy content is handled by the editor.
+    }
+
+
+    return {
+        title:
+            '',
+
+        subtitle:
+            '',
+
+        doc:
+            content ||
+            ''
+    }
+}
+
+
 function openProjectDocument(
     item
 ) {
@@ -1627,6 +2588,12 @@ function openProjectDocument(
             item.content ||
             ''
         )
+
+
+    projectFilesFolderKey.value =
+        item.parent_client_key ??
+        item.parent_id ??
+        null
 
 
     documentTemplate.value = {
@@ -1653,6 +2620,18 @@ function openProjectDocument(
             item.subtitle ||
             envelope.subtitle ||
             '',
+
+        requires_client_signature:
+            Boolean(
+                item.requires_client_signature
+            ),
+
+        is_signed:
+            Boolean(
+                item.is_signed ||
+                item.signed ||
+                item.signed_at
+            ),
 
         content:
             item.content ||
@@ -1684,9 +2663,22 @@ function openProjectDocument(
 
 
     window.scrollTo({
-        top: 0,
-        behavior: 'smooth'
+        top:
+            0,
+
+        behavior:
+            'smooth'
     })
+}
+
+
+function handleProjectFilesOpenFolder(
+    folder
+) {
+    projectFilesFolderKey.value =
+        folder?.client_key ??
+        folder?.id ??
+        null
 }
 
 
@@ -1717,8 +2709,10 @@ function updateDocumentTitle(
 
     documentTemplate.value = {
         ...documentTemplate.value,
+
         name:
             title,
+
         title:
             title
     }
@@ -1737,6 +2731,7 @@ function updateDocumentSubtitle(
 
     documentTemplate.value = {
         ...documentTemplate.value,
+
         subtitle:
             String(
                 value ||
@@ -1780,7 +2775,9 @@ async function saveProjectDocument(
     const content =
         JSON.stringify({
             title,
+
             subtitle,
+
             doc:
                 payload.document_schema ||
                 documentBlocks.value ||
@@ -1811,7 +2808,8 @@ async function saveProjectDocument(
 
 
     if (
-        index < 0
+        index <
+        0
     ) {
         documentSaveError.value =
             'Document file could not be found in the project structure.'
@@ -1843,10 +2841,13 @@ async function saveProjectDocument(
 
         next[index] = {
             ...next[index],
+
             name:
                 title,
+
             template_name:
                 title,
+
             content
         }
 
@@ -1863,15 +2864,21 @@ async function saveProjectDocument(
 
         documentTemplate.value = {
             ...documentTemplate.value,
+
             id:
                 next[index].id,
+
             client_key:
                 next[index].client_key ||
                 payload.client_key,
+
             name:
                 title,
+
             title,
+
             subtitle,
+
             content
         }
 
@@ -1943,36 +2950,26 @@ function openClient() {
 }
 
 
-function createProjectTicket() {
-    const element =
-        document.getElementById(
-            'new-ticket'
-        )
+onBeforeUnmount(
+    () => {
+        if (
+            projectAutosaveTimer.value
+        ) {
+            clearTimeout(
+                projectAutosaveTimer.value
+            )
+        }
 
 
-    element?.scrollIntoView({
-        behavior: 'smooth',
-        block: 'center'
-    })
-
-
-    requestAnimationFrame(() => {
-        document.getElementById(
-            'ticket-title'
-        )?.focus()
-    })
-}
-
-
-onBeforeUnmount(() => {
-    if (
-        structureSaveTimer.value
-    ) {
-        clearTimeout(
+        if (
             structureSaveTimer.value
-        )
+        ) {
+            clearTimeout(
+                structureSaveTimer.value
+            )
+        }
     }
-})
+)
 </script>
 
 
@@ -2003,7 +3000,22 @@ onBeforeUnmount(() => {
                 documentTemplate?.subtitle ||
                 ''
             "
-            :editable="true"
+            :show-signature-status="
+                true
+            "
+            :requires-signature="
+                Boolean(
+                    documentTemplate?.requires_client_signature
+                )
+            "
+            :signature-signed="
+                Boolean(
+                    documentTemplate?.is_signed
+                )
+            "
+            :editable="
+                true
+            "
             :saving="
                 documentSaveInFlight
             "
@@ -2045,7 +3057,9 @@ onBeforeUnmount(() => {
                 :text="
                     error
                 "
-                :duration="5000"
+                :duration="
+                    5000
+                "
             />
 
 
@@ -2056,7 +3070,10 @@ onBeforeUnmount(() => {
                 "
                 :description="
                     projectReady
-                        ? (project?.summary || 'Project workspace and delivery.')
+                        ? (
+                            project?.summary ||
+                            'Project workspace and delivery.'
+                        )
                         : 'Create the project here. Changes save automatically.'
                 "
                 :eyebrow="
@@ -2066,28 +3083,19 @@ onBeforeUnmount(() => {
                 :breadcrumbs="[
                     {
                         label: 'Projects',
+
                         to: {
-                            name: 'projects.index'
+                            name:
+                                'projects.index'
                         }
                     },
 
                     {
-                        label: pageTitle
+                        label:
+                            pageTitle
                     }
                 ]"
-            >
-                <div
-                    v-if="projectReady"
-                    class="
-                        flex
-                        flex-wrap
-                        items-center
-                        gap-x-6
-                        gap-y-3
-                    "
-                >
-                </div>
-            </AdminPageHeader>
+            />
 
 
             <!-- Loading -->
@@ -2113,461 +3121,13 @@ onBeforeUnmount(() => {
             </div>
 
 
-            <template v-else>
+            <template
+                v-else
+            >
                 <!-- Project information -->
-                <section class="space-y-8">
-                    <div class="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-                        <div>
-                            <h2 class="h2 text-accent">Project information</h2>
-                        </div>
-                    </div>
-
-
-                    <div class="grid grid-cols-1 gap-8 md:grid-cols-2 md:gap-20">
-                        <section class="space-y-8">
-                            <FormField
-                                id="project-name"
-                                v-model="projectForm.name"
-                                name="name"
-                                type="text"
-                                label="Project name"
-                                placeholder="Project name"
-                                required
-                                :error="errors.name?.[0] || ''"
-                            />
-
-                            <FormField
-                                id="project-service"
-                                v-model="projectForm.service_product_id"
-                                name="service_product_id"
-                                type="select"
-                                label="Service product"
-                                :options="serviceOptions"
-                                required
-                                :error="errors.service_product_id?.[0] || ''"
-                            />
-
-                            <FormField
-                                id="project-status"
-                                v-model="projectForm.portal_status"
-                                name="portal_status"
-                                type="select"
-                                label="Status"
-                                :options="statusOptions"
-                                :error="errors.portal_status?.[0] || ''"
-                            />
-
-
-                            <div class="grid gap-7 sm:grid-cols-2">
-                                <FormField
-                                    id="project-started"
-                                    v-model="projectForm.started_at"
-                                    name="started_at"
-                                    type="date"
-                                    label="Started"
-                                    :error="errors.started_at?.[0] || ''"
-                                />
-
-
-                                <FormField
-                                    id="project-completed"
-                                    v-model="projectForm.completed_at"
-                                    name="completed_at"
-                                    type="date"
-                                    label="Completed"
-                                    :error="errors.completed_at?.[0] || ''"
-                                />
-                            </div>
-                        </section>
-
-
-                        <section class="space-y-8">
-                            <FormField
-                                id="project-summary"
-                                v-model="projectForm.summary"
-                                name="summary"
-                                type="textarea"
-                                label="Summary"
-                                placeholder="Brief description of the project"
-                                :error="errors.summary?.[0] || ''"
-                            />
-
-                            <FormField
-                                id="project-notes"
-                                v-model="projectForm.internal_notes"
-                                name="internal_notes"
-                                type="textarea"
-                                label="Internal notes"
-                                placeholder="Visible only to your team"
-                                :error="errors.internal_notes?.[0] || ''"
-                            />
-                        </section>
-                    </div>
-
-
-                    <div class="space-y-8">
-                        <div>
-                            <h3 class="h2 text-accent text-left">Assigned people</h3>
-                        </div>
-
-
-                        <div class="grid grid-cols-1 gap-8 md:grid-cols-2">
-                            <FormField
-                                id="project-contacts"
-                                v-model="projectForm.contact_ids"
-                                name="contact_ids"
-                                type="select"
-                                label="Client contacts"
-                                placeholder="Select contacts"
-                                multiple
-                                :options="contactAssignmentOptions"
-                                :disabled="!projectForm.company_id || saving"
-                                :error="errors.contact_ids?.[0] || ''"
-                            />
-
-
-                            <FormField
-                                id="project-coworkers"
-                                v-model="projectForm.coworker_ids"
-                                name="coworker_ids"
-                                type="select"
-                                label="Coworkers"
-                                placeholder="Select coworkers"
-                                multiple
-                                :options="coworkerAssignmentOptions"
-                                :disabled="saving"
-                                :error="errors.coworker_ids?.[0] || ''"
-                            />
-                        </div>
-                    </div>
-                </section>
-
-
-                <template v-if="projectReady">
-                <!-- Tickets -->
                 <section
                     class="
-                        space-y-8
-                    "
-                >
-                    <div
-                        class="
-                            flex
-                            items-end
-                            justify-between
-                            gap-6
-                        "
-                    >
-                        <h2
-                            class="
-                                h2
-                                text-accent
-                            "
-                        >
-                            Tickets
-                        </h2>
-
-
-                        <Button
-                            type="button"
-                            text="new ticket"
-                            variant="accent"
-                            align="right"
-                            @click="
-                                createProjectTicket
-                            "
-                        />
-                    </div>
-
-
-                    <div
-                        id="new-ticket"
-                        class="
-                            grid
-                            grid-cols-1
-                            gap-8
-                            md:grid-cols-2
-                            lg:grid-cols-4
-                        "
-                    >
-                        <FormField
-                            id="ticket-title"
-                            v-model="
-                                ticketForm.title
-                            "
-                            name="title"
-                            type="text"
-                            label="Title"
-                            placeholder="Ticket title"
-                            required
-                        />
-
-
-                        <FormField
-                            id="ticket-description"
-                            v-model="
-                                ticketForm.description
-                            "
-                            name="description"
-                            type="text"
-                            label="Description"
-                            placeholder="What needs to be done?"
-                            required
-                        />
-
-
-                        <FormField
-                            id="ticket-priority"
-                            v-model="
-                                ticketForm.priority
-                            "
-                            name="priority"
-                            type="select"
-                            label="Priority"
-                            :options="
-                                ticketPriorityOptions
-                            "
-                        />
-
-
-                        <FormField
-                            id="ticket-assignee"
-                            v-model="
-                                ticketForm.assigned_to
-                            "
-                            name="assigned_to"
-                            type="select"
-                            label="Assignee"
-                            :options="
-                                ticketAssigneeOptions
-                            "
-                        />
-
-
-                        <div
-                            class="
-                                md:col-span-2
-                                lg:col-span-4
-                            "
-                        >
-                            <Button
-                                type="button"
-                                text="add ticket"
-                                variant="accent"
-                                align="left"
-                                @click="
-                                    createTicket
-                                "
-                            />
-                        </div>
-                    </div>
-
-
-                    <div
-                        class="
-                            grid
-                            gap-8
-                            lg:grid-cols-3
-                        "
-                    >
-                        <section
-                            v-for="
-                                column in [
-                                    {
-                                        key: 'new',
-                                        label: 'New'
-                                    },
-
-                                    {
-                                        key: 'in_progress',
-                                        label: 'In progress'
-                                    },
-
-                                    {
-                                        key: 'finished',
-                                        label: 'Finished'
-                                    }
-                                ]
-                            "
-                            :key="
-                                column.key
-                            "
-                            class="
-                                border-t
-                                border-accent
-                            "
-                        >
-                            <div
-                                class="
-                                    flex
-                                    items-center
-                                    justify-between
-                                    py-4
-                                "
-                            >
-                                <h3
-                                    class="
-                                        h3
-                                        text-accent
-                                    "
-                                >
-                                    {{
-                                        column.label
-                                    }}
-                                </h3>
-
-
-                                <span
-                                    class="
-                                        p
-                                        text-dark/40
-                                    "
-                                >
-                                    {{
-                                        ticketsFor(
-                                            column.key
-                                        ).length
-                                    }}
-                                </span>
-                            </div>
-
-
-                            <div
-                                class="
-                                    divide-y
-                                    divide-accent/20
-                                    border-b
-                                    border-accent
-                                "
-                            >
-                                <article
-                                    v-for="
-                                        ticket in ticketsFor(
-                                            column.key
-                                        )
-                                    "
-                                    :key="
-                                        ticket.id
-                                    "
-                                    class="
-                                        py-5
-                                    "
-                                >
-                                    <div
-                                        class="
-                                            flex
-                                            items-start
-                                            justify-between
-                                            gap-4
-                                        "
-                                    >
-                                        <p
-                                            class="
-                                                p
-                                                font-medium
-                                            "
-                                        >
-                                            {{
-                                                ticket.title
-                                            }}
-                                        </p>
-
-
-                                        <Tag
-                                            :text="
-                                                ticket.priority
-                                            "
-                                        />
-                                    </div>
-
-
-                                    <p
-                                        class="
-                                            p
-                                            mt-3
-                                            text-dark/60
-                                        "
-                                    >
-                                        {{
-                                            ticket.description
-                                        }}
-                                    </p>
-
-
-                                    <p
-                                        class="
-                                            p
-                                            mt-4
-                                            text-dark/40
-                                        "
-                                    >
-                                        By
-                                        {{
-                                            ticket.creator?.name ||
-                                            `${ticket.client_creator?.first_name || 'Client'} ${ticket.client_creator?.last_name || ''}`
-                                        }}
-                                    </p>
-
-
-                                    <div
-                                        class="
-                                            mt-5
-                                        "
-                                    >
-                                        <FormField
-                                            :id="
-                                                `ticket-status-${ticket.id}`
-                                            "
-                                            :model-value="
-                                                ticket.status
-                                            "
-                                            name="status"
-                                            type="select"
-                                            label="Status"
-                                            :options="
-                                                ticketStatusOptions
-                                            "
-                                            @update:model-value="
-                                                moveTicket(
-                                                    ticket,
-                                                    $event
-                                                )
-                                            "
-                                        />
-                                    </div>
-                                </article>
-
-
-                                <div
-                                    v-if="
-                                        !ticketsFor(
-                                            column.key
-                                        ).length
-                                    "
-                                    class="
-                                        py-8
-                                    "
-                                >
-                                    <p
-                                        class="
-                                            p
-                                            uppercase
-                                            text-dark/30
-                                        "
-                                    >
-                                        No tickets
-                                    </p>
-                                </div>
-                            </div>
-                        </section>
-                    </div>
-                </section>
-
-
-                <!-- Files -->
-                <section
-                    class="
-                        space-y-8
+                        space-y-14
                     "
                 >
                     <div
@@ -2587,71 +3147,584 @@ onBeforeUnmount(() => {
                                     text-accent
                                 "
                             >
-                                Project files
+                                Project information
                             </h2>
                         </div>
                     </div>
 
 
-                    <ServiceFileStructure
-                        :model-value="
-                            projectFolders
+                    <div
+                        class="
+                            grid
+                            grid-cols-1
+                            gap-8
+                            md:grid-cols-2
+                            md:gap-20
                         "
-                        :allow-upload-control="
-                            false
-                        "
-                        :allow-metadata-editing="
-                            false
-                        "
-                        :prevent-deleting-required="
-                            true
-                        "
-                        @update:model-value="
-                            queueStructureSave
-                        "
-                        @open-document="
-                            openProjectDocument
-                        "
-                        @open-file="
-                            handleProjectStructureOpenFile
-                        "
-                        @download-file="
-                            handleProjectStructureDownloadFile
-                        "
-                    />
-                </section>
-
-                <!-- Danger zone -->
-                <section
-                    class="
-                        space-y-8
-                    "
-                >
-                    <div>
-                        <h2
+                    >
+                        <section
                             class="
-                                h2
-                                text-accent
-                                text-left
+                                space-y-8
                             "
                         >
-                            Danger zone
-                        </h2>
+                            <FormField
+                                id="project-name"
+                                v-model="
+                                    projectForm.name
+                                "
+                                name="name"
+                                type="text"
+                                label="Project name"
+                                placeholder="Project name"
+                                required
+                                :error="
+                                    errors.name?.[0] ||
+                                    ''
+                                "
+                            />
+
+
+                            <FormField
+                                id="project-service"
+                                v-model="
+                                    projectForm.service_product_id
+                                "
+                                name="service_product_id"
+                                type="select"
+                                label="Service product"
+                                :options="
+                                    serviceOptions
+                                "
+                                required
+                                :error="
+                                    errors.service_product_id?.[0] ||
+                                    ''
+                                "
+                            />
+
+
+                            <FormField
+                                id="project-status"
+                                v-model="
+                                    projectForm.portal_status
+                                "
+                                name="portal_status"
+                                type="select"
+                                label="Status"
+                                :options="
+                                    statusOptions
+                                "
+                                :error="
+                                    errors.portal_status?.[0] ||
+                                    ''
+                                "
+                            />
+
+
+                            <div
+                                class="
+                                    grid
+                                    gap-7
+                                    sm:grid-cols-2
+                                "
+                            >
+                                <FormField
+                                    id="project-started"
+                                    v-model="
+                                        projectForm.started_at
+                                    "
+                                    name="started_at"
+                                    type="date"
+                                    label="Started"
+                                    :error="
+                                        errors.started_at?.[0] ||
+                                        ''
+                                    "
+                                />
+
+
+                                <FormField
+                                    id="project-completed"
+                                    v-model="
+                                        projectForm.completed_at
+                                    "
+                                    name="completed_at"
+                                    type="date"
+                                    label="Completed"
+                                    :error="
+                                        errors.completed_at?.[0] ||
+                                        ''
+                                    "
+                                />
+                            </div>
+                        </section>
+
+
+                        <section
+                            class="
+                                space-y-8
+                            "
+                        >
+                            <FormField
+                                id="project-summary"
+                                v-model="
+                                    projectForm.summary
+                                "
+                                name="summary"
+                                type="textarea"
+                                label="Summary"
+                                placeholder="Brief description of the project"
+                                :error="
+                                    errors.summary?.[0] ||
+                                    ''
+                                "
+                            />
+
+
+                            <FormField
+                                id="project-notes"
+                                v-model="
+                                    projectForm.internal_notes
+                                "
+                                name="internal_notes"
+                                type="textarea"
+                                label="Internal notes"
+                                placeholder="Visible only to your team"
+                                :error="
+                                    errors.internal_notes?.[0] ||
+                                    ''
+                                "
+                            />
+                        </section>
                     </div>
-
-
-                    <Button
-                        type="button"
-                        text="delete project"
-                        align="left"
-                        :disabled="
-                            busy
-                        "
-                        @click="
-                            requestDelete
-                        "
-                    />
                 </section>
+
+
+                <template
+                    v-if="
+                        projectReady
+                    "
+                >
+                    <!-- Assigned people -->
+                    <section
+                        class="
+                            space-y-8
+                        "
+                    >
+                        <div>
+                            <h3
+                                class="
+                                    h2
+                                    text-accent
+                                    text-left
+                                "
+                            >
+                                Assigned people
+                            </h3>
+                        </div>
+
+
+                        <div
+                            class="
+                                grid
+                                grid-cols-1
+                                gap-8
+                                md:grid-cols-2
+                            "
+                        >
+                            <FormField
+                                id="project-contacts"
+                                v-model="
+                                    projectForm.contact_ids
+                                "
+                                name="contact_ids"
+                                type="select"
+                                label="Client contacts"
+                                placeholder="Select contacts"
+                                multiple
+                                :options="
+                                    contactAssignmentOptions
+                                "
+                                :disabled="
+                                    !projectForm.company_id ||
+                                    saving
+                                "
+                                :error="
+                                    errors.contact_ids?.[0] ||
+                                    ''
+                                "
+                            />
+
+
+                            <FormField
+                                id="project-coworkers"
+                                v-model="
+                                    projectForm.coworker_ids
+                                "
+                                name="coworker_ids"
+                                type="select"
+                                label="Coworkers"
+                                placeholder="Select coworkers"
+                                multiple
+                                :options="
+                                    coworkerAssignmentOptions
+                                "
+                                :disabled="
+                                    saving
+                                "
+                                :error="
+                                    errors.coworker_ids?.[0] ||
+                                    ''
+                                "
+                            />
+                        </div>
+                    </section>
+
+
+                    <!-- Tickets -->
+                    <section
+                        class="
+                            space-y-8
+                        "
+                    >
+                        <div
+                            class="
+                                flex
+                                items-end
+                                justify-between
+                                gap-6
+                            "
+                        >
+                            <h2
+                                class="
+                                    h2
+                                    text-accent
+                                "
+                            >
+                                Tickets
+                            </h2>
+
+                        </div>
+
+
+                        <!-- New ticket -->
+                        <div
+                            id="new-ticket"
+                            class="
+                                grid
+                                grid-cols-1
+                                gap-8
+                                md:grid-cols-2
+                                lg:grid-cols-4
+                            "
+                        >
+                            <FormField
+                                id="ticket-title"
+                                v-model="
+                                    ticketForm.title
+                                "
+                                name="title"
+                                type="text"
+                                label="Title"
+                                placeholder="Ticket title"
+                                required
+                            />
+
+
+                            <FormField
+                                id="ticket-description"
+                                v-model="
+                                    ticketForm.description
+                                "
+                                name="description"
+                                type="textarea"
+                                label="Description"
+                                placeholder="What needs to be done?"
+                                required
+                            />
+
+
+                            <FormField
+                                id="ticket-priority"
+                                v-model="
+                                    ticketForm.priority
+                                "
+                                name="priority"
+                                type="select"
+                                label="Priority"
+                                :options="
+                                    ticketPriorityOptions
+                                "
+                            />
+
+
+                            <FormField
+                                id="ticket-assignee"
+                                v-model="
+                                    ticketForm.assigned_to
+                                "
+                                name="assigned_to"
+                                type="select"
+                                label="Assignee"
+                                :options="
+                                    ticketAssigneeOptions
+                                "
+                            />
+
+
+                            <div
+                                class="
+                                    md:col-span-2
+                                    lg:col-span-4
+                                "
+                            >
+                                <Button
+                                    type="button"
+                                    text="add ticket"
+                                    variant="accent"
+                                    align="right"
+                                    @click="
+                                        createTicket
+                                    "
+                                />
+                            </div>
+                        </div>
+
+
+                        <!-- Ticket board -->
+                        <div
+                            class="
+                                grid
+                                gap-8
+                                lg:grid-cols-3
+                            "
+                        >
+                            <section
+                                v-for="
+                                    column in [
+                                        {
+                                            key:
+                                                'new',
+
+                                            label:
+                                                'New'
+                                        },
+
+                                        {
+                                            key:
+                                                'in_progress',
+
+                                            label:
+                                                'In progress'
+                                        },
+
+                                        {
+                                            key:
+                                                'finished',
+
+                                            label:
+                                                'Finished'
+                                        }
+                                    ]
+                                "
+                                :key="
+                                    column.key
+                                "
+                                :class="[
+                                    'min-w-0 p-2 transition-colors',
+                                    dragOverStatus === column.key
+                                        ? 'bg-accent/10'
+                                        : ''
+                                ]"
+                                @dragover.prevent="
+                                    handleTicketDragEnter(
+                                        column.key
+                                    )
+                                "
+                                @dragenter="
+                                    handleTicketDragEnter(
+                                        column.key
+                                    )
+                                "
+                                @drop.prevent="
+                                    handleTicketDrop(
+                                        column.key
+                                    )
+                                "
+                            >
+                                <div
+                                    class="
+                                        flex
+                                        items-center
+                                        justify-between
+                                        py-4
+                                    "
+                                >
+                                    <h3
+                                        class="
+                                            h3
+                                            text-accent
+                                        "
+                                    >
+                                        {{
+                                            column.label
+                                        }}
+                                    </h3>
+
+
+                                    <span
+                                        class="
+                                            p
+                                            text-dark/40
+                                        "
+                                    >
+                                        {{
+                                            ticketsFor(
+                                                column.key
+                                            ).length
+                                        }}
+                                    </span>
+                                </div>
+
+
+                                <div
+                                    class="
+                                        min-h-32
+                                        space-y-2
+                                    "
+                                >
+                                    <ProjectTicket
+                                        v-for="
+                                            ticket in ticketsFor(
+                                                column.key
+                                            )
+                                        "
+                                        :key="
+                                            ticket.id
+                                        "
+                                        :ticket="
+                                            ticket
+                                        "
+                                        :priority-options="
+                                            ticketPriorityOptions
+                                        "
+                                        :assignee-options="
+                                            ticketAssigneeOptions
+                                        "
+                                        :status-options="
+                                            ticketStatusOptions
+                                        "
+                                        @drag-start="
+                                            startTicketDrag
+                                        "
+                                        @drag-end="
+                                            endTicketDrag
+                                        "
+                                        @save="
+                                            saveTicket
+                                        "
+                                    />
+                                </div>
+                            </section>
+                        </div>
+                    </section>
+
+
+                    <!-- Files -->
+                    <section
+                        class="
+                            space-y-8
+                        "
+                    >
+                        <div
+                            class="
+                                flex
+                                flex-col
+                                gap-3
+                                sm:flex-row
+                                sm:items-end
+                                sm:justify-between
+                            "
+                        >
+                            <div>
+                                <h2
+                                    class="
+                                        h2
+                                        text-accent
+                                    "
+                                >
+                                    Project files
+                                </h2>
+                            </div>
+                        </div>
+
+
+                        <ServiceFileStructure
+                            :model-value="
+                                projectFolders
+                            "
+                            :initial-folder-id="
+                                projectFilesInitialFolderId
+                            "
+                            :allow-upload-control="
+                                true
+                            "
+                            :allow-metadata-editing="
+                                true
+                            "
+                            :prevent-deleting-required="
+                                true
+                            "
+                            @update:model-value="
+                                queueStructureSave
+                            "
+                            @open-folder="
+                                handleProjectFilesOpenFolder
+                            "
+                            @open-document="
+                                openProjectDocument
+                            "
+                            @open-file="
+                                handleProjectStructureOpenFile
+                            "
+                            @download-file="
+                                handleProjectStructureDownloadFile
+                            "
+                        />
+                    </section>
+
+
+                    <!-- Danger zone -->
+                    <section
+                        class="
+                            space-y-8
+                        "
+                    >
+                        <div>
+                            <h2
+                                class="
+                                    h2
+                                    text-accent
+                                    text-left
+                                "
+                            >
+                                Danger zone
+                            </h2>
+                        </div>
+
+
+                        <Button
+                            type="button"
+                            text="delete project"
+                            align="left"
+                            :disabled="
+                                busy
+                            "
+                            @click="
+                                requestDelete
+                            "
+                        />
+                    </section>
                 </template>
             </template>
 

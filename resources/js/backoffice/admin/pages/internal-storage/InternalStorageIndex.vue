@@ -1,5 +1,5 @@
 <script setup>
-import { onBeforeUnmount, onMounted, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import api, { errorMessage } from '../../composables/useAdminApi'
 import AdminPageHeader from '../../components/AdminPageHeader.vue'
 import DocumentEditor from '../../components/DocumentEditor.vue'
@@ -10,6 +10,27 @@ const loading = ref(true)
 const error = ref('')
 const structureSaveTimer = ref(null)
 const structureSaving = ref(false)
+const storageFolderKey = ref(null)
+
+const storageInitialFolderId = computed(() => {
+    if (
+        storageFolderKey.value === null ||
+        storageFolderKey.value === undefined ||
+        String(storageFolderKey.value).trim() === ''
+    ) {
+        return null
+    }
+
+    const key = String(storageFolderKey.value)
+
+    const folder = (storageFolders.value || []).find(
+        item =>
+            item?.type === 'folder' &&
+            (String(item.client_key || '') === key || String(item.id) === key)
+    )
+
+    return folder?.id ?? null
+})
 
 const documentEditorOpen = ref(false)
 const documentTemplate = ref(null)
@@ -161,6 +182,8 @@ function openStorageDocument(item) {
 
     const envelope = readDocumentEnvelope(item.content || '')
 
+    storageFolderKey.value = item.parent_client_key ?? item.parent_id ?? null
+
     documentTemplate.value = {
         id: item.id,
         client_key: item.client_key || String(item.id),
@@ -177,6 +200,10 @@ function openStorageDocument(item) {
     documentEditorOpen.value = true
 
     window.scrollTo({ top: 0, behavior: 'smooth' })
+}
+
+function handleStorageOpenFolder(folder) {
+    storageFolderKey.value = folder?.client_key ?? folder?.id ?? null
 }
 
 function updateDocumentBlocks(value) {
@@ -403,11 +430,13 @@ onBeforeUnmount(() => {
             <div v-else>
                 <ServiceFileStructure
                     :model-value="storageFolders"
+                    :initial-folder-id="storageInitialFolderId"
                     :allow-upload-control="true"
                     :allow-metadata-editing="false"
                     :prevent-deleting-required="false"
                     :disabled="structureSaving"
                     @update:model-value="queueStructureSave"
+                    @open-folder="handleStorageOpenFolder"
                     @open-document="openStorageDocument"
                     @open-file="handleStorageOpenFile"
                     @download-file="handleStorageDownloadFile"

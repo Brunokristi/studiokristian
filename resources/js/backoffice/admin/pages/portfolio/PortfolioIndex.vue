@@ -258,7 +258,7 @@ onMounted(
             v-model:search="
                 search
             "
-            title="Portfolio"
+            title="Projects"
             search-placeholder="Search projects, clients or URLs"
             :columns="
                 columns
@@ -288,7 +288,6 @@ onMounted(
             "
             empty-title="No portfolio projects found."
             empty-text="Create a project first, then add it to your portfolio."
-            add-label=" "
             @row-click="
                 openProject
             "

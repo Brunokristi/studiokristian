@@ -73,7 +73,7 @@ const route =
 
 
 const menuOpen =
-    ref(false)
+    ref(true)
 
 
 const csrfToken =
@@ -85,7 +85,6 @@ const csrfToken =
 const navigation = [
     {
         label: 'Dashboard',
-        icon: 'bi-grid',
         route: {
             name: 'dashboard'
         },
@@ -94,7 +93,6 @@ const navigation = [
 
     {
         label: 'Clients',
-        icon: 'bi-people',
         route: {
             name: 'clients.index'
         },
@@ -103,7 +101,6 @@ const navigation = [
 
     {
         label: 'Services',
-        icon: 'bi-box',
         route: {
             name: 'service-products.index'
         },
@@ -112,7 +109,6 @@ const navigation = [
 
     {
         label: 'Internal storage',
-        icon: 'bi-folder2-open',
         route: {
             name: 'internal-storage.index'
         },
@@ -121,7 +117,6 @@ const navigation = [
 
     {
         label: 'Coworkers',
-        icon: 'bi-people-fill',
         route: {
             name: 'coworkers.index'
         },
@@ -130,7 +125,6 @@ const navigation = [
 
     {
         label: 'Portfolio',
-        icon: 'bi-images',
         route: {
             name: 'portfolio.index'
         },
@@ -168,6 +162,12 @@ function isActive(
 }
 
 
+function toggleMenu() {
+    menuOpen.value =
+        !menuOpen.value
+}
+
+
 function closeMenu() {
     menuOpen.value =
         false
@@ -177,7 +177,19 @@ function closeMenu() {
 watch(
     () => route.fullPath,
     () => {
-        closeMenu()
+        /*
+         * Only close the navigation
+         * automatically on mobile.
+         *
+         * On desktop the user's
+         * sidebar state is preserved.
+         */
+        if (
+            window.innerWidth <
+            1024
+        ) {
+            closeMenu()
+        }
     }
 )
 </script>
@@ -186,19 +198,22 @@ watch(
 <template>
     <div
         class="
-            min-h-screen
+            flex
+            h-screen
+            w-full
+            flex-col
+            overflow-hidden
             bg-light
             text-dark
         "
     >
-        <!-- Mobile navigation trigger -->
-        <div
+        <!-- Header -->
+        <header
             class="
-                sticky
-                top-0
                 z-50
                 flex
                 h-14
+                shrink-0
                 items-center
                 justify-between
                 border-b
@@ -207,6 +222,41 @@ watch(
                 px-5
             "
         >
+            <!-- Brand -->
+            <RouterLink
+                :to="{
+                    name: 'dashboard'
+                }"
+                class="
+                    flex
+                    items-center
+                    gap-1
+                    transition-opacity
+                    duration-200
+                    hover:opacity-60
+                "
+                aria-label="Studio Kristian Backoffice"
+            >
+                <img
+                    src="/public/assets/logo.svg"
+                    alt=""
+                    class="
+                        h-2.5
+                        w-auto
+                    "
+                >
+
+                <span
+                    class="
+                        h3
+                    "
+                >
+                    backoffice
+                </span>
+            </RouterLink>
+
+
+            <!-- Header actions -->
             <div
                 class="
                     flex
@@ -214,77 +264,52 @@ watch(
                     gap-3
                 "
             >
-                <RouterLink
-                    :to="{
-                        name: 'dashboard'
-                    }"
+                <!-- Autosave -->
+                <div
+                    v-if="enabled"
                     class="
-                        flex
-                        gap-1
+                        hidden
                         items-center
-                        justify-center
-                        transition-opacity
-                        duration-200
+                        gap-2
+                        sm:flex
                     "
-                    aria-label="Studio Kristian Admin"
                 >
-                    <img
-                        src="/public/assets/logo.svg"
-                        alt=""
-                        class="
-                            h-2.5
-                            w-auto
+                    <Tag
+                        :text="
+                            status === 'saving'
+                                ? 'saving...'
+                                : 'autosave on'
                         "
-                    >
+                    />
 
                     <span
                         class="
-                            h3
+                            p
+                            text-[10px]
+                            uppercase
+                            text-dark
                         "
                     >
-                        backoffice
+                        last saved:
+                        {{
+                            lastSavedLabel
+                        }}
                     </span>
-                </RouterLink>
-            </div>
+                </div>
 
-            <div
-                v-if="enabled"
-                class="
-                    flex
-                    items-center
-                    gap-2
-                "
-            >
-                <Tag
-                    :text="
-                        status === 'saving'
-                            ? 'saving...'
-                            : 'autosave on'
-                    "
-                />
 
-                <span
-                    class="
-                        p
-                        text-dark
-                        uppercase
-                        text-[10px]
-                    "
-                >
-                    last saved: {{
-                        lastSavedLabel
-                    }}
-                </span>
-
+                <!-- Navigation toggle -->
                 <button
                     type="button"
                     class="
                         grid
                         h-9
                         w-9
+                        shrink-0
                         place-items-center
                         text-dark
                         transition-colors
+                        duration-200
                         hover:text-accent
                         lg:hidden
                     "
@@ -294,8 +319,7 @@ watch(
                     aria-controls="admin-navigation"
                     aria-label="Toggle navigation"
                     @click="
-                        menuOpen =
-                            !menuOpen
+                        toggleMenu
                     "
                 >
                     <i
@@ -311,174 +335,199 @@ watch(
                     />
                 </button>
             </div>
-
-            
-        </div>
+        </header>
 
 
-        <!-- Mobile backdrop -->
-        <button
-            v-if="
-                menuOpen
-            "
-            type="button"
-            aria-label="Close navigation"
-            class="
-                fixed
-                inset-x-0
-                bottom-0
-                top-14
-                z-30
-                bg-dark/20
-                backdrop-blur-[2px]
-            "
-            @click="
-                closeMenu
-            "
-        />
-
-
+        <!-- Application -->
         <div
             class="
-                min-h-screen
-                lg:grid
-                lg:grid-cols-[250px_minmax(0,1fr)]
+                relative
+                min-h-0
+                flex-1
+                overflow-hidden
             "
         >
-            <!-- Sidebar -->
-            <aside
-                id="admin-navigation"
+            <!-- Mobile backdrop -->
+            <button
+                v-if="
+                    menuOpen
+                "
+                type="button"
+                aria-label="Close navigation"
                 class="
                     fixed
-                    bottom-0
-                    left-0
-                    top-14
-                    z-40
-                    flex
-                    w-[min(85vw,300px)]
-                    flex-col
-                    border-r
-                    border-accent
-                    bg-light
-                    transition-transform
+                    inset-0
+                    z-30
+                    bg-dark/20
+                    backdrop-blur-[2px]
+                    lg:hidden
+                "
+                @click="
+                    closeMenu
+                "
+            />
+
+
+            <!-- Application grid -->
+            <div
+                class="
+                    grid
+                    h-full
+                    min-h-0
+                    transition-[grid-template-columns]
                     duration-300
                     ease-out
-
-                    lg:sticky
-                    lg:top-0
-                    lg:h-screen
-                    lg:w-auto
-                    lg:translate-x-0
                 "
                 :class="
                     menuOpen
-                        ? 'translate-x-0'
-                        : '-translate-x-full'
+                        ? 'lg:grid-cols-[250px_minmax(0,1fr)]'
+                        : 'lg:grid-cols-[0_minmax(0,1fr)]'
                 "
             >
-                <!-- Navigation -->
-                <nav
+                <!-- Sidebar -->
+                <aside
+                    id="admin-navigation"
                     class="
-                        flex-1
-                        overflow-y-auto
-                    "
-                >
-                    <RouterLink
-                        v-for="
-                            item
-                            in navigation
-                        "
-                        :key="
-                            item.label
-                        "
-                        :to="
-                            item.route
-                        "
-                        class="
-                            block
-                            border-b
-                            border-accent
-                            px-5
-                            py-4
-                            font-mono
-                            text-xs
-                            font-bold
-                            uppercase
-                            text-dark
-                            transition-colors
-                            duration-200
-                            hover:text-white
-                            hover:bg-accent
-                        "
-                        :class="{
-                            'text-accent':
-                                isActive(
-                                    item
-                                )
-                        }"
-                    >
-                        {{ item.label }}
-                    </RouterLink>
-                </nav>
-
-
-                <!-- Logout -->
-                <form
-                    method="POST"
-                    action="/logout"
-                    class="
-                        border-t
+                        fixed
+                        bottom-0
+                        left-0
+                        top-14
+                        z-40
+                        flex
+                        w-[min(85vw,300px)]
+                        flex-col
+                        overflow-hidden
+                        border-r
                         border-accent
+                        bg-light
+                        transition-transform
+                        duration-300
+                        ease-out
+
+                        lg:static
+                        lg:h-full
+                        lg:w-[250px]
+                        lg:translate-x-0
+                    "
+                    :class="
+                        menuOpen
+                            ? 'translate-x-0'
+                            : '-translate-x-full'
                     "
                 >
-                    <input
-                        type="hidden"
-                        name="_token"
-                        :value="
-                            csrfToken
-                        "
-                    >
-
-
-                    <button
-                        type="submit"
+                    <!-- Navigation -->
+                    <nav
                         class="
-                            block
-                            w-full
-                            border-b
-                            border-accent
-                            bg-light
-                            px-5
-                            py-4
-                            text-left
-                            font-mono
-                            text-xs
-                            font-bold
-                            uppercase
-                            text-dark
-                            transition-colors
-                            duration-200
-                            hover:text-white
-                            hover:bg-accent
+                            min-h-0
+                            flex-1
+                            overflow-y-auto
+                            overscroll-contain
                         "
                     >
-                        Log out
-                    </button>
-                </form>
-            </aside>
+                        <RouterLink
+                            v-for="
+                                item
+                                in navigation
+                            "
+                            :key="
+                                item.label
+                            "
+                            :to="
+                                item.route
+                            "
+                            class="
+                                block
+                                border-b
+                                border-accent
+                                px-5
+                                py-4
+                                font-mono
+                                text-xs
+                                font-bold
+                                uppercase
+                                text-dark
+                                transition-colors
+                                duration-200
+                                hover:bg-accent
+                                hover:text-light
+                            "
+                            :class="{
+                                'bg-accent text-light':
+                                    isActive(
+                                        item
+                                    )
+                            }"
+                        >
+                            {{
+                                item.label
+                            }}
+                        </RouterLink>
+                    </nav>
 
 
-            <!-- Content -->
-            <main
-                class="
-                    min-w-0
-                    px-10
-                    py-10
-                    pb-20
-                "
-            >
-                <RouterView />
-            </main>
+                    <!-- Logout -->
+                    <form
+                        method="POST"
+                        action="/logout"
+                        class="
+                            shrink-0
+                            border-t
+                            border-accent
+                        "
+                    >
+                        <input
+                            type="hidden"
+                            name="_token"
+                            :value="
+                                csrfToken
+                            "
+                        >
+
+                        <button
+                            type="submit"
+                            class="
+                                block
+                                w-full
+                                border-b
+                                border-accent
+                                bg-light
+                                px-5
+                                py-4
+                                text-left
+                                font-mono
+                                text-xs
+                                font-bold
+                                uppercase
+                                text-dark
+                                transition-colors
+                                duration-200
+                                hover:bg-accent
+                                hover:text-light
+                            "
+                        >
+                            Log out
+                        </button>
+                    </form>
+                </aside>
+
+
+                <!-- Main -->
+                <main
+                    class="
+                        min-h-0
+                        min-w-0
+                        overflow-y-auto
+                        overscroll-contain
+                        px-5
+                        py-10
+                        pb-20
+                        sm:px-8
+                        lg:px-10
+                    "
+                >
+                    <RouterView />
+                </main>
+            </div>
         </div>
 
 

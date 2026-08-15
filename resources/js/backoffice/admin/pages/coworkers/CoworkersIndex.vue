@@ -176,6 +176,7 @@ function openCoworker(
                         class="
                             p
                             font-medium
+                            uppercase
                         "
                     >
                         {{

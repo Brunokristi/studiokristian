@@ -99,6 +99,10 @@ const uploadDirectoryInput =
     ref(null)
 
 
+const uploadMenuOpen =
+    ref(false)
+
+
 const showFileCreator =
     ref(false)
 
@@ -835,7 +839,42 @@ function closeMenu() {
 
 
 function handleDocumentClick() {
+    uploadMenuOpen.value =
+        false
+
+
     closeMenu()
+}
+
+
+function toggleUploadMenu() {
+    if (
+        !props.allowUploadControl
+    ) {
+        return
+    }
+
+
+    uploadMenuOpen.value =
+        !uploadMenuOpen.value
+}
+
+
+function triggerUploadFiles() {
+    uploadMenuOpen.value =
+        false
+
+
+    uploadInput.value?.click()
+}
+
+
+function triggerUploadFolder() {
+    uploadMenuOpen.value =
+        false
+
+
+    uploadDirectoryInput.value?.click()
 }
 
 
@@ -2405,55 +2444,17 @@ watch(
                 </button>
 
 
-                <button
+                <div
                     v-if="
                         !disabled
                     "
-                    type="button"
-                    aria-label="Upload file"
                     class="
-                        flex
-                        h-8
-                        w-8
-                        items-center
-                        justify-center
-                    "
-                    :class="
-                        allowUploadControl
-                            ? 'text-accent'
-                            : 'cursor-not-allowed text-dark/30'
-                    "
-                    :title="
-                        allowUploadControl
-                            ? 'Upload file'
-                            : 'Upload is disabled in blueprint structure. Use Project Files workspace.'
-                    "
-                    :disabled="
-                        !allowUploadControl
-                    "
-                    @click="
-                        allowUploadControl && uploadInput?.click()
+                        relative
                     "
                 >
-                    <i
-                        class="
-                            bi
-                            bi-upload
-                            text-lg
-                            transition-colors
-                            hover:text-accent/70
-                        "
-                        aria-hidden="true"
-                    />
-                </button>
-
-
                     <button
-                        v-if="
-                            !disabled
-                        "
                         type="button"
-                        aria-label="Upload folder"
+                        aria-label="Upload"
                         class="
                             flex
                             h-8
@@ -2468,20 +2469,25 @@ watch(
                         "
                         :title="
                             allowUploadControl
-                                ? 'Upload folder'
+                                ? 'Upload'
                                 : 'Upload is disabled in blueprint structure. Use Project Files workspace.'
                         "
                         :disabled="
                             !allowUploadControl
                         "
-                        @click="
-                            allowUploadControl && uploadDirectoryInput?.click()
+                        :aria-expanded="
+                            uploadMenuOpen
+                                ? 'true'
+                                : 'false'
+                        "
+                        @click.stop="
+                            toggleUploadMenu
                         "
                     >
                         <i
                             class="
                                 bi
-                                bi-folder-symlink
+                                bi-upload
                                 text-lg
                                 transition-colors
                                 hover:text-accent/70
@@ -2489,6 +2495,74 @@ watch(
                             aria-hidden="true"
                         />
                     </button>
+
+
+                    <div
+                        v-if="
+                            uploadMenuOpen &&
+                            allowUploadControl
+                        "
+                        class="
+                            absolute
+                            right-0
+                            top-full
+                            z-30
+                            mt-1
+                            min-w-40
+                            border
+                            border-dark
+                            bg-light
+                        "
+                        @click.stop
+                    >
+                        <button
+                            type="button"
+                            class="
+                                flex
+                                w-full
+                                items-center
+                                gap-3
+                                px-3
+                                py-2.5
+                                text-left
+                                p
+                                text-dark
+                                transition-colors
+                                hover:bg-dark
+                                hover:text-light
+                            "
+                            @click="
+                                triggerUploadFiles
+                            "
+                        >
+                            Upload files
+                        </button>
+
+
+                        <button
+                            type="button"
+                            class="
+                                flex
+                                w-full
+                                items-center
+                                gap-3
+                                px-3
+                                py-2.5
+                                text-left
+                                p
+                                text-dark
+                                transition-colors
+                                hover:bg-dark
+                                hover:text-light
+                            "
+                            @click="
+                                triggerUploadFolder
+                            "
+                        >
+                            Upload folder
+                        </button>
+                    </div>
+                </div>
 
 
                 <input

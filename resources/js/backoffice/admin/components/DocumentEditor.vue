@@ -86,6 +86,21 @@ const props = defineProps({
     saveError: {
         type: String,
         default: ''
+    },
+
+    showSignatureStatus: {
+        type: Boolean,
+        default: false
+    },
+
+    requiresSignature: {
+        type: Boolean,
+        default: false
+    },
+
+    signatureSigned: {
+        type: Boolean,
+        default: false
     }
 })
 
@@ -103,6 +118,9 @@ const hasPendingSave = ref(false)
 const autosaveTimer = ref(null)
 const imageInput = ref(null)
 const savedSelection = ref(null)
+const titleEditInput = ref(null)
+const isEditingTitle = ref(false)
+const titleDraft = ref('')
 
 const saveRevision = ref(0)
 const pendingRevision = ref(0)
@@ -156,6 +174,107 @@ const subtitleModel = computed({
         markDirty()
     }
 })
+
+
+function startTitleEdit() {
+    if (
+        !props.editable
+    ) {
+        return
+    }
+
+
+    titleDraft.value =
+        String(
+            titleModel.value ||
+            ''
+        )
+
+
+    isEditingTitle.value =
+        true
+
+
+    nextTick(() => {
+        titleEditInput.value?.focus()
+        titleEditInput.value?.select()
+    })
+}
+
+
+function commitTitleEdit() {
+    if (
+        !isEditingTitle.value
+    ) {
+        return
+    }
+
+
+    const nextTitle =
+        String(
+            titleDraft.value ||
+            ''
+        ).trim() ||
+        'Untitled document'
+
+
+    isEditingTitle.value =
+        false
+
+
+    if (
+        nextTitle !==
+        titleModel.value
+    ) {
+        titleModel.value =
+            nextTitle
+
+
+        queueAutosave(
+            true
+        )
+    }
+}
+
+
+function cancelTitleEdit() {
+    isEditingTitle.value =
+        false
+
+
+    titleDraft.value =
+        ''
+}
+
+
+const signatureStatusLabel =
+    computed(() => {
+        if (
+            !props.requiresSignature
+        ) {
+            return ''
+        }
+
+
+        return props.signatureSigned
+            ? 'signed'
+            : 'not signed'
+    })
+
+
+const signatureStatusClass =
+    computed(() => {
+        if (
+            !props.requiresSignature
+        ) {
+            return ''
+        }
+
+
+        return props.signatureSigned
+            ? 'text-green-700 border-green-700/30 bg-green-50'
+            : 'text-amber-700 border-amber-700/30 bg-amber-50'
+    })
 
 
 function createTextNode(
@@ -599,7 +718,6 @@ function buildSavePayload() {
             'Untitled document',
 
         subtitle:
-            subtitleModel.value ||
             '',
 
         document_schema:
@@ -1551,7 +1669,7 @@ onUnmounted(() => {
         <header
             class="
                 sticky
-                top-0
+                -top-10
                 z-30
                 flex
                 h-16
@@ -1559,12 +1677,14 @@ onUnmounted(() => {
                 items-center
                 justify-between
                 border-b
-                border-dark/10
+                border-accent
                 bg-light/95
                 px-4
                 backdrop-blur
                 sm:px-6
                 lg:px-8
+                -mx-10
+                -mt-10
             "
         >
             <button
@@ -1610,95 +1730,109 @@ onUnmounted(() => {
                     hidden
                     max-w-[40rem]
                     -translate-x-1/2
-                    truncate
                     px-4
-                    font-mono
-                    text-[10px]
-                    font-bold
-                    uppercase
-                    tracking-[0.14em]
-                    text-dark/40
                     md:block
                 "
             >
-                {{
-                    titleModel ||
-                    props.template?.name ||
-                    'Untitled document'
-                }}
+                <input
+                    v-if="
+                        isEditingTitle
+                    "
+                    ref="
+                        titleEditInput
+                    "
+                    v-model="
+                        titleDraft
+                    "
+                    type="text"
+                    class="
+                        w-full
+                        border-0
+                        border-b
+                        border-accent
+                        bg-transparent
+                        p-0
+                        font-mono
+                        text-xs
+                        font-bold
+                        uppercase
+                        tracking-[0.14em]
+                        text-accent
+                        text-center
+                        outline-none
+                        focus:outline-none
+                        focus:ring-0
+                        focus:border-accent
+                    "
+                    @blur="
+                        commitTitleEdit
+                    "
+                    @keydown.enter.prevent="
+                        commitTitleEdit
+                    "
+                    @keydown.esc.prevent="
+                        cancelTitleEdit
+                    "
+                />
+
+
+                <button
+                    v-else
+                    type="button"
+                    class="
+                        block
+                        w-full
+                        truncate
+                        font-mono
+                        text-xs
+                        font-bold
+                        uppercase
+                        tracking-[0.14em]
+                        text-accent
+                        transition-colors
+                        hover:text-dark
+                    "
+                    :disabled="
+                        !editable
+                    "
+                    @click="
+                        startTitleEdit
+                    "
+                >
+                    {{
+                        titleModel ||
+                        props.template?.name ||
+                        'Untitled document'
+                    }}
+                </button>
             </div>
 
 
             <div
+                v-if="
+                    showSignatureStatus &&
+                    requiresSignature
+                "
                 class="
-                    flex
-                    items-center
-                    gap-3
+                    rounded-sm
+                    border
+                    px-3
+                    py-1
+                    font-mono
+                    text-[10px]
+                    font-bold
+                    uppercase
+                    tracking-[0.12em]
+                "
+                :class="
+                    signatureStatusClass
                 "
             >
-                <span
-                    class="
-                        hidden
-                        font-mono
-                        text-[10px]
-                        font-bold
-                        uppercase
-                        tracking-[0.12em]
-                        text-dark/40
-                        sm:inline
-                    "
-                >
-                    <template
-                        v-if="
-                            props.saving
-                        "
-                    >
-                        Saving...
-                    </template>
-
-                    <template
-                        v-else-if="
-                            props.saveError
-                        "
-                    >
-                        Save failed
-                    </template>
-
-                    <template
-                        v-else-if="
-                            hasPendingSave
-                        "
-                    >
-                        Unsaved changes
-                    </template>
-
-                    <template
-                        v-else-if="
-                            autosaveStatus ===
-                                'idle' &&
-                            lastSavedAt
-                        "
-                    >
-                        Saved
-                    </template>
-
-                    <template
-                        v-else
-                    >
-                        Ready
-                    </template>
-                </span>
-
-                <span
-                    class="
-                        h-1.5
-                        w-1.5
-                        rounded-full
-                        bg-current
-                        text-accent
-                    "
-                />
+                {{
+                    signatureStatusLabel
+                }}
             </div>
+
         </header>
 
 
@@ -1709,11 +1843,12 @@ onUnmounted(() => {
             "
             class="
                 sticky
-                top-16
+                top-6
                 z-20
                 border-b
-                border-dark/10
+                border-accent
                 bg-light
+                -mx-10
             "
         >
             <div
@@ -2006,82 +2141,6 @@ onUnmounted(() => {
                     lg:py-20
                 "
             >
-                <!-- Document heading -->
-                <div
-                    class="
-                        mb-12
-                        border-b
-                        border-dark/10
-                        pb-10
-                    "
-                >
-                    <input
-                        v-model="
-                            titleModel
-                        "
-                        type="text"
-                        :readonly="
-                            !editable
-                        "
-                        placeholder="Untitled"
-                        class="
-                            block
-                            w-full
-                            border-0
-                            bg-transparent
-                            p-0
-                            font-serif
-                            text-4xl
-                            font-bold
-                            leading-[1.05]
-                            tracking-[-0.035em]
-                            text-dark
-                            outline-none
-                            placeholder:text-dark/20
-                            sm:text-5xl
-                            lg:text-6xl
-                        "
-                        @blur="
-                            queueAutosave(
-                                true
-                            )
-                        "
-                    />
-
-
-                    <textarea
-                        v-model="
-                            subtitleModel
-                        "
-                        rows="1"
-                        :readonly="
-                            !editable
-                        "
-                        placeholder="Add a subtitle..."
-                        class="
-                            mt-5
-                            block
-                            w-full
-                            resize-none
-                            border-0
-                            bg-transparent
-                            p-0
-                            text-lg
-                            leading-relaxed
-                            text-dark/50
-                            outline-none
-                            placeholder:text-dark/25
-                            sm:text-xl
-                        "
-                        @blur="
-                            queueAutosave(
-                                true
-                            )
-                        "
-                    />
-                </div>
-
-
                 <!-- Editor -->
                 <div
                     class="

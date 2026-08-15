@@ -218,9 +218,21 @@ function getAutosaveSnapshot() {
 
 
 function canAutosave() {
+    const email =
+        String(
+            form.email || ''
+        ).trim()
+
+
+    const hasValidEmail =
+        /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(
+            email
+        )
+
+
     return Boolean(
         String(form.name || '').trim() &&
-        String(form.email || '').trim()
+        hasValidEmail
     )
 }
 
