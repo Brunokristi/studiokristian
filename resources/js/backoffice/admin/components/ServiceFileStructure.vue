@@ -1358,7 +1358,9 @@ function resetFileDraft() {
 
 
     fileDraft.requirement_level =
-        'recommended'
+        props.allowMetadataEditing
+            ? 'recommended'
+            : ''
 
 
     fileDraft.requires_client_signature =
@@ -1650,8 +1652,14 @@ function createUploadedFileItems(
                         normalizeUploadedResourceType(
                             file
                         ),
-                    requirement_level: 'recommended',
-                    requires_client_signature: false,
+                    requirement_level:
+                        props.allowMetadataEditing
+                            ? 'recommended'
+                            : null,
+                    requires_client_signature:
+                        props.allowMetadataEditing
+                            ? false
+                            : false,
                     client_visible: true,
                     template_name: file.name,
                     content: '',
@@ -1792,9 +1800,15 @@ function saveFileDraft() {
             fileDraft.resource_type,
 
         requirement_level:
-            fileDraft.requirement_level,
+            props.allowMetadataEditing
+                ? (
+                    fileDraft.requirement_level ||
+                    null
+                )
+                : null,
 
         requires_client_signature:
+            props.allowMetadataEditing &&
             fileDraft.resource_type ===
             'document'
                 ? Boolean(

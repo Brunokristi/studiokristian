@@ -21,6 +21,7 @@ import api, {
 
 
 import AdminPageHeader from '../../components/AdminPageHeader.vue'
+import AdminConfirmDialog from '../../components/AdminConfirmDialog.vue'
 import Button from '@shared/components/Button.vue'
 import FormField from '@shared/components/FormField.vue'
 import useAutosavePolicy from '../../composables/useAutosavePolicy'
@@ -71,6 +72,14 @@ const loading =
 
 
 const saving =
+    ref(false)
+
+
+const deleting =
+    ref(false)
+
+
+const showDeleteConfirm =
     ref(false)
 
 
@@ -521,13 +530,15 @@ async function submit() {
             if (
                 response?.data?.data?.id
             ) {
-                router.push({
+                router.replace({
                     name:
-                        'clients.show',
+                        'contacts.edit',
 
                     params: {
+                        companyId:
+                            companyId.value,
                         id:
-                            companyId.value
+                            response.data.data.id
                     }
                 })
 
@@ -656,6 +667,86 @@ function cancel() {
 }
 
 
+function deleteContact() {
+    if (
+        !editing.value ||
+        !companyId.value ||
+        !props.id ||
+        deleting.value
+    ) {
+        return
+    }
+
+
+    showDeleteConfirm.value =
+        true
+}
+
+
+async function confirmDeleteContact() {
+    if (
+        !editing.value ||
+        !companyId.value ||
+        !props.id ||
+        deleting.value
+    ) {
+        return
+    }
+
+
+    deleting.value =
+        true
+
+
+    requestError.value =
+        ''
+
+
+    try {
+        await api.delete(
+            `/clients/${companyId.value}/contacts/${props.id}`
+        )
+
+        showDeleteConfirm.value =
+            false
+
+
+        router.push({
+            name: 'clients.show',
+            params: {
+                id: companyId.value
+            }
+        })
+    } catch (
+        exception
+    ) {
+        showDeleteConfirm.value =
+            false
+
+
+        showError(
+            errorMessage(
+                exception
+            )
+        )
+    } finally {
+        deleting.value =
+            false
+    }
+}
+
+
+function closeDeleteConfirm() {
+    if (deleting.value) {
+        return
+    }
+
+
+    showDeleteConfirm.value =
+        false
+}
+
+
 watch(
     () => ({
         ...form
@@ -698,7 +789,6 @@ onMounted(
             "
         />
 
-
         <!-- Loading -->
         <div
             v-if="loading"
@@ -724,212 +814,262 @@ onMounted(
         <form
             v-else
             class="
-                space-y-12
+                space-y-16
             "
             @submit.prevent="submit"
         >
-            <!-- Contact information -->
-            <section
+            <div
                 class="
+                    space-y-4
+                "
+            >
+                <h2
+                    class="
+                        h2
+                        col-span-1
+                        text-left
+                        text-accent
+                        md:col-span-2
+                    "
+                >
+                    Client information
+                </h2>
+
+                <div class="
                     grid
                     grid-cols-1
                     gap-8
                     md:grid-cols-2
-                    md:gap-x-20
-                    md:gap-y-8
+                    md:gap-20
+                ">
+                    <section
+                        class="
+                            space-y-8
+                        "
+                    >
+                        <!-- First name -->
+                        <FormField
+                            id="contact-first-name"
+                            v-model="
+                                form.first_name
+                            "
+                            name="first_name"
+                            type="text"
+                            label="First name"
+                            placeholder="Jane"
+                            required
+                            :error="
+                                errors.first_name?.[0] ||
+                                ''
+                            "
+                            @focus="handleFieldFocus"
+                            @blur="handleFieldBlur"
+                        />
+
+
+                        <!-- Last name -->
+                        <FormField
+                            id="contact-last-name"
+                            v-model="
+                                form.last_name
+                            "
+                            name="last_name"
+                            type="text"
+                            label="Last name"
+                            placeholder="Doe"
+                            required
+                            :error="
+                                errors.last_name?.[0] ||
+                                ''
+                            "
+                            @focus="handleFieldFocus"
+                            @blur="handleFieldBlur"
+                        />
+
+
+                        <!-- Email -->
+                        <FormField
+                            id="contact-email"
+                            v-model="
+                                form.email
+                            "
+                            name="email"
+                            type="email"
+                            label="Email"
+                            placeholder="jane@example.com"
+                            required
+                            :error="
+                                errors.email?.[0] ||
+                                ''
+                            "
+                            @focus="handleFieldFocus"
+                            @blur="handleFieldBlur"
+                        />
+
+
+                        <!-- Phone -->
+                        <FormField
+                            id="contact-phone"
+                            v-model="
+                                form.phone
+                            "
+                            name="phone"
+                            type="text"
+                            label="Phone"
+                            placeholder="+421 900 000 000"
+                            :error="
+                                errors.phone?.[0] ||
+                                ''
+                            "
+                            @focus="handleFieldFocus"
+                            @blur="handleFieldBlur"
+                        />
+
+
+                        <!-- Position -->
+                        <FormField
+                            id="contact-position"
+                            v-model="
+                                form.position
+                            "
+                            name="position"
+                            type="select"
+                            label="Position"
+                            :options="
+                                positionOptions
+                            "
+                            :error="
+                                errors.position?.[0] ||
+                                ''
+                            "
+                        />
+                    </section>
+
+                    <section
+                        class="
+                            space-y-8
+                        "
+                    >
+                        <!-- Status -->
+                        <FormField
+                            id="contact-active"
+                            v-model="
+                                form.active
+                            "
+                            name="active"
+                            type="select"
+                            label="Status"
+                            :options="
+                                statusOptions
+                            "
+                            :disabled="
+                                saving
+                            "
+                            :error="
+                                errors.active?.[0] ||
+                                ''
+                            "
+                        />
+
+
+                        <!-- Portal access -->
+                        <FormField
+                            id="contact-can-access-portal"
+                            v-model="
+                                form.can_access_portal
+                            "
+                            name="can_access_portal"
+                            type="select"
+                            label="Portal access"
+                            :options="
+                                portalAccessOptions
+                            "
+                            :disabled="
+                                !form.active ||
+                                saving
+                            "
+                            :error="
+                                errors.can_access_portal?.[0] ||
+                                ''
+                            "
+                        />
+
+
+                        <!-- Document acceptance -->
+                        <FormField
+                            id="contact-can-accept-documents"
+                            v-model="
+                                form.can_accept_documents
+                            "
+                            name="can_accept_documents"
+                            type="select"
+                            label="Document acceptance"
+                            :options="
+                                documentAcceptanceOptions
+                            "
+                            :disabled="
+                                !form.active ||
+                                !form.can_access_portal ||
+                                saving
+                            "
+                            :error="
+                                errors.can_accept_documents?.[0] ||
+                                ''
+                            "
+                        />
+                    </section>
+                </div>
+            </div>
+
+            <section
+                v-if="editing"
+                class="
+                    space-y-4
                 "
             >
-                <!-- First name -->
-                <FormField
-                    id="contact-first-name"
-                    v-model="
-                        form.first_name
+                <h3
+                    class="
+                        h2
+                        text-accent
+                        text-left
                     "
-                    name="first_name"
-                    type="text"
-                    label="First name"
-                    placeholder="Jane"
-                    required
-                    :error="
-                        errors.first_name?.[0] ||
-                        ''
-                    "
-                    @focus="handleFieldFocus"
-                    @blur="handleFieldBlur"
-                />
+                >
+                    Danger zone
+                </h3>
 
 
-                <!-- Last name -->
-                <FormField
-                    id="contact-last-name"
-                    v-model="
-                        form.last_name
-                    "
-                    name="last_name"
-                    type="text"
-                    label="Last name"
-                    placeholder="Doe"
-                    required
-                    :error="
-                        errors.last_name?.[0] ||
-                        ''
-                    "
-                    @focus="handleFieldFocus"
-                    @blur="handleFieldBlur"
-                />
-
-
-                <!-- Email -->
-                <FormField
-                    id="contact-email"
-                    v-model="
-                        form.email
-                    "
-                    name="email"
-                    type="email"
-                    label="Email"
-                    placeholder="jane@example.com"
-                    required
-                    :error="
-                        errors.email?.[0] ||
-                        ''
-                    "
-                    @focus="handleFieldFocus"
-                    @blur="handleFieldBlur"
-                />
-
-
-                <!-- Phone -->
-                <FormField
-                    id="contact-phone"
-                    v-model="
-                        form.phone
-                    "
-                    name="phone"
-                    type="text"
-                    label="Phone"
-                    placeholder="+421 900 000 000"
-                    :error="
-                        errors.phone?.[0] ||
-                        ''
-                    "
-                    @focus="handleFieldFocus"
-                    @blur="handleFieldBlur"
-                />
-
-
-                <!-- Position -->
-                <FormField
-                    id="contact-position"
-                    v-model="
-                        form.position
-                    "
-                    name="position"
-                    type="select"
-                    label="Position"
-                    :options="
-                        positionOptions
-                    "
-                    :error="
-                        errors.position?.[0] ||
-                        ''
-                    "
-                />
-
-
-                <!-- Status -->
-                <FormField
-                    id="contact-active"
-                    v-model="
-                        form.active
-                    "
-                    name="active"
-                    type="select"
-                    label="Status"
-                    :options="
-                        statusOptions
-                    "
-                    :disabled="
-                        saving
-                    "
-                    :error="
-                        errors.active?.[0] ||
-                        ''
-                    "
-                />
-
-
-                <!-- Portal access -->
-                <FormField
-                    id="contact-can-access-portal"
-                    v-model="
-                        form.can_access_portal
-                    "
-                    name="can_access_portal"
-                    type="select"
-                    label="Portal access"
-                    :options="
-                        portalAccessOptions
-                    "
-                    :disabled="
-                        !form.active ||
-                        saving
-                    "
-                    :error="
-                        errors.can_access_portal?.[0] ||
-                        ''
-                    "
-                />
-
-
-                <!-- Document acceptance -->
-                <FormField
-                    id="contact-can-accept-documents"
-                    v-model="
-                        form.can_accept_documents
-                    "
-                    name="can_accept_documents"
-                    type="select"
-                    label="Document acceptance"
-                    :options="
-                        documentAcceptanceOptions
-                    "
-                    :disabled="
-                        !form.active ||
-                        !form.can_access_portal ||
-                        saving
-                    "
-                    :error="
-                        errors.can_accept_documents?.[0] ||
-                        ''
-                    "
+                <Button
+                    type="submit"
+                    :text="'Delete contact'"
+                    :loading-text="'Deleting...'"
+                    :loading="deleting"
+                    :disabled="deleting"
+                    :lowercase="true"
+                    @click.prevent="deleteContact"
+                    align="left"
                 />
             </section>
-
-
-            <!-- Actions -->
-            <div
-                class="
-                    flex
-                    flex-col
-                    gap-4
-                    pt-4
-                "
-            >
-                <Button
-                    type="button"
-                    text="back to client"
-                    :disabled="
-                        saving
-                    "
-                    variant="accent"
-                    align="right"
-                    @click="
-                        cancel
-                    "
-                    hover-variant="dark"
-                />
-            </div>
         </form>
+
+
+        <AdminConfirmDialog
+            :open="
+                showDeleteConfirm
+            "
+            title="Delete contact?"
+            :text="
+                `This will permanently delete ${pageTitle}. This action cannot be undone.`
+            "
+            confirm-label="Delete contact"
+            :busy="
+                deleting
+            "
+            @close="
+                closeDeleteConfirm
+            "
+            @confirm="
+                confirmDeleteContact
+            "
+        />
     </div>
 </template>

@@ -115,6 +115,7 @@ Route::prefix('admin/client-portal')->middleware(['auth', 'admin'])->name('admin
         Route::post('/clients', [AdminCompanyController::class, 'store'])->name('clients.store');
         Route::get('/clients/{company}', [AdminCompanyController::class, 'show'])->name('clients.show');
         Route::put('/clients/{company}', [AdminCompanyController::class, 'update'])->name('clients.update');
+        Route::delete('/clients/{company}', [AdminCompanyController::class, 'destroy'])->name('clients.destroy');
         Route::post('/clients/{company}/archive', [AdminCompanyController::class, 'archive'])->name('clients.archive');
         Route::post('/clients/{company}/contacts', [AdminContactController::class, 'store'])->name('contacts.store');
         Route::put('/clients/{company}/contacts/{contact}', [AdminContactController::class, 'update'])->name('contacts.update');
@@ -130,6 +131,9 @@ Route::prefix('admin/client-portal')->middleware(['auth', 'admin'])->name('admin
         Route::post('/coworkers', [CoworkerController::class, 'store'])->name('coworkers.store');
         Route::get('/internal-storage', [InternalStorageController::class, 'index'])->name('internal-storage.index');
         Route::put('/internal-storage/structure', [InternalStorageController::class, 'updateStructure'])->name('internal-storage.structure.update');
+        Route::post('/internal-storage/files', [InternalStorageController::class, 'upload'])->name('internal-storage.files.upload');
+        Route::get('/internal-storage/files/{folder}/open', [InternalStorageController::class, 'open'])->name('internal-storage.files.open');
+        Route::get('/internal-storage/files/{folder}/download', [InternalStorageController::class, 'download'])->name('internal-storage.files.download');
         Route::get('/projects/{project}/files', [AdminProjectFileController::class, 'index'])->name('projects.files.index');
         Route::put('/projects/{project}/structure', [AdminProjectFileController::class, 'updateStructure'])->name('projects.structure.update');
         Route::post('/projects/{project}/folders', [AdminProjectFileController::class, 'storeFolder'])->name('projects.folders.store');

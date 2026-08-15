@@ -586,7 +586,7 @@ onBeforeUnmount(() => {
                             <ServiceFileStructure
                                 :model-value="projectFolders"
                                 :allow-upload-control="false"
-                                :allow-metadata-editing="true"
+                                :allow-metadata-editing="false"
                                 :prevent-deleting-required="true"
                                 @update:model-value="queueStructureSave"
                                 @open-document="openProjectDocument"

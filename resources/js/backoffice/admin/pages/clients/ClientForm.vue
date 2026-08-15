@@ -31,12 +31,11 @@ import AdminPageHeader from '../../components/AdminPageHeader.vue'
 import AdminDataTable from '../../components/AdminDataTable.vue'
 import AdminPagination from '../../components/AdminPagination.vue'
 import Tag from '@shared/components/Tag.vue'
-
-
 import Button from '@shared/components/Button.vue'
 import FormField from '@shared/components/FormField.vue'
 import Toast from '@shared/components/Toast.vue'
 import useAutosavePolicy from '../../composables/useAutosavePolicy'
+import AdminConfirmDialog from '../../components/AdminConfirmDialog.vue'
 
 
 const {
@@ -66,10 +65,8 @@ const loading =
         )
     )
 
-
 const saving =
     ref(false)
-
 
 const errors =
     ref({})
@@ -86,22 +83,23 @@ const showErrorToast =
 const autosaveTimer =
     ref(null)
 
-
 const contacts =
     ref([])
-
 
 const projects =
     ref([])
 
-
 const contactsLoading =
     ref(false)
-
 
 const projectsLoading =
     ref(false)
 
+const showDeleteConfirm = 
+    ref(false)
+
+const deleting = 
+    ref(false)
 
 const form =
     reactive({
@@ -727,6 +725,64 @@ function cancel() {
 }
 
 
+function deleteClient() {
+    if (
+        !editing.value ||
+        !props.id ||
+        deleting.value
+    ) {
+        return
+    }
+
+    showDeleteConfirm.value = true
+}
+
+async function confirmDeleteClient() {
+    if (
+        !editing.value ||
+        !props.id ||
+        deleting.value
+    ) {
+        return
+    }
+
+    deleting.value = true
+
+    requestError.value = ''
+
+    try {
+        await api.delete(
+            `/clients/${props.id}`
+        )
+
+        showDeleteConfirm.value = false
+
+        router.push({
+            name: 'clients.index'
+        })
+    } catch (
+        exception
+    ) {
+        showDeleteConfirm.value = false
+
+        showError(
+            errorMessage(
+                exception
+            )
+        )
+    } finally {
+        deleting.value = false
+    }
+}
+
+function closeDeleteConfirm() {
+    if (deleting.value) {
+        return
+    }
+
+    showDeleteConfirm.value = false
+}
+
 function openProject(
     project
 ) {
@@ -1075,15 +1131,6 @@ onBeforeUnmount(() => {
                                 "
                             />
                         </div>
-
-
-                        <div
-                            class="
-                                mt-auto
-                                flex
-                                flex-col
-                                gap-4"
-                        ></div>
                     </section>
                 </div>
             </div>
@@ -1262,6 +1309,54 @@ onBeforeUnmount(() => {
                         />
                     </template>
                 </AdminDataTable>
+
+                <section
+                    class="
+                        space-y-4
+                    "
+                >
+                    <h3
+                        class="
+                            h2
+                            text-accent
+                            text-left
+                        "
+                    >
+                        Danger zone
+                    </h3>
+
+
+                    <Button
+                        type="submit"
+                        :text="'Delete client'"
+                        :loading-text="'Deleting...'"
+                        :loading="deleting"
+                        :disabled="deleting"
+                        :lowercase="true"
+                        @click.prevent="deleteClient"
+                        align="left"
+                    />
+                </section>
+
+                <AdminConfirmDialog
+                    :open="
+                        showDeleteConfirm
+                    "
+                    title="Delete client?"
+                    :text="
+                        `This will permanently delete ${pageTitle}. This action cannot be undone.`
+                    "
+                    confirm-label="Delete client"
+                    :busy="
+                        deleting
+                    "
+                    @close="
+                        closeDeleteConfirm
+                    "
+                    @confirm="
+                        confirmDeleteClient
+                    "
+                />
             </template>
         </form>
     </div>

@@ -7,6 +7,7 @@ use App\Http\Requests\Admin\ClientPortal\StoreCompanyRequest;
 use App\Http\Requests\Admin\ClientPortal\UpdateCompanyRequest;
 use App\Http\Resources\Admin\ClientPortal\CompanyResource;
 use App\Models\Company;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 use Illuminate\Http\Response;
@@ -62,5 +63,21 @@ class CompanyController extends Controller
         $company->update(['status' => 'archived', 'archived_at' => now()]);
 
         return response()->noContent();
+    }
+
+    public function destroy(Company $company): JsonResponse
+    {
+        if ($company->projects()->exists()) {
+            return response()->json([
+                'message' => 'This client cannot be deleted because it still has projects. Archive the client instead.',
+            ], 422);
+        }
+
+        $company->contacts()->delete();
+        $company->delete();
+
+        return response()->json([
+            'message' => 'Client deleted successfully.',
+        ]);
     }
 }

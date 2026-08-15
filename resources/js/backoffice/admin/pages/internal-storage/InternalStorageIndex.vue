@@ -2,6 +2,7 @@
 import { onBeforeUnmount, onMounted, ref } from 'vue'
 import api, { errorMessage } from '../../composables/useAdminApi'
 import AdminPageHeader from '../../components/AdminPageHeader.vue'
+import DocumentEditor from '../../components/DocumentEditor.vue'
 import ServiceFileStructure from '../../components/ServiceFileStructure.vue'
 
 const storageFolders = ref([])
@@ -9,6 +10,14 @@ const loading = ref(true)
 const error = ref('')
 const structureSaveTimer = ref(null)
 const structureSaving = ref(false)
+
+const documentEditorOpen = ref(false)
+const documentTemplate = ref(null)
+const documentBlocks = ref({})
+const documentSaveInFlight = ref(false)
+const documentSaveError = ref('')
+const documentSaveRevision = ref(0)
+const documentSavedRevision = ref(0)
 
 async function load() {
     try {
@@ -47,7 +56,6 @@ function normalizeFolders(serverFolders = [], previousFolders = []) {
             ...item,
             client_key: clientKey,
             parent_client_key: null,
-            // Company private storage is always internal-only.
             client_visible: false,
         }
     })
@@ -124,9 +132,145 @@ function normalizeOpenUrl(value) {
     return `https://${raw}`
 }
 
-function handleOpenFile(item) {
-    if (item?.resource_type === 'document') {
-        error.value = 'This is a simple company cloud drive view. Document editing is disabled here.'
+function readDocumentEnvelope(content) {
+    try {
+        const parsed = JSON.parse(String(content || ''))
+
+        if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+            return {
+                title: String(parsed.title || ''),
+                subtitle: String(parsed.subtitle || ''),
+                doc: parsed.doc || parsed,
+            }
+        }
+    } catch {
+        // legacy content is handled by the editor's own loader
+    }
+
+    return {
+        title: '',
+        subtitle: '',
+        doc: content || '',
+    }
+}
+
+function openStorageDocument(item) {
+    if (!item?.id) {
+        return
+    }
+
+    const envelope = readDocumentEnvelope(item.content || '')
+
+    documentTemplate.value = {
+        id: item.id,
+        client_key: item.client_key || String(item.id),
+        name: item.name || envelope.title || 'Untitled document',
+        title: item.name || envelope.title || 'Untitled document',
+        subtitle: item.subtitle || envelope.subtitle || '',
+        content: item.content || '',
+    }
+
+    documentBlocks.value = envelope.doc
+    documentSaveRevision.value = Number(item.document_revision || 0)
+    documentSavedRevision.value = documentSaveRevision.value
+    documentSaveError.value = ''
+    documentEditorOpen.value = true
+
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+}
+
+function updateDocumentBlocks(value) {
+    documentBlocks.value = value
+}
+
+function updateDocumentTitle(value) {
+    if (!documentTemplate.value) {
+        return
+    }
+
+    const title = String(value || '').trim()
+    documentTemplate.value = {
+        ...documentTemplate.value,
+        name: title,
+        title,
+    }
+}
+
+function updateDocumentSubtitle(value) {
+    if (!documentTemplate.value) {
+        return
+    }
+
+    documentTemplate.value = {
+        ...documentTemplate.value,
+        subtitle: String(value || ''),
+    }
+}
+
+async function saveStorageDocument(template) {
+    const payload = template || documentTemplate.value
+
+    if (!payload?.id) {
+        return
+    }
+
+    const title = String(payload.title || payload.name || 'Untitled document').trim() || 'Untitled document'
+    const subtitle = String(payload.subtitle || '')
+    const content = JSON.stringify({
+        title,
+        subtitle,
+        doc: payload.document_schema || documentBlocks.value || {},
+    })
+
+    const index = (storageFolders.value || []).findIndex(item => String(item.id) === String(payload.id) || String(item.client_key) === String(payload.client_key || ''))
+
+    if (index < 0) {
+        documentSaveError.value = 'Document file could not be found in internal storage.'
+        error.value = documentSaveError.value
+        return
+    }
+
+    documentSaveInFlight.value = true
+    documentSaveError.value = ''
+
+    try {
+        const next = [...storageFolders.value]
+        next[index] = {
+            ...next[index],
+            name: title,
+            template_name: title,
+            content,
+        }
+
+        storageFolders.value = next
+        documentBlocks.value = payload.document_schema || documentBlocks.value || {}
+        documentTemplate.value = {
+            ...documentTemplate.value,
+            id: next[index].id,
+            client_key: next[index].client_key || payload.client_key,
+            name: title,
+            title,
+            subtitle,
+            content,
+        }
+
+        documentSaveRevision.value += 1
+        documentSavedRevision.value = documentSaveRevision.value
+
+        await saveStructure()
+    } catch (exception) {
+        documentSaveError.value = errorMessage(exception)
+        error.value = documentSaveError.value
+    } finally {
+        documentSaveInFlight.value = false
+    }
+}
+
+function handleStorageOpenFile(item) {
+    const openUrl = normalizeOpenUrl(item?.open_url || item?.url || '')
+
+    if (openUrl) {
+        window.open(openUrl, '_blank', 'noopener,noreferrer')
         return
     }
 
@@ -138,11 +282,86 @@ function handleOpenFile(item) {
         }
     }
 
-    error.value = 'This company storage entry is structure-only. Use documents and links in this space.'
+    error.value = 'This internal storage entry has no binary to open. Use documents or links in this space.'
 }
 
-function handleDownloadFile() {
-    error.value = 'Downloads are not available for structure-only company storage entries.'
+function handleStorageDownloadFile(item) {
+    const downloadUrl = String(item?.download_url || '')
+
+    if (downloadUrl) {
+        const link = document.createElement('a')
+        link.href = downloadUrl
+        link.download = String(item?.name || 'download')
+        document.body.appendChild(link)
+        link.click()
+        document.body.removeChild(link)
+        return
+    }
+
+    error.value = 'This internal storage entry has no storage-backed binary to download.'
+}
+
+function handleDocumentBack() {
+    documentEditorOpen.value = false
+}
+
+function isPersistedFolder(value) {
+    return isPersistedFolderId(value)
+}
+
+async function handleStorageFileUpload(payload = {}) {
+    const files = Array.from(payload?.files || [])
+    if (!files.length) {
+        return
+    }
+
+    const parent = payload?.parent || null
+
+    let folderId = null
+    if (isPersistedFolder(payload?.folderId)) {
+        folderId = Number(payload.folderId)
+    } else if (parent?.client_key) {
+        const match = (storageFolders.value || []).find(item => String(item.client_key) === String(parent.client_key))
+        if (isPersistedFolder(match?.id)) {
+            folderId = Number(match.id)
+        }
+    }
+
+    if (payload?.folderId && !folderId) {
+        await saveStructure()
+        const refreshed = (storageFolders.value || []).find(item => String(item.client_key) === String(parent?.client_key || payload.folderId))
+        if (isPersistedFolder(refreshed?.id)) {
+            folderId = Number(refreshed.id)
+        }
+    }
+
+    const maxFilesPerRequest = 20
+
+    try {
+        const chunks = []
+        for (let offset = 0; offset < files.length; offset += maxFilesPerRequest) {
+            chunks.push(files.slice(offset, offset + maxFilesPerRequest))
+        }
+
+        for (const chunk of chunks) {
+            const body = new FormData()
+
+            chunk.forEach((file, index) => {
+                body.append('files[]', file)
+                body.append(`relative_paths[${index}]`, file.webkitRelativePath || file.name)
+            })
+
+            if (folderId) {
+                body.append('folder_id', String(folderId))
+            }
+
+            await api.post('/internal-storage/files', body)
+        }
+
+        await load()
+    } catch (exception) {
+        error.value = errorMessage(exception)
+    }
 }
 
 onBeforeUnmount(() => {
@@ -154,30 +373,47 @@ onBeforeUnmount(() => {
 
 <template>
     <div class="space-y-6">
-        <AdminPageHeader
-            title="Internal storage"
-            eyebrow="Private cloud drive"
-            description="Admin-only private cloud drive for your internal documents."
+        <DocumentEditor
+            v-if="documentEditorOpen"
+            :model-value="documentBlocks"
+            :template="documentTemplate"
+            :title="documentTemplate?.name || ''"
+            :subtitle="documentTemplate?.subtitle || ''"
+            :editable="true"
+            :saving="documentSaveInFlight"
+            :save-revision="documentSaveRevision"
+            :saved-revision="documentSavedRevision"
+            :save-error="documentSaveError"
+            @update:title="updateDocumentTitle"
+            @update:subtitle="updateDocumentSubtitle"
+            @update:model-value="updateDocumentBlocks"
+            @back="handleDocumentBack"
+            @save="saveStorageDocument"
         />
 
-        <div v-if="error" class="border border-red-700 bg-red-50 p-4 text-sm text-red-800">{{ error }}</div>
+        <template v-else>
+            <AdminPageHeader
+                title="Internal storage"
+                eyebrow="Private cloud drive"
+            />
 
-        <article class="space-y-5 border border-dark bg-light p-5">
-            <div v-if="loading" class="py-10 text-center text-sm">Loading...</div>
+            <p v-if="error" class="border border-red-700 bg-red-50 p-4 text-sm text-red-800">{{ error }}</p>
+            <p v-if="loading" class="py-20 text-center">Loading...</p>
 
             <div v-else>
                 <ServiceFileStructure
                     :model-value="storageFolders"
-                    :allow-upload-control="false"
-                    :allow-metadata-editing="true"
+                    :allow-upload-control="true"
+                    :allow-metadata-editing="false"
                     :prevent-deleting-required="false"
                     :disabled="structureSaving"
                     @update:model-value="queueStructureSave"
-                    @open-document="handleOpenFile"
-                    @open-file="handleOpenFile"
-                    @download-file="handleDownloadFile"
+                    @open-document="openStorageDocument"
+                    @open-file="handleStorageOpenFile"
+                    @download-file="handleStorageDownloadFile"
+                    @upload-files="handleStorageFileUpload"
                 />
             </div>
-        </article>
+        </template>
     </div>
 </template>
