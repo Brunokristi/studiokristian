@@ -129,6 +129,9 @@ Route::prefix('admin/client-portal')->middleware(['auth', 'admin'])->name('admin
         Route::put('/projects/{project}/publishing', [AdminProjectController::class, 'publish'])->name('projects.publish');
         Route::get('/coworkers', [CoworkerController::class, 'index'])->name('coworkers.index');
         Route::post('/coworkers', [CoworkerController::class, 'store'])->name('coworkers.store');
+        Route::get('/coworkers/{coworker}', [CoworkerController::class, 'show'])->name('coworkers.show');
+        Route::put('/coworkers/{coworker}', [CoworkerController::class, 'update'])->name('coworkers.update');
+        Route::delete('/coworkers/{coworker}', [CoworkerController::class, 'destroy'])->name('coworkers.destroy');
         Route::get('/internal-storage', [InternalStorageController::class, 'index'])->name('internal-storage.index');
         Route::put('/internal-storage/structure', [InternalStorageController::class, 'updateStructure'])->name('internal-storage.structure.update');
         Route::post('/internal-storage/files', [InternalStorageController::class, 'upload'])->name('internal-storage.files.upload');

@@ -120,10 +120,6 @@ function openCoworker(
             description="Manage staff members and the client projects they can access."
             :breadcrumbs="[
                 {
-                    label: 'Team'
-                },
-
-                {
                     label: 'Coworkers'
                 }
             ]"

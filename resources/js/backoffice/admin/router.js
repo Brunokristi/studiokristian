@@ -11,6 +11,7 @@ import ServiceProductDetail from './pages/service-products/ServiceProductDetail.
 import PortfolioIndex from './pages/portfolio/PortfolioIndex.vue'
 import PortfolioEditor from './pages/portfolio/PortfolioEditor.vue'
 import CoworkersIndex from './pages/coworkers/CoworkersIndex.vue'
+import CoworkerForm from './pages/coworkers/CoworkerForm.vue'
 import InternalStorageIndex from './pages/internal-storage/InternalStorageIndex.vue'
 
 const router = createRouter({
@@ -32,6 +33,9 @@ const router = createRouter({
         { path: '/service-products/:id', name: 'service-products.show', component: ServiceProductDetail, props: true },
         { path: '/service-products/:id/edit', name: 'service-products.edit', component: ServiceProductDetail, props: true },
         { path: '/coworkers', name: 'coworkers.index', component: CoworkersIndex },
+        { path: '/coworkers/create', name: 'coworkers.create', component: CoworkerForm },
+        { path: '/coworkers/:id', name: 'coworkers.show', component: CoworkerForm, props: true },
+        { path: '/coworkers/:id/edit', name: 'coworkers.edit', component: CoworkerForm, props: true },
         { path: '/internal-storage', name: 'internal-storage.index', component: InternalStorageIndex },
         { path: '/portfolio', name: 'portfolio.index', component: PortfolioIndex },
         { path: '/projects/:id/portfolio', name: 'portfolio.edit', component: PortfolioEditor, props: true },

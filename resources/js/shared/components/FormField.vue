@@ -155,8 +155,37 @@ const selectedLabel =
     })
 
 
+const selectedOptions =
+    computed(() => {
+        if (
+            !props.multiple ||
+            !Array.isArray(
+                props.modelValue
+            )
+        ) {
+            return []
+        }
+
+
+        return props.options.filter(
+            option =>
+                props.modelValue.some(
+                    value =>
+                        String(
+                            value
+                        ) ===
+                        String(
+                            option.value
+                        )
+                )
+        )
+    })
+
+
 const filteredOptions =
-    computed(() => props.options)
+    computed(() =>
+        props.options
+    )
 
 
 const fileCount =
@@ -206,6 +235,7 @@ function handleInput(
         'update:modelValue',
         value
     )
+
 
     emit(
         'change',
@@ -287,10 +317,12 @@ function handleTextareaInput(
     const value =
         event.target.value
 
+
     emit(
         'update:modelValue',
         value
     )
+
 
     emit(
         'change',
@@ -334,28 +366,165 @@ function toggleSelect() {
 }
 
 
-function handleSelectOption(
-    value
+function isOptionSelected(
+    option
 ) {
+    if (
+        props.multiple
+    ) {
+        if (
+            !Array.isArray(
+                props.modelValue
+            )
+        ) {
+            return false
+        }
+
+
+        return props.modelValue.some(
+            value =>
+                String(
+                    value
+                ) ===
+                String(
+                    option.value
+                )
+        )
+    }
+
+
+    return (
+        String(
+            props.modelValue
+        ) ===
+        String(
+            option.value
+        )
+    )
+}
+
+
+function handleSelectOption(
+    option
+) {
+    if (
+        props.multiple
+    ) {
+        const currentValues =
+            Array.isArray(
+                props.modelValue
+            )
+                ? [
+                    ...props.modelValue
+                ]
+                : []
+
+
+        const index =
+            currentValues.findIndex(
+                value =>
+                    String(
+                        value
+                    ) ===
+                    String(
+                        option.value
+                    )
+            )
+
+
+        if (
+            index === -1
+        ) {
+            currentValues.push(
+                option.value
+            )
+        } else {
+            currentValues.splice(
+                index,
+                1
+            )
+        }
+
+
+        emit(
+            'update:modelValue',
+            currentValues
+        )
+
+
+        emit(
+            'change',
+            currentValues
+        )
+
+
+        emit(
+            'select',
+            option.value
+        )
+
+
+        return
+    }
+
+
     emit(
         'update:modelValue',
-        value
+        option.value
     )
+
 
     emit(
         'change',
-        value
+        option.value
     )
 
 
     emit(
         'select',
-        value
+        option.value
     )
 
 
     isSelectOpen.value =
         false
+}
+
+
+function removeSelectedOption(
+    value
+) {
+    if (
+        !Array.isArray(
+            props.modelValue
+        )
+    ) {
+        return
+    }
+
+
+    const values =
+        props.modelValue.filter(
+            item =>
+                String(
+                    item
+                ) !==
+                String(
+                    value
+                )
+        )
+
+
+    emit(
+        'update:modelValue',
+        values
+    )
+
+
+    emit(
+        'change',
+        values
+    )
 }
 
 
@@ -365,10 +534,12 @@ function handleAutocompleteOption(
     const value =
         option.value
 
+
     emit(
         'update:modelValue',
         value
     )
+
 
     emit(
         'change',
@@ -556,10 +727,12 @@ onBeforeUnmount(() => {
         >
             {{ label }}
 
-
             <span
                 v-if="required"
-                class="text-accent p"
+                class="
+                    text-accent
+                    p
+                "
                 aria-hidden="true"
             >
                 *
@@ -712,11 +885,13 @@ onBeforeUnmount(() => {
                 "
             >
 
-
             <div
                 v-if="
                     isAutocompleteOpen &&
-                    (loading || filteredOptions.length)
+                    (
+                        loading ||
+                        filteredOptions.length
+                    )
                 "
                 class="
                     absolute
@@ -735,17 +910,20 @@ onBeforeUnmount(() => {
             >
                 <p
                     v-if="loading"
-                    class="p px-4 py-3 text-dark/50"
+                    class="
+                        p
+                        px-4
+                        py-3
+                        text-dark/50
+                    "
                 >
                     Searching addresses...
                 </p>
 
-
                 <button
                     v-else
                     v-for="
-                        option
-                        in filteredOptions
+                        option in filteredOptions
                     "
                     :key="
                         option.value
@@ -853,6 +1031,66 @@ onBeforeUnmount(() => {
             "
             class="relative"
         >
+            <!-- Selected tags -->
+            <div
+                v-if="
+                    multiple &&
+                    selectedOptions.length
+                "
+                class="
+                    mb-3
+                    flex
+                    flex-wrap
+                    gap-2
+                "
+            >
+                <span
+                    v-for="
+                        option in selectedOptions
+                    "
+                    :key="
+                        option.value
+                    "
+                    class="
+                        inline-flex
+                        items-center
+                        gap-2
+                        bg-accent
+                        px-2
+                        py-1
+                        font-mono
+                        text-[10px]
+                        font-bold
+                        uppercase
+                        leading-none
+                        text-light
+                    "
+                >
+                    {{
+                        option.label
+                    }}
+
+                    <button
+                        type="button"
+                        class="
+                            leading-none
+                            transition-opacity
+                            hover:opacity-60
+                        "
+                        aria-label="Remove"
+                        @click="
+                            removeSelectedOption(
+                                option.value
+                            )
+                        "
+                    >
+                        ×
+                    </button>
+                </span>
+            </div>
+
+
+            <!-- Select trigger -->
             <button
                 :id="id"
                 type="button"
@@ -861,7 +1099,7 @@ onBeforeUnmount(() => {
                     p
                     box-border
                     flex
-                    h-6
+                    min-h-6
                     w-full
                     appearance-none
                     items-center
@@ -871,8 +1109,7 @@ onBeforeUnmount(() => {
                     border-dark
                     bg-transparent
                     px-0
-                    py-0
-                    leading-6
+                    py-1
                     text-left
                     text-dark
                     outline-none
@@ -905,16 +1142,26 @@ onBeforeUnmount(() => {
                     "
                     :class="{
                         'text-dark/30':
-                            !selectedLabel
+                            multiple
+                                ? !selectedOptions.length
+                                : !selectedLabel
                     }"
                 >
                     {{
-                        selectedLabel ||
-                        placeholder ||
-                        'Select an option'
+                        multiple
+                            ? (
+                                selectedOptions.length
+                                    ? `${selectedOptions.length} selected`
+                                    : placeholder ||
+                                      'Select options'
+                            )
+                            : (
+                                selectedLabel ||
+                                placeholder ||
+                                'Select an option'
+                            )
                     }}
                 </span>
-
 
                 <span
                     class="
@@ -937,7 +1184,7 @@ onBeforeUnmount(() => {
             </button>
 
 
-            <!-- Select options -->
+            <!-- Options -->
             <div
                 v-if="
                     isSelectOpen
@@ -956,11 +1203,15 @@ onBeforeUnmount(() => {
                     bg-light
                 "
                 role="listbox"
+                :aria-multiselectable="
+                    multiple
+                        ? 'true'
+                        : undefined
+                "
             >
                 <button
                     v-for="
-                        option
-                        in options
+                        option in options
                     "
                     :key="
                         option.value
@@ -968,8 +1219,10 @@ onBeforeUnmount(() => {
                     type="button"
                     class="
                         p
-                        block
+                        flex
                         w-full
+                        items-center
+                        justify-between
                         border-0
                         bg-light
                         px-4
@@ -981,15 +1234,61 @@ onBeforeUnmount(() => {
                         hover:bg-dark
                         hover:text-light
                     "
+                    :class="{
+                        'bg-dark text-light':
+                            isOptionSelected(
+                                option
+                            )
+                    }"
                     role="option"
+                    :aria-selected="
+                        isOptionSelected(
+                            option
+                        )
+                    "
                     @mousedown.prevent="
                         handleSelectOption(
-                            option.value
+                            option
                         )
                     "
                 >
-                    {{ option.label }}
+                    <span>
+                        {{
+                            option.label
+                        }}
+                    </span>
+
+                    <span
+                        v-if="
+                            multiple &&
+                            isOptionSelected(
+                                option
+                            )
+                        "
+                        class="
+                            ml-4
+                            font-mono
+                            text-xs
+                        "
+                        aria-hidden="true"
+                    >
+                        ✓
+                    </span>
                 </button>
+
+                <p
+                    v-if="
+                        !options.length
+                    "
+                    class="
+                        p
+                        px-4
+                        py-3
+                        text-dark/40
+                    "
+                >
+                    No options available.
+                </p>
             </div>
         </div>
 
@@ -1014,7 +1313,6 @@ onBeforeUnmount(() => {
                     handleFileChange
                 "
             >
-
 
             <button
                 type="button"
@@ -1065,10 +1363,9 @@ onBeforeUnmount(() => {
                         fileCount
                             ? `${fileCount} file${fileCount === 1 ? '' : 's'} selected`
                             : placeholder ||
-                                'Choose file'
+                              'Choose file'
                     }}
                 </span>
-
 
                 <span
                     class="
@@ -1129,7 +1426,6 @@ onBeforeUnmount(() => {
                 >
                     {{ token }}
 
-
                     <button
                         type="button"
                         aria-label="Remove"
@@ -1148,7 +1444,6 @@ onBeforeUnmount(() => {
                     </button>
                 </span>
             </div>
-
 
             <input
                 :id="id"

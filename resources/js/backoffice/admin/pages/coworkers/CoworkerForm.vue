@@ -1,9 +1,11 @@
 <script setup>
 import {
     computed,
+    onBeforeUnmount,
     onMounted,
     reactive,
-    ref
+    ref,
+    watch
 } from 'vue'
 
 
@@ -17,6 +19,7 @@ import api, {
     errorMessage,
     validationErrors
 } from '../../composables/useAdminApi'
+import useAutosavePolicy from '../../composables/useAutosavePolicy'
 
 
 import AdminPageHeader from '../../components/AdminPageHeader.vue'
@@ -26,6 +29,13 @@ import AdminConfirmDialog from '../../components/AdminConfirmDialog.vue'
 import Button from '@shared/components/Button.vue'
 import FormField from '@shared/components/FormField.vue'
 import Toast from '@shared/components/Toast.vue'
+
+
+const {
+    setLastSavedAt,
+    setStatus
+} =
+    useAutosavePolicy()
 
 
 const props =
@@ -81,6 +91,18 @@ const projectsLoading =
     ref(false)
 
 
+const autosaveTimer =
+    ref(null)
+
+
+const suppressAutosave =
+    ref(false)
+
+
+const lastSavedSnapshot =
+    ref('')
+
+
 const showErrorToast =
     ref(false)
 
@@ -121,10 +143,6 @@ const breadcrumbs =
     computed(() => {
         const items = [
             {
-                label: 'Team'
-            },
-
-            {
                 label: 'Coworkers',
                 to: {
                     name:
@@ -146,6 +164,20 @@ const breadcrumbs =
     })
 
 
+const projectOptions =
+    computed(() =>
+        projects.value.map(
+            project => ({
+                label:
+                    project.name,
+
+                value:
+                    project.id
+            })
+        )
+    )
+
+
 function showError(
     message
 ) {
@@ -161,6 +193,35 @@ function showError(
         showErrorToast.value =
             true
     })
+}
+
+
+function getAutosaveSnapshot() {
+    return JSON.stringify({
+        name:
+            String(
+                form.name || ''
+            ).trim(),
+
+        email:
+            String(
+                form.email || ''
+            ).trim().toLowerCase(),
+
+        project_ids:
+            [...form.project_ids]
+                .map(value => Number(value))
+                .filter(Number.isFinite)
+                .sort((a, b) => a - b)
+    })
+}
+
+
+function canAutosave() {
+    return Boolean(
+        String(form.name || '').trim() &&
+        String(form.email || '').trim()
+    )
 }
 
 
@@ -201,8 +262,15 @@ async function loadCoworker() {
         loading.value =
             false
 
+        lastSavedSnapshot.value =
+            getAutosaveSnapshot()
+
         return
     }
+
+
+    suppressAutosave.value =
+        true
 
 
     try {
@@ -238,6 +306,10 @@ async function loadCoworker() {
                     )
             }
         )
+
+
+        lastSavedSnapshot.value =
+            getAutosaveSnapshot()
     } catch (
         exception
     ) {
@@ -249,11 +321,15 @@ async function loadCoworker() {
     } finally {
         loading.value =
             false
+
+
+        suppressAutosave.value =
+            false
     }
 }
 
 
-async function submit() {
+async function saveCoworker() {
     if (
         saving.value
     ) {
@@ -261,8 +337,23 @@ async function submit() {
     }
 
 
+    if (
+        !canAutosave()
+    ) {
+        return
+    }
+
+
+    suppressAutosave.value =
+        true
+
     saving.value =
         true
+
+
+    setStatus(
+        'saving'
+    )
 
 
     errors.value =
@@ -294,17 +385,50 @@ async function submit() {
                 payload
             )
         } else {
-            await api.post(
+            const response =
+                await api.post(
                 '/coworkers',
                 payload
             )
+
+
+            const createdId =
+                response?.data?.data?.id ||
+                response?.data?.id ||
+                null
+
+
+            if (
+                createdId
+            ) {
+                router.replace({
+                    name:
+                        'coworkers.edit',
+
+                    params: {
+                        id:
+                            createdId
+                    }
+                })
+
+
+                lastSavedSnapshot.value =
+                    getAutosaveSnapshot()
+
+
+                setLastSavedAt()
+
+
+                return
+            }
         }
 
 
-        router.push({
-            name:
-                'coworkers.index'
-        })
+        lastSavedSnapshot.value =
+            getAutosaveSnapshot()
+
+
+        setLastSavedAt()
     } catch (
         exception
     ) {
@@ -322,15 +446,16 @@ async function submit() {
     } finally {
         saving.value =
             false
+
+
+        setStatus(
+            'idle'
+        )
+
+
+        suppressAutosave.value =
+            false
     }
-}
-
-
-function cancel() {
-    router.push({
-        name:
-            'coworkers.index'
-    })
 }
 
 
@@ -413,12 +538,83 @@ function closeDeleteConfirm() {
 }
 
 
+function scheduleAutosave() {
+    if (
+        suppressAutosave.value ||
+        loading.value ||
+        saving.value ||
+        !canAutosave()
+    ) {
+        return
+    }
+
+
+    const snapshot =
+        getAutosaveSnapshot()
+
+
+    if (
+        lastSavedSnapshot.value &&
+        snapshot ===
+        lastSavedSnapshot.value
+    ) {
+        return
+    }
+
+
+    if (
+        autosaveTimer.value
+    ) {
+        clearTimeout(
+            autosaveTimer.value
+        )
+    }
+
+
+    autosaveTimer.value =
+        setTimeout(() => {
+            if (
+                !saving.value &&
+                canAutosave()
+            ) {
+                void saveCoworker()
+            }
+        }, 600)
+}
+
+
+watch(
+    () => ({
+        ...form
+    }),
+    () => {
+        scheduleAutosave()
+    },
+    {
+        deep: true
+    }
+)
+
+
 onMounted(
     async () => {
         await Promise.all([
             loadProjects(),
             loadCoworker()
         ])
+    }
+)
+
+
+onBeforeUnmount(
+    () => {
+        if (
+            autosaveTimer.value
+        ) {
+            clearTimeout(
+                autosaveTimer.value
+            )
+        }
     }
 )
 </script>
@@ -448,7 +644,7 @@ onMounted(
             :description="
                 editing
                     ? 'Update the coworker and manage their project access.'
-                    : 'Create a coworker and assign the projects they can access.'
+                    : 'Create a coworker and assign the projects they can access. Changes save automatically.'
             "
             :breadcrumbs="
                 breadcrumbs
@@ -489,9 +685,10 @@ onMounted(
                 submit
             "
         >
-            <div
+            <!-- Information -->
+            <section
                 class="
-                    space-y-4
+                    space-y-8
                 "
             >
                 <h2
@@ -563,139 +760,34 @@ onMounted(
                             space-y-8
                         "
                     >
-                        <div
-                            class="
-                                space-y-3
+                        <FormField
+                            id="coworker-projects"
+                            v-model="
+                                form.project_ids
                             "
-                        >
-                            <p
-                                class="
-                                    h3
-                                "
-                            >
-                                Projects
-                            </p>
-
-
-                            <p
-                                class="
-                                    p
-                                    uppercase
-                                    text-dark/40
-                                "
-                            >
-                                Select the projects this
-                                coworker can access.
-                            </p>
-
-
-                            <div
-                                class="
-                                    border-b
-                                    border-dark
-                                "
-                            >
-                                <select
-                                    id="coworker-projects"
-                                    v-model="
-                                        form.project_ids
-                                    "
-                                    multiple
-                                    :disabled="
-                                        projectsLoading ||
-                                        saving
-                                    "
-                                    class="
-                                        block
-                                        min-h-48
-                                        w-full
-                                        resize-none
-                                        border-0
-                                        bg-transparent
-                                        px-0
-                                        py-2
-                                        text-dark
-                                        outline-none
-                                        focus:ring-0
-                                    "
-                                >
-                                    <option
-                                        v-for="
-                                            project in projects
-                                        "
-                                        :key="
-                                            project.id
-                                        "
-                                        :value="
-                                            project.id
-                                        "
-                                    >
-                                        {{
-                                            project.name
-                                        }}
-                                    </option>
-                                </select>
-                            </div>
-
-
-                            <p
-                                v-if="
-                                    errors.project_ids
-                                "
-                                class="
-                                    p
-                                    text-red-700
-                                "
-                            >
-                                {{
-                                    errors.project_ids[0]
-                                }}
-                            </p>
-                        </div>
+                            name="project_ids"
+                            type="select"
+                            label="Projects"
+                            placeholder="Select projects"
+                            multiple
+                            :options="
+                                projectOptions
+                            "
+                            :loading="
+                                projectsLoading
+                            "
+                            :disabled="
+                                projectsLoading ||
+                                saving
+                            "
+                            :error="
+                                errors.project_ids?.[0] ||
+                                ''
+                            "
+                        />
                     </section>
                 </div>
-            </div>
-
-
-            <!-- Actions -->
-            <div
-                class="
-                    flex
-                    flex-col
-                    gap-4
-                "
-            >
-                <Button
-                    type="button"
-                    text="cancel"
-                    :disabled="
-                        saving
-                    "
-                    align="left"
-                    @click="
-                        cancel
-                    "
-                />
-
-
-                <Button
-                    type="submit"
-                    :text="
-                        editing
-                            ? 'save changes'
-                            : 'create coworker'
-                    "
-                    loading-text="saving"
-                    :loading="
-                        saving
-                    "
-                    :disabled="
-                        saving
-                    "
-                    variant="accent"
-                    align="left"
-                />
-            </div>
+            </section>
 
 
             <!-- Danger zone -->
@@ -705,9 +797,6 @@ onMounted(
                 "
                 class="
                     space-y-4
-                    border-t
-                    border-accent
-                    pt-8
                 "
             >
                 <h2
@@ -739,6 +828,7 @@ onMounted(
         </form>
 
 
+        <!-- Delete confirmation -->
         <AdminConfirmDialog
             :open="
                 showDeleteConfirm
