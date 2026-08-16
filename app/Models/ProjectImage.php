@@ -15,11 +15,14 @@ class ProjectImage extends Model
         'path',
         'description',
         'description_translations',
+        'alt',
+        'alt_translations',
         'sort_order',
     ];
 
     protected $casts = [
         'description_translations' => 'array',
+        'alt_translations' => 'array',
     ];
 
     public function project(): BelongsTo

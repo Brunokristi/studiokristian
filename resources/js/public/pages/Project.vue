@@ -14,7 +14,7 @@ type ApiProject = {
   name: string;
   url: string;
   summary: string | null;
-  images: Array<{ path: string; description: string | null }>;
+  images: Array<{ path: string; description: string | null; alt?: string | null }>;
   features: Array<{ title: string; description: string }>;
   live_url?: string | null;
 };
@@ -72,7 +72,7 @@ async function loadProject() {
     const project: ApiProject = await response.json();
     const mappedImages = project.images.map((image, index) => ({
       src: image.path,
-      alt: image.description || `Project image ${index + 1}`,
+      alt: image.alt || image.description || `Project image ${index + 1}`,
       caption: image.description || `Image ${index + 1}`,
     }));
 
@@ -132,8 +132,9 @@ watch(
         <template v-else>
         <Slideshow
             :images="images"
-            :autoplay="true"
             :interval="5000"
+            :editable="false"
+
         />
 
         <h2 class="h2 text-accent">{{ projectName }}</h2>

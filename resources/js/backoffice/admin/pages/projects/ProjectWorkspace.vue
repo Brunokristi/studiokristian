@@ -950,7 +950,11 @@ function normalizeProjectFolders(
             previousFolders
         )
             ? [
-                ...previousFolders
+                ...previousFolders.filter(
+                    item =>
+                        !item
+                            ?.__uploaded_file
+                )
             ]
             : []
 
@@ -1059,9 +1063,41 @@ function normalizeProjectFolders(
 }
 
 
+function structureItemsOnly(
+    items
+) {
+    return (
+        Array.isArray(items)
+            ? items
+            : []
+    ).filter(
+        item =>
+            !item
+                ?.__uploaded_file
+    )
+}
+
+
+function uploadedItemsOnly(
+    items
+) {
+    return (
+        Array.isArray(items)
+            ? items
+            : []
+    ).filter(
+        item =>
+            Boolean(
+                item
+                    ?.__uploaded_file
+            )
+    )
+}
+
+
 function foldersPayloadForSave() {
     const items =
-        (
+        structureItemsOnly(
             projectFolders.value ||
             []
         ).map(
@@ -1332,6 +1368,148 @@ async function loadContacts(
 }
 
 
+function mapUploadedFileToStructureItem(
+    file,
+    structureItems
+) {
+    const folderId =
+        file?.folder_id ??
+        null
+
+    const parentFolder =
+        folderId === null
+            ? null
+            : (
+                structureItems ||
+                []
+            ).find(
+                item =>
+                    String(
+                        item.id
+                    ) ===
+                    String(
+                        folderId
+                    )
+            )
+
+    return {
+        id: `project-file-${file.id}`,
+        client_key: `project-file-${file.id}`,
+        type: 'file',
+        resource_type: 'file',
+        name:
+            file?.display_name ||
+            file?.original_filename ||
+            'file',
+        parent_id: folderId,
+        parent_client_key:
+            parentFolder
+                ? String(
+                    parentFolder.client_key ||
+                    parentFolder.id
+                )
+                : null,
+        mime_type:
+            file?.mime_type ||
+            '',
+        extension:
+            file?.extension ||
+            '',
+        size: Number(
+            file?.size ||
+            0
+        ),
+        open_url:
+            file?.open_url ||
+            '',
+        download_url:
+            file?.download_url ||
+            '',
+        __uploaded_file: true
+    }
+}
+
+
+async function fetchProjectUploadedFileItems(
+    id,
+    structureItems
+) {
+    const collected = []
+    const queue = [null]
+    const visited =
+        new Set()
+
+    while (queue.length) {
+        const folderId =
+            queue.shift()
+
+        const response =
+            await api.get(
+                `/projects/${id}/files`,
+                {
+                    params:
+                        folderId === null
+                            ? {}
+                            : {
+                                folder_id:
+                                    folderId
+                            }
+                }
+            )
+
+        const folders =
+            Array.isArray(
+                response.data?.folders
+            )
+                ? response.data.folders
+                : []
+
+        const files =
+            Array.isArray(
+                response.data?.files
+            )
+                ? response.data.files
+                : []
+
+        folders.forEach(
+            folder => {
+                const key =
+                    String(
+                        folder.id
+                    )
+
+                if (
+                    visited.has(key)
+                ) {
+                    return
+                }
+
+                visited.add(
+                    key
+                )
+
+                queue.push(
+                    folder.id
+                )
+            }
+        )
+
+        files.forEach(
+            file => {
+                collected.push(
+                    mapUploadedFileToStructureItem(
+                        file,
+                        structureItems
+                    )
+                )
+            }
+        )
+    }
+
+    return collected
+}
+
+
 async function loadProjectDetails(
     id
 ) {
@@ -1350,7 +1528,7 @@ async function loadProjectDetails(
     )
 
 
-    projectFolders.value =
+    const normalizedStructure =
         normalizeProjectFolders(
             projectData?.folders ||
             [],
@@ -1358,6 +1536,17 @@ async function loadProjectDetails(
             projectFolders.value ||
             []
         )
+
+    const uploadedItems =
+        await fetchProjectUploadedFileItems(
+            id,
+            normalizedStructure
+        )
+
+    projectFolders.value = [
+        ...normalizedStructure,
+        ...uploadedItems
+    ]
 
 
     tickets.value =
@@ -2381,14 +2570,22 @@ async function saveProjectStructure() {
             )
 
 
+        const uploadedItems =
+            uploadedItemsOnly(
+                projectFolders.value
+            )
+
         projectFolders.value =
-            normalizeProjectFolders(
+            [
+                ...normalizeProjectFolders(
                 response.data?.folders ||
                 [],
 
                 projectFolders.value ||
                 []
-            )
+                ),
+                ...uploadedItems
+            ]
     } catch (
         exception
     ) {
@@ -2400,6 +2597,185 @@ async function saveProjectStructure() {
     } finally {
         structureSaving.value =
             false
+    }
+}
+
+
+async function handleProjectFileUpload(
+    payload = {}
+) {
+    if (!projectId.value) {
+        showError(
+            'Create and save the project before uploading files.'
+        )
+
+        return
+    }
+
+    const files = Array.from(
+        payload?.files ||
+        []
+    )
+
+    if (!files.length) {
+        return
+    }
+
+    const parent =
+        payload?.parent ||
+        null
+
+    let folderId = null
+
+    if (
+        isPersistedFolderId(
+            payload?.folderId
+        )
+    ) {
+        folderId = Number(
+            payload.folderId
+        )
+    } else if (parent?.client_key) {
+        const match =
+            (projectFolders.value || []).find(
+                item =>
+                    String(
+                        item.client_key
+                    ) ===
+                    String(
+                        parent.client_key
+                    )
+            )
+
+        if (
+            isPersistedFolderId(
+                match?.id
+            )
+        ) {
+            folderId = Number(
+                match.id
+            )
+        }
+    }
+
+    if (
+        payload?.folderId &&
+        !folderId
+    ) {
+        await saveProjectStructure()
+
+        const refreshed =
+            (projectFolders.value || []).find(
+                item =>
+                    String(
+                        item.client_key
+                    ) ===
+                    String(
+                        parent?.client_key ||
+                        payload.folderId
+                    )
+            )
+
+        if (
+            isPersistedFolderId(
+                refreshed?.id
+            )
+        ) {
+            folderId = Number(
+                refreshed.id
+            )
+        }
+    }
+
+    const maxFilesPerRequest = 20
+
+    try {
+        const chunks = []
+
+        for (
+            let offset = 0;
+            offset < files.length;
+            offset += maxFilesPerRequest
+        ) {
+            chunks.push(
+                files.slice(
+                    offset,
+                    offset +
+                        maxFilesPerRequest
+                )
+            )
+        }
+
+        for (
+            let chunkIndex = 0;
+            chunkIndex < chunks.length;
+            chunkIndex += 1
+        ) {
+            const chunk =
+                chunks[chunkIndex]
+
+            const chunkOffset =
+                chunkIndex *
+                maxFilesPerRequest
+
+            const body =
+                new FormData()
+
+            chunk.forEach(
+                (file, index) => {
+                    const sourceIndex =
+                        chunkOffset +
+                        index
+
+                    const relativePath =
+                        String(
+                            payload
+                                ?.relativePaths?.[
+                                sourceIndex
+                            ] ||
+                            file.webkitRelativePath ||
+                            file.name
+                        )
+
+                    body.append(
+                        'files[]',
+                        file
+                    )
+
+                    body.append(
+                        `relative_paths[${index}]`,
+                        relativePath
+                    )
+                }
+            )
+
+            if (folderId) {
+                body.append(
+                    'folder_id',
+                    String(folderId)
+                )
+            }
+
+            body.append(
+                'client_visible',
+                '1'
+            )
+
+            await api.post(
+                `/projects/${projectId.value}/files`,
+                body
+            )
+        }
+
+        await loadProjectDetails(
+            projectId.value
+        )
+    } catch (exception) {
+        showError(
+            errorMessage(
+                exception
+            )
+        )
     }
 }
 
@@ -2445,11 +2821,27 @@ function normalizeOpenUrl(
 function handleProjectStructureOpenFile(
     item
 ) {
+    const openUrl =
+        String(
+            item?.open_url ||
+            ''
+        ).trim()
+
+    if (openUrl) {
+        window.open(
+            openUrl,
+            '_blank',
+            'noopener,noreferrer'
+        )
+
+        return
+    }
+
     if (
         item?.resource_type ===
         'link'
     ) {
-        const openUrl =
+        const linkUrl =
             normalizeOpenUrl(
                 item?.url ||
                 ''
@@ -2457,10 +2849,10 @@ function handleProjectStructureOpenFile(
 
 
         if (
-            openUrl
+            linkUrl
         ) {
             window.open(
-                openUrl,
+                linkUrl,
                 '_blank',
                 'noopener,noreferrer'
             )
@@ -3903,6 +4295,9 @@ onBeforeUnmount(
                             "
                             @download-file="
                                 handleProjectStructureDownloadFile
+                            "
+                            @upload-files="
+                                handleProjectFileUpload
                             "
                         />
                     </section>

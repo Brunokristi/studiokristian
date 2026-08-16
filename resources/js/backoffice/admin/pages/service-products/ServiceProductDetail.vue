@@ -1427,12 +1427,36 @@ async function handleBlueprintFileUpload(payload = {}) {
             chunks.push(files.slice(offset, offset + maxFilesPerRequest))
         }
 
-        for (const chunk of chunks) {
+        for (
+            let chunkIndex = 0;
+            chunkIndex < chunks.length;
+            chunkIndex += 1
+        ) {
+            const chunk =
+                chunks[chunkIndex]
+
+            const chunkOffset =
+                chunkIndex *
+                maxFilesPerRequest
+
             const body = new FormData()
 
             chunk.forEach((file, index) => {
+                const sourceIndex =
+                    chunkOffset + index
+
+                const relativePath =
+                    String(
+                        payload
+                            ?.relativePaths?.[
+                            sourceIndex
+                        ] ||
+                        file.webkitRelativePath ||
+                        file.name
+                    )
+
                 body.append('files[]', file)
-                body.append(`relative_paths[${index}]`, file.webkitRelativePath || file.name)
+                body.append(`relative_paths[${index}]`, relativePath)
             })
 
             if (folderId) {

@@ -55,6 +55,7 @@ class ProjectController extends Controller
             'images' => $project->images->map(fn ($image) => [
                 'path' => $image->path,
                 'description' => $this->localizedValue($image->description_translations, $image->description, $locale),
+                'alt' => $this->localizedValue($image->alt_translations, $image->alt, $locale),
             ]),
             'features' => $project->features->map(fn ($feature) => [
                 'title' => $this->localizedValue($feature->title_translations, $feature->title, $locale),

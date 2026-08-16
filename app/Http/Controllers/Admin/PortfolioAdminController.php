@@ -115,6 +115,8 @@ class PortfolioAdminController extends Controller
                     'existing_path' => $image->path,
                     'description' => $image->description ?? '',
                     'description_sk' => data_get($image->description_translations, 'sk', ''),
+                    'alt' => $image->alt ?? '',
+                    'alt_sk' => data_get($image->alt_translations, 'sk', ''),
                     'sort_order' => $image->sort_order,
                 ])->values(),
                 'features' => $project->features->map(fn ($feature) => [
@@ -198,6 +200,8 @@ class PortfolioAdminController extends Controller
             'images.*.file' => ['nullable', 'file', 'mimes:jpg,jpeg,png,gif,webp,svg,avif', 'max:20480'],
             'images.*.description' => ['nullable', 'string', 'max:255'],
             'images.*.description_sk' => ['nullable', 'string', 'max:255'],
+            'images.*.alt' => ['nullable', 'string', 'max:255'],
+            'images.*.alt_sk' => ['nullable', 'string', 'max:255'],
             'images.*.sort_order' => ['nullable', 'integer', 'min:0'],
             'features' => ['nullable', 'array'],
             'features.*.title' => ['nullable', 'string', 'max:255'],
@@ -230,11 +234,15 @@ class PortfolioAdminController extends Controller
 
             $description = $this->nullableText($image['description'] ?? null);
             $descriptionSk = $this->resolveSlovakText($description, $image['description_sk'] ?? null);
+            $alt = $this->nullableText($image['alt'] ?? null);
+            $altSk = $this->resolveSlovakText($alt, $image['alt_sk'] ?? null);
 
             $project->images()->create([
                 'path' => $path,
                 'description' => $description,
                 'description_translations' => $this->translationArray($description, $descriptionSk),
+                'alt' => $alt,
+                'alt_translations' => $this->translationArray($alt, $altSk),
                 'sort_order' => (int) ($image['sort_order'] ?? 0),
             ]);
         }
@@ -245,15 +253,20 @@ class PortfolioAdminController extends Controller
         $project->features()->delete();
 
         foreach ($features as $feature) {
-            $title = $this->nullableText($feature['title'] ?? null);
-            $description = $this->nullableText($feature['description'] ?? null);
+            $titleEn = $this->nullableText($feature['title'] ?? null);
+            $titleSkInput = $this->nullableText($feature['title_sk'] ?? null);
+            $descriptionEn = $this->nullableText($feature['description'] ?? null);
+            $descriptionSkInput = $this->nullableText($feature['description_sk'] ?? null);
+
+            $title = $titleEn ?? $titleSkInput;
+            $description = $descriptionEn ?? $descriptionSkInput;
 
             if ($title === null || $description === null) {
                 continue;
             }
 
-            $titleSk = $this->resolveSlovakText($title, $feature['title_sk'] ?? null);
-            $descriptionSk = $this->resolveSlovakText($description, $feature['description_sk'] ?? null);
+            $titleSk = $this->resolveSlovakText($title, $titleSkInput);
+            $descriptionSk = $this->resolveSlovakText($description, $descriptionSkInput);
 
             $project->features()->create([
                 'title' => $title,

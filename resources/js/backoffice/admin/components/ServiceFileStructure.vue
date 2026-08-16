@@ -1732,14 +1732,35 @@ function handleUploadChange(
     event
 ) {
     const selectedFiles =
-        event?.target?.files ||
-        null
+        Array.from(
+            event?.target?.files ||
+            []
+        )
 
-    if (selectedFiles) {
+    const isDirectoryUpload =
+        Boolean(
+            event?.target
+                ?.webkitdirectory
+        )
+
+    const relativePaths =
+        selectedFiles.map(
+            file =>
+                String(
+                    file
+                        ?.webkitRelativePath ||
+                    file?.name ||
+                    ''
+                )
+        )
+
+    if (selectedFiles.length) {
         emit(
             'upload-files',
             {
                 files: selectedFiles,
+                relativePaths,
+                isDirectoryUpload,
                 folderId: currentFolder.value,
                 parent: currentFolder.value
                     ? getItem(
