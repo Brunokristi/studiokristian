@@ -13,6 +13,7 @@ import {
 import Button from '@shared/components/Button.vue'
 import FormField from '@shared/components/FormField.vue'
 import Tag from '@shared/components/Tag.vue'
+import AdminModalShell from '@admin/components/AdminModalShell.vue'
 import AdminConfirmDialog from '@admin/components/AdminConfirmDialog.vue'
 
 
@@ -3088,88 +3089,93 @@ watch(
         </div>
 
 
-        <div
-            v-if="
-                moveTarget
+        <AdminModalShell
+            :open="
+                Boolean(
+                    moveTarget
+                )
             "
-            class="
-                fixed
-                inset-0
-                z-40
-                flex
-                items-center
-                justify-center
-                bg-black/50
-                p-4
-            "
-            @click.self="
+            title="Move item"
+            max-width-class="max-w-lg"
+            @close="
                 closeMoveDialog
             "
         >
-            <div
+            <p
                 class="
-                    w-full
-                    max-w-lg
-                    border
-                    border-accent
-                    bg-light
-                    p-6
-                    sm:p-8
+                    p
+                    uppercase
+                    text-dark/60
                 "
             >
-                <h3
-                    class="
-                        h2
-                        text-left
-                        text-accent
-                    "
-                >
-                    Move item
-                </h3>
+                Move
+                <strong>
+                    {{ moveTarget?.name }}
+                </strong>
+                to:
+            </p>
 
-                <p
-                    class="
-                        mt-4
-                        p
-                        uppercase
-                        text-dark/60
-                    "
-                >
-                    Move
-                    <strong>
-                        {{ moveTarget?.name }}
-                    </strong>
-                    to:
-                </p>
-
+            <div
+                class="
+                    mt-5
+                    border
+                    border-accent/30
+                "
+            >
                 <div
                     class="
-                        mt-5
-                        border
-                        border-accent/30
+                        flex
+                        items-center
+                        justify-between
+                        gap-3
+                        border-b
+                        border-accent/20
+                        px-4
+                        py-3
                     "
                 >
                     <div
                         class="
                             flex
+                            min-w-0
                             items-center
-                            justify-between
-                            gap-3
-                            border-b
-                            border-accent/20
-                            px-4
-                            py-3
+                            gap-2
+                            overflow-x-auto
                         "
                     >
-                        <div
+                        <button
+                            type="button"
                             class="
-                                flex
-                                min-w-0
-                                items-center
-                                gap-2
-                                overflow-x-auto
+                                p
+                                uppercase
+                                transition-colors
+                                hover:text-accent
+                            "
+                            @click="
+                                browseMoveRoot
                             "
                         >
+                            Project
+                        </button>
+
+                        <template
+                            v-for="
+                                crumb
+                                in moveBrowserBreadcrumbs
+                            "
+                            :key="
+                                crumb.id
+                            "
+                        >
+                            <span
+                                class="
+                                    p
+                                    text-dark/40
+                                "
+                            >
+                                /
+                            </span>
+
                             <button
                                 type="button"
                                 class="
@@ -3179,502 +3185,436 @@ watch(
                                     hover:text-accent
                                 "
                                 @click="
-                                    browseMoveRoot
+                                    browseMoveFolder(crumb)
                                 "
                             >
-                                Project
+                                {{ crumb.name }}
                             </button>
+                        </template>
+                    </div>
 
-                            <template
-                                v-for="
-                                    crumb
-                                    in moveBrowserBreadcrumbs
-                                "
-                                :key="
-                                    crumb.id
-                                "
-                            >
-                                <span
-                                    class="
-                                        p
-                                        text-dark/40
-                                    "
-                                >
-                                    /
-                                </span>
+                    <button
+                        type="button"
+                        class="
+                            font-mono
+                            text-xs
+                            font-bold
+                            uppercase
+                            text-dark/60
+                            transition-colors
+                            hover:text-accent
+                        "
+                        @click="
+                            browseMoveUp
+                        "
+                    >
+                        Up
+                    </button>
+                </div>
 
-                                <button
-                                    type="button"
-                                    class="
-                                        p
-                                        uppercase
-                                        transition-colors
-                                        hover:text-accent
-                                    "
-                                    @click="
-                                        browseMoveFolder(crumb)
-                                    "
-                                >
-                                    {{ crumb.name }}
-                                </button>
-                            </template>
-                        </div>
-
-                        <button
-                            type="button"
+                <div
+                    class="
+                        max-h-64
+                        overflow-y-auto
+                        divide-y
+                        divide-accent/15
+                    "
+                >
+                    <button
+                        v-for="
+                            folder
+                            in moveBrowserFolders
+                        "
+                        :key="
+                            folder.id
+                        "
+                        type="button"
+                        class="
+                            flex
+                            w-full
+                            items-center
+                            justify-between
+                            gap-3
+                            px-4
+                            py-3
+                            text-left
+                            transition-colors
+                            hover:bg-accent/[0.05]
+                        "
+                        @click="
+                            browseMoveFolder(folder)
+                        "
+                    >
+                        <span
                             class="
                                 font-mono
                                 text-xs
                                 font-bold
                                 uppercase
-                                text-dark/60
-                                transition-colors
-                                hover:text-accent
-                            "
-                            @click="
-                                browseMoveUp
                             "
                         >
-                            Up
-                        </button>
-                    </div>
-
-                    <div
-                        class="
-                            max-h-64
-                            overflow-y-auto
-                            divide-y
-                            divide-accent/15
-                        "
-                    >
-                        <button
-                            v-for="
-                                folder
-                                in moveBrowserFolders
-                            "
-                            :key="
-                                folder.id
-                            "
-                            type="button"
-                            class="
-                                flex
-                                w-full
-                                items-center
-                                justify-between
-                                gap-3
-                                px-4
-                                py-3
-                                text-left
-                                transition-colors
-                                hover:bg-accent/[0.05]
-                            "
-                            @click="
-                                browseMoveFolder(folder)
-                            "
-                        >
-                            <span
-                                class="
-                                    font-mono
-                                    text-xs
-                                    font-bold
-                                    uppercase
-                                "
-                            >
-                                {{ folder.name }}
-                            </span>
-
-                            <i
-                                class="
-                                    bi
-                                    bi-chevron-right
-                                    text-dark/50
-                                "
-                                aria-hidden="true"
-                            />
-                        </button>
-
-                        <p
-                            v-if="
-                                !moveBrowserFolders.length
-                            "
-                            class="
-                                p-4
-                                text-center
-                                font-mono
-                                text-xs
-                                uppercase
-                                text-dark/50
-                            "
-                        >
-                            No folders here
-                        </p>
-                    </div>
-
-                    <div
-                        class="
-                            border-t
-                            border-accent/20
-                            px-4
-                            py-3
-                            flex
-                            items-center
-                            justify-between
-                            gap-3
-                        "
-                    >
-                        <span
-                            class="
-                                p
-                                uppercase
-                                text-dark/60
-                            "
-                        >
-                            Selected: {{ selectedMoveDestinationLabel }}
+                            {{ folder.name }}
                         </span>
 
-                        <Button
-                            type="button"
-                            text="select this location"
-                            align="right"
-                            @click="
-                                selectCurrentMoveDestination
+                        <i
+                            class="
+                                bi
+                                bi-chevron-right
+                                text-dark/50
                             "
+                            aria-hidden="true"
                         />
-                    </div>
-                </div>
+                    </button>
 
-                <p
-                    v-if="
-                        moveError
-                    "
-                    class="
-                        mt-3
-                        p
-                        uppercase
-                        text-red-700
-                    "
-                >
-                    {{ moveError }}
-                </p>
-
-                <div
-                    class="
-                        mt-8
-                        flex
-                        flex-wrap
-                        gap-4
-                        justify-end
-                    "
-                >
-                    <Button
-                        type="button"
-                        text="cancel"
-                        align="right"
-                        @click="
-                            closeMoveDialog
-                        "
-                    />
-
-                    <Button
-                        type="button"
-                        text="move"
-                        variant="accent"
-                        align="right"
-                        @click="
-                            confirmMove
-                        "
-                    />
-                </div>
-            </div>
-        </div>
-
-
-        <div
-            v-if="
-                showFileCreator
-            "
-            class="
-                fixed
-                inset-0
-                z-40
-                flex
-                items-center
-                justify-center
-                bg-black/50
-                p-4
-            "
-            @click.self="
-                closeFileCreator
-            "
-        >
-            <div
-                class="
-                    w-full
-                    max-w-2xl
-                    border
-                    border-accent
-                    bg-light
-                    p-6
-                    sm:p-8
-                "
-            >
-                <h3
-                    class="
-                        h2
-                        text-left
-                        text-accent
-                    "
-                >
-                    {{
-                        fileCreatorMode ===
-                        'edit'
-                            ? 'Edit file'
-                            : 'Create file'
-                    }}
-                </h3>
-
-                <div
-                    v-if="
-                        fileCreatorStep ===
-                        'type'
-                    "
-                    class="
-                        mt-6
-                        space-y-4
-                    "
-                >
                     <p
+                        v-if="
+                            !moveBrowserFolders.length
+                        "
+                        class="
+                            p-4
+                            text-center
+                            font-mono
+                            text-xs
+                            uppercase
+                            text-dark/50
+                        "
+                    >
+                        No folders here
+                    </p>
+                </div>
+
+                <div
+                    class="
+                        border-t
+                        border-accent/20
+                        px-4
+                        py-3
+                        flex
+                        items-center
+                        justify-between
+                        gap-3
+                    "
+                >
+                    <span
                         class="
                             p
                             uppercase
                             text-dark/60
                         "
                     >
-                        What do you want to create?
-                    </p>
-
-                    <div
-                        class="
-                            grid
-                            gap-3
-                            sm:grid-cols-2
-                        "
-                    >
-                        <button
-                            type="button"
-                            class="
-                                flex
-                                items-center
-                                justify-center
-                                border
-                                border-accent
-                                px-4
-                                py-4
-                                font-mono
-                                text-xs
-                                font-bold
-                                uppercase
-                                text-accent
-                                transition-colors
-                                hover:bg-accent
-                                hover:text-light
-                            "
-                            @click="
-                                selectCreatorType('document')
-                            "
-                        >
-                            Document
-                        </button>
-
-                        <button
-                            type="button"
-                            class="
-                                flex
-                                items-center
-                                justify-center
-                                border
-                                border-accent
-                                px-4
-                                py-4
-                                font-mono
-                                text-xs
-                                font-bold
-                                uppercase
-                                text-accent
-                                transition-colors
-                                hover:bg-accent
-                                hover:text-light
-                            "
-                            @click="
-                                selectCreatorType('link')
-                            "
-                        >
-                            External link
-                        </button>
-                    </div>
-                </div>
-
-                <div
-                    v-else
-                    class="
-                        mt-6
-                        grid
-                        gap-6
-                        md:grid-cols-2
-                    "
-                >
-                    <FormField
-                        id="file-name"
-                        v-model="
-                            fileDraft.name
-                        "
-                        name="name"
-                        type="text"
-                        :label="
-                            fileDraft.resource_type === 'link'
-                                ? 'Link name'
-                                : 'Document name'
-                        "
-                        :placeholder="
-                            fileDraft.resource_type === 'link'
-                                ? 'Client Drive'
-                                : 'Project brief'
-                        "
-                        required
-                        :error="
-                            fileErrors.name ||
-                            ''
-                        "
-                    />
-
-                    <FormField
-                        v-if="
-                            fileDraft.resource_type ===
-                            'link'
-                        "
-                        id="file-url"
-                        v-model="
-                            fileDraft.url
-                        "
-                        name="url"
-                        type="text"
-                        label="External URL"
-                        placeholder="https://example.com"
-                        required
-                        :error="
-                            fileErrors.url ||
-                            ''
-                        "
-                    />
-
-                    <FormField
-                        v-if="
-                            allowMetadataEditing
-                        "
-                        id="file-requirement"
-                        v-model="
-                            fileDraft.requirement_level
-                        "
-                        name="requirement_level"
-                        type="select"
-                        label="Tag"
-                        :options="[
-                            {
-                                label: 'Required',
-                                value: 'required'
-                            },
-                            {
-                                label: 'Recommended',
-                                value: 'recommended'
-                            },
-                            {
-                                label: 'Optional',
-                                value: 'optional'
-                            }
-                        ]"
-                    />
-
-                    <FormField
-                        v-if="
-                            allowMetadataEditing &&
-                            fileDraft.resource_type ===
-                            'document'
-                        "
-                        id="file-signature"
-                        v-model="
-                            fileDraft.requires_client_signature
-                        "
-                        name="requires_client_signature"
-                        type="select"
-                        label="Client signature"
-                        :options="[
-                            {
-                                label: 'Not required',
-                                value: false
-                            },
-                            {
-                                label: 'Required',
-                                value: true
-                            }
-                        ]"
-                    />
-                </div>
-
-                <div
-                    class="
-                        mt-8
-                        flex
-                        flex-wrap
-                        gap-4
-                        justify-end
-                    "
-                >
-                    <Button
-                        type="button"
-                        text="cancel"
-                        align="right"
-                        @click="
-                            closeFileCreator
-                        "
-                    />
+                        Selected: {{ selectedMoveDestinationLabel }}
+                    </span>
 
                     <Button
-                        v-if="
-                            fileCreatorStep !==
-                                'type' &&
-                            fileCreatorMode !==
-                                'edit'
-                        "
                         type="button"
-                        text="back"
+                        text="select this location"
                         align="right"
                         @click="
-                            backToTypeSelection
-                        "
-                    />
-
-                    <Button
-                        v-if="
-                            fileCreatorStep !==
-                            'type'
-                        "
-                        type="button"
-                        :text="
-                            fileCreatorMode === 'edit'
-                                ? 'save changes'
-                                : fileDraft.resource_type === 'link'
-                                    ? 'create external link'
-                                    : 'create document'
-                        "
-                        variant="accent"
-                        align="right"
-                        @click="
-                            saveFileDraft
+                            selectCurrentMoveDestination
                         "
                     />
                 </div>
             </div>
-        </div>
+
+            <p
+                v-if="
+                    moveError
+                "
+                class="
+                    mt-3
+                    p
+                    uppercase
+                    text-red-700
+                "
+            >
+                {{ moveError }}
+            </p>
+
+            <div
+                class="
+                    mt-8
+                    flex
+                    flex-wrap
+                    gap-4
+                    justify-end
+                "
+            >
+                <Button
+                    type="button"
+                    text="cancel"
+                    align="right"
+                    @click="
+                        closeMoveDialog
+                    "
+                />
+
+                <Button
+                    type="button"
+                    text="move"
+                    variant="accent"
+                    align="right"
+                    @click="
+                        confirmMove
+                    "
+                />
+            </div>
+        </AdminModalShell>
+
+
+        <AdminModalShell
+            :open="
+                showFileCreator
+            "
+            :title="
+                fileCreatorMode ===
+                'edit'
+                    ? 'Edit file'
+                    : 'Create file'
+            "
+            max-width-class="max-w-2xl"
+            @close="
+                closeFileCreator
+            "
+        >
+            <div
+                v-if="
+                    fileCreatorStep ===
+                    'type'
+                "
+                class="
+                    space-y-4
+                "
+            >
+                <p
+                    class="
+                        p
+                        uppercase
+                        text-dark/60
+                    "
+                >
+                    What do you want to create?
+                </p>
+
+                <div
+                    class="
+                        grid
+                        gap-3
+                        sm:grid-cols-2
+                    "
+                >
+                    <button
+                        type="button"
+                        class="
+                            flex
+                            items-center
+                            justify-center
+                            border
+                            border-accent
+                            px-4
+                            py-4
+                            font-mono
+                            text-xs
+                            font-bold
+                            uppercase
+                            text-accent
+                            transition-colors
+                            hover:bg-accent
+                            hover:text-light
+                        "
+                        @click="
+                            selectCreatorType('document')
+                        "
+                    >
+                        Document
+                    </button>
+
+                    <button
+                        type="button"
+                        class="
+                            flex
+                            items-center
+                            justify-center
+                            border
+                            border-accent
+                            px-4
+                            py-4
+                            font-mono
+                            text-xs
+                            font-bold
+                            uppercase
+                            text-accent
+                            transition-colors
+                            hover:bg-accent
+                            hover:text-light
+                        "
+                        @click="
+                            selectCreatorType('link')
+                        "
+                    >
+                        External link
+                    </button>
+                </div>
+            </div>
+
+            <div
+                v-else
+                class="
+                    grid
+                    gap-6
+                    md:grid-cols-2
+                "
+            >
+                <FormField
+                    id="file-name"
+                    v-model="
+                        fileDraft.name
+                    "
+                    name="name"
+                    type="text"
+                    :label="
+                        fileDraft.resource_type === 'link'
+                            ? 'Link name'
+                            : 'Document name'
+                    "
+                    :placeholder="
+                        fileDraft.resource_type === 'link'
+                            ? 'Client Drive'
+                            : 'Project brief'
+                    "
+                    required
+                    :error="
+                        fileErrors.name ||
+                        ''
+                    "
+                />
+
+                <FormField
+                    v-if="
+                        fileDraft.resource_type ===
+                        'link'
+                    "
+                    id="file-url"
+                    v-model="
+                        fileDraft.url
+                    "
+                    name="url"
+                    type="text"
+                    label="External URL"
+                    placeholder="https://example.com"
+                    required
+                    :error="
+                        fileErrors.url ||
+                        ''
+                    "
+                />
+
+                <FormField
+                    v-if="
+                        allowMetadataEditing
+                    "
+                    id="file-requirement"
+                    v-model="
+                        fileDraft.requirement_level
+                    "
+                    name="requirement_level"
+                    type="select"
+                    label="Tag"
+                    :options="[
+                        {
+                            label: 'Required',
+                            value: 'required'
+                        },
+                        {
+                            label: 'Recommended',
+                            value: 'recommended'
+                        },
+                        {
+                            label: 'Optional',
+                            value: 'optional'
+                        }
+                    ]"
+                />
+
+                <FormField
+                    v-if="
+                        allowMetadataEditing &&
+                        fileDraft.resource_type ===
+                        'document'
+                    "
+                    id="file-signature"
+                    v-model="
+                        fileDraft.requires_client_signature
+                    "
+                    name="requires_client_signature"
+                    type="select"
+                    label="Client signature"
+                    :options="[
+                        {
+                            label: 'Not required',
+                            value: false
+                        },
+                        {
+                            label: 'Required',
+                            value: true
+                        }
+                    ]"
+                />
+            </div>
+
+            <div
+                class="
+                    mt-8
+                    flex
+                    flex-wrap
+                    gap-4
+                    justify-end
+                "
+            >
+                <Button
+                    type="button"
+                    text="cancel"
+                    align="right"
+                    @click="
+                        closeFileCreator
+                    "
+                />
+
+                <Button
+                    v-if="
+                        fileCreatorStep !==
+                            'type' &&
+                        fileCreatorMode !==
+                            'edit'
+                    "
+                    type="button"
+                    text="back"
+                    align="right"
+                    @click="
+                        backToTypeSelection
+                    "
+                />
+
+                <Button
+                    v-if="
+                        fileCreatorStep !==
+                        'type'
+                    "
+                    type="button"
+                    :text="
+                        fileCreatorMode === 'edit'
+                            ? 'save changes'
+                            : fileDraft.resource_type === 'link'
+                                ? 'create external link'
+                                : 'create document'
+                    "
+                    variant="accent"
+                    align="right"
+                    @click="
+                        saveFileDraft
+                    "
+                />
+            </div>
+        </AdminModalShell>
 
 
         <!-- Delete confirmation -->

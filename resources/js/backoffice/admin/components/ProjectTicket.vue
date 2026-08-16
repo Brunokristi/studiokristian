@@ -4,6 +4,7 @@ import {
 } from 'vue'
 
 
+import AdminModalShell from '@admin/components/AdminModalShell.vue'
 import Button from '@shared/components/Button.vue'
 import FormField from '@shared/components/FormField.vue'
 import Tag from '@shared/components/Tag.vue'
@@ -331,110 +332,31 @@ function getCreatorName() {
 
 
     <!-- Ticket dialog -->
-    <Teleport to="body">
-        <div
-            v-if="open"
+    <AdminModalShell
+        :open="open"
+        title="Ticket"
+        :subtitle="`Created by ${getCreatorName()}`"
+        :aria-label="
+            `Edit ticket ${ticket.title}`
+        "
+        close-label="Close ticket"
+        panel-class="overflow-y-auto"
+        max-width-class="max-w-2xl"
+        body-class="p-0"
+        @close="
+            closeTicket
+        "
+    >
+        <form
             class="
-                fixed
-                inset-0
-                z-[100]
-                flex
-                items-center
-                justify-center
-                bg-dark/50
-                p-4
-                backdrop-blur-sm
+                space-y-8
+                p-5
+                sm:p-6
             "
-            @click.self="
-                closeTicket
+            @submit.prevent="
+                saveTicket
             "
         >
-            <section
-                class="
-                    max-h-[90vh]
-                    w-full
-                    max-w-2xl
-                    overflow-y-auto
-                    border
-                    border-accent
-                    bg-light
-                "
-                role="dialog"
-                aria-modal="true"
-                :aria-label="
-                    `Edit ticket ${ticket.title}`
-                "
-            >
-                <!-- Header -->
-                <header
-                    class="
-                        flex
-                        items-start
-                        justify-between
-                        gap-6
-                        border-b
-                        border-accent
-                        p-5
-                        sm:p-6
-                    "
-                >
-                    <div>
-                        <p
-                            class="
-                                h3
-                                text-accent
-                            "
-                        >
-                            Ticket
-                        </p>
-
-                        <p
-                            class="
-                                p
-                                mt-2
-                                text-dark/40
-                            "
-                        >
-                            Created by
-                            {{
-                                getCreatorName()
-                            }}
-                        </p>
-                    </div>
-
-
-                    <button
-                        type="button"
-                        class="
-                            shrink-0
-                            font-mono
-                            text-xl
-                            leading-none
-                            text-dark
-                            transition-colors
-                            hover:text-accent
-                        "
-                        aria-label="Close ticket"
-                        @click="
-                            closeTicket
-                        "
-                    >
-                        ×
-                    </button>
-                </header>
-
-
-                <!-- Form -->
-                <form
-                    class="
-                        space-y-8
-                        p-5
-                        sm:p-6
-                    "
-                    @submit.prevent="
-                        saveTicket
-                    "
-                >
                     <FormField
                         :id="
                             `ticket-title-${ticket.id}`
@@ -520,48 +442,46 @@ function getCreatorName() {
                     />
 
 
-                    <!-- Actions -->
-                    <div
-                        class="
-                            flex
-                            flex-col-reverse
-                            gap-3
-                            border-t
-                            border-accent
-                            pt-6
-                            sm:flex-row
-                            sm:justify-end
-                        "
-                    >
-                        <Button
-                            type="button"
-                            text="cancel"
-                            variant="default"
-                            align="left"
-                            :disabled="
-                                saving
-                            "
-                            @click="
-                                closeTicket
-                            "
-                        />
+            <!-- Actions -->
+            <div
+                class="
+                    flex
+                    flex-col-reverse
+                    gap-3
+                    border-t
+                    border-accent
+                    pt-6
+                    sm:flex-row
+                    sm:justify-end
+                "
+            >
+                <Button
+                    type="button"
+                    text="cancel"
+                    variant="default"
+                    align="left"
+                    :disabled="
+                        saving
+                    "
+                    @click="
+                        closeTicket
+                    "
+                />
 
 
-                        <Button
-                            type="submit"
-                            text="save ticket"
-                            variant="accent"
-                            align="left"
-                            :loading="
-                                saving
-                            "
-                            :disabled="
-                                saving
-                            "
-                        />
-                    </div>
-                </form>
-            </section>
-        </div>
-    </Teleport>
+                <Button
+                    type="submit"
+                    text="save ticket"
+                    variant="accent"
+                    align="left"
+                    :loading="
+                        saving
+                    "
+                    :disabled="
+                        saving
+                    "
+                />
+            </div>
+        </form>
+    </AdminModalShell>
 </template>

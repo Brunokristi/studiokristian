@@ -1,4 +1,5 @@
 <script setup>
+import AdminModalShell from './AdminModalShell.vue'
 import ServiceFileStructure from './ServiceFileStructure.vue'
 
 
@@ -92,172 +93,101 @@ function updateItems(value) {
 
 
 <template>
-    <div
-        v-if="open"
-        class="
-            fixed
-            inset-0
-            z-40
-            flex
-            items-center
-            justify-center
-            bg-dark/60
-            p-4
-        "
-        @click.self="
+    <AdminModalShell
+        :open="open"
+        :title="title"
+        :subtitle="subtitle"
+        max-width-class="max-w-5xl"
+        max-height-class="max-h-[85vh]"
+        panel-class="flex flex-col"
+        body-class="min-h-0 flex-1 overflow-hidden"
+        close-label="Close project files"
+        @close="
             closeModal
         "
     >
         <div
+            v-if="loading"
             class="
-                flex
-                max-h-[85vh]
-                w-full
-                max-w-5xl
-                flex-col
-                overflow-hidden
-                border
-                border-accent
-                bg-light
+                p-6
             "
         >
-            <div
+            <p
                 class="
-                    flex
-                    items-center
-                    justify-between
-                    gap-4
-                    border-b
-                    border-accent
-                    px-5
-                    py-4
+                    p
+                    uppercase
+                    text-dark/40
                 "
             >
-                <div>
-                    <p
-                        class="
-                            font-mono
-                            text-xs
-                            font-bold
-                            uppercase
-                            text-dark/40
-                        "
-                    >
-                        {{ title }}
-                    </p>
-
-                    <p
-                        class="
-                            p
-                            mt-1
-                        "
-                    >
-                        {{ subtitle }}
-                    </p>
-                </div>
-
-                <button
-                    type="button"
-                    class="
-                        font-mono
-                        text-xs
-                        font-bold
-                        uppercase
-                        text-dark
-                        transition-colors
-                        hover:text-accent
-                    "
-                    @click="
-                        closeModal
-                    "
-                >
-                    close
-                </button>
-            </div>
-
-            <div
-                v-if="loading"
-                class="
-                    p-6
-                "
-            >
-                <p
-                    class="
-                        p
-                        uppercase
-                        text-dark/40
-                    "
-                >
-                    Loading project files...
-                </p>
-            </div>
-
-            <div
-                v-else-if="error"
-                class="
-                    p-6
-                "
-            >
-                <p
-                    class="
-                        p
-                        text-red-600
-                    "
-                >
-                    {{ error }}
-                </p>
-            </div>
-
-            <div
-                v-else
-                class="
-                    min-h-0
-                    flex-1
-                    overflow-hidden
-                "
-            >
-                <ServiceFileStructure
-                    :model-value="
-                        modelValue
-                    "
-                    :initial-folder-id="
-                        initialFolderId
-                    "
-                    :allow-upload-control="
-                        allowUploadControl
-                    "
-                    :allow-metadata-editing="
-                        allowMetadataEditing
-                    "
-                    :prevent-deleting-required="
-                        preventDeletingRequired
-                    "
-                    :disabled="
-                        disabled
-                    "
-                    @update:model-value="
-                        updateItems
-                    "
-                    @open-folder="
-                        emit(
-                            'open-folder',
-                            $event
-                        )
-                    "
-                    @open-file="
-                        emit(
-                            'open-file',
-                            $event
-                        )
-                    "
-                    @upload-files="
-                        emit(
-                            'upload-files',
-                            $event
-                        )
-                    "
-                />
-            </div>
+                Loading project files...
+            </p>
         </div>
-    </div>
+
+        <div
+            v-else-if="error"
+            class="
+                p-6
+            "
+        >
+            <p
+                class="
+                    p
+                    text-red-600
+                "
+            >
+                {{ error }}
+            </p>
+        </div>
+
+        <div
+            v-else
+            class="
+                min-h-0
+                flex-1
+                overflow-hidden
+            "
+        >
+            <ServiceFileStructure
+                :model-value="
+                    modelValue
+                "
+                :initial-folder-id="
+                    initialFolderId
+                "
+                :allow-upload-control="
+                    allowUploadControl
+                "
+                :allow-metadata-editing="
+                    allowMetadataEditing
+                "
+                :prevent-deleting-required="
+                    preventDeletingRequired
+                "
+                :disabled="
+                    disabled
+                "
+                @update:model-value="
+                    updateItems
+                "
+                @open-folder="
+                    emit(
+                        'open-folder',
+                        $event
+                    )
+                "
+                @open-file="
+                    emit(
+                        'open-file',
+                        $event
+                    )
+                "
+                @upload-files="
+                    emit(
+                        'upload-files',
+                        $event
+                    )
+                "
+            />
+        </div>
+    </AdminModalShell>
 </template>
