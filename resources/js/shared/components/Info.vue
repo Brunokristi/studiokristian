@@ -62,6 +62,8 @@ const textElement = ref(null)
 
 const isDragging = ref(false)
 const isDragOver = ref(false)
+const isEditingFocused = ref(false)
+const isHovering = ref(false)
 
 
 const DEFAULT_HEADING =
@@ -120,6 +122,52 @@ function handleHeadingInput(event) {
         event.currentTarget.textContent || ''
     )
 }
+
+
+function handleEditingFocus() {
+    isEditingFocused.value =
+        true
+}
+
+
+function handleEditingBlur() {
+    requestAnimationFrame(() => {
+        const active =
+            document.activeElement
+
+        const headingActive =
+            headingElement.value &&
+            active ===
+                headingElement.value
+
+        const textActive =
+            textElement.value &&
+            active ===
+                textElement.value
+
+        if (
+            headingActive ||
+            textActive
+        ) {
+            return
+        }
+
+        isEditingFocused.value =
+            false
+    })
+}
+
+
+const showEditorControls = computed(() => {
+    if (!props.editable) {
+        return false
+    }
+
+    return (
+        isHovering.value ||
+        isEditingFocused.value
+    )
+})
 
 
 function handleTextInput(event) {
@@ -424,6 +472,12 @@ function handleDragEnd() {
         :draggable="
             draggable
         "
+        @mouseenter="
+            isHovering = true
+        "
+        @mouseleave="
+            isHovering = false
+        "
         @dragstart="
             handleDragStart
         "
@@ -476,6 +530,12 @@ function handleDragEnd() {
                     @keydown="
                         handleHeadingKeydown
                     "
+                    @focus="
+                        handleEditingFocus
+                    "
+                    @blur="
+                        handleEditingBlur
+                    "
                     @mousedown.stop
                     @click.stop
                 />
@@ -509,6 +569,12 @@ function handleDragEnd() {
                             @input="
                                 handleTextInput
                             "
+                            @focus="
+                                handleEditingFocus
+                            "
+                            @blur="
+                                handleEditingBlur
+                            "
                             @mousedown.stop
                             @click.stop
                         />
@@ -525,12 +591,15 @@ function handleDragEnd() {
                     items-center
                     gap-3
                     pt-1
+                    transition-opacity
+                    duration-150
                 "
             >
                 <!-- Drag handle -->
                 <button
                     v-if="
-                        draggable
+                        draggable &&
+                        showEditorControls
                     "
                     type="button"
                     class="
@@ -553,6 +622,9 @@ function handleDragEnd() {
 
                 <!-- Remove -->
                 <button
+                    v-if="
+                        showEditorControls
+                    "
                     type="button"
                     class="
                         cursor-pointer

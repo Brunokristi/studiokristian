@@ -261,7 +261,7 @@ watch(
                 class="
                     flex
                     items-center
-                    gap-3
+                    gap-6
                 "
             >
                 <!-- Autosave -->
@@ -322,17 +322,33 @@ watch(
                         toggleMenu
                     "
                 >
-                    <i
+                    <span
                         class="
-                            bi
-                            text-xl
+                            menu-icon
+                            relative
+                            block
+                            h-4
+                            w-5
                         "
-                        :class="
-                            menuOpen
-                                ? 'bi-chevron-bar-left'
-                                : 'bi-chevron-bar-right'
-                        "
-                    />
+                        :class="{
+                            'is-open': menuOpen
+                        }"
+                        aria-hidden="true"
+                    >
+                        <span
+                            class="
+                                menu-line
+                                menu-line-top
+                            "
+                        />
+
+                        <span
+                            class="
+                                menu-line
+                                menu-line-bottom
+                            "
+                        />
+                    </span>
                 </button>
             </div>
         </header>
@@ -534,3 +550,39 @@ watch(
         <Toast />
     </div>
 </template>
+
+<style scoped>
+.menu-icon {
+    display: block;
+}
+
+.menu-line {
+    position: absolute;
+    left: 0;
+    width: 15px;
+    height: 1px;
+    background: currentColor;
+    transform-origin: center;
+    transition:
+        transform 0.25s ease,
+        top 0.25s ease;
+}
+
+.menu-line-top {
+    top: 4px;
+}
+
+.menu-line-bottom {
+    top: 11px;
+}
+
+.menu-icon.is-open .menu-line-top {
+    top: 7.5px;
+    transform: rotate(45deg);
+}
+
+.menu-icon.is-open .menu-line-bottom {
+    top: 7.5px;
+    transform: rotate(-45deg);
+}
+</style>

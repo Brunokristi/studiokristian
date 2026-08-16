@@ -3634,6 +3634,13 @@ onBeforeUnmount(
             :save-error="
                 documentSaveError
             "
+            :project-files-enabled="
+                true
+            "
+            :project-id="
+                projectId
+            "
+            language="en"
             @update:title="
                 updateDocumentTitle
             "

@@ -63,7 +63,7 @@ const props = defineProps({
 
     headerClass: {
         type: String,
-        default: 'flex items-start justify-between gap-6 border-b border-accent p-6'
+        default: 'flex items-start justify-between gap-6 p-6'
     },
 
     bodyClass: {
@@ -145,7 +145,7 @@ function handleBackdropClick() {
 
                             <p
                                 v-if="subtitle"
-                                class="p mt-2 text-dark/50"
+                                class="p mt-2 text-dark uppercase"
                             >
                                 {{ subtitle }}
                             </p>
@@ -159,7 +159,7 @@ function handleBackdropClick() {
                         :aria-label="closeLabel"
                         @click="requestClose"
                     >
-                        ×
+                        <i class="bi bi-x-lg p" />
                     </button>
                 </div>
 

@@ -357,131 +357,102 @@ function getCreatorName() {
                 saveTicket
             "
         >
-                    <FormField
-                        :id="
-                            `ticket-title-${ticket.id}`
-                        "
-                        v-model="
-                            form.title
-                        "
-                        name="title"
-                        type="text"
-                        label="Title"
-                        required
-                    />
+            <FormField
+                :id="
+                    `ticket-title-${ticket.id}`
+                "
+                v-model="
+                    form.title
+                "
+                name="title"
+                type="text"
+                label="Title"
+                required
+            />
 
 
-                    <FormField
-                        :id="
-                            `ticket-description-${ticket.id}`
-                        "
-                        v-model="
-                            form.description
-                        "
-                        name="description"
-                        type="textarea"
-                        label="Description"
-                        placeholder="What needs to be done?"
-                        required
-                    />
+            <FormField
+                :id="
+                    `ticket-description-${ticket.id}`
+                "
+                v-model="
+                    form.description
+                "
+                name="description"
+                type="textarea"
+                label="Description"
+                placeholder="What needs to be done?"
+                required
+            />
 
 
-                    <div
-                        class="
-                            grid
-                            gap-8
-                            sm:grid-cols-2
-                        "
-                    >
-                        <FormField
-                            :id="
-                                `ticket-priority-${ticket.id}`
-                            "
-                            v-model="
-                                form.priority
-                            "
-                            name="priority"
-                            type="select"
-                            label="Priority"
-                            :options="
-                                priorityOptions
-                            "
-                        />
-
-
-                        <FormField
-                            :id="
-                                `ticket-assignee-${ticket.id}`
-                            "
-                            v-model="
-                                form.assigned_to
-                            "
-                            name="assigned_to"
-                            type="select"
-                            label="Assignee"
-                            :options="
-                                assigneeOptions
-                            "
-                        />
-                    </div>
-
-
-                    <FormField
-                        :id="
-                            `ticket-status-${ticket.id}`
-                        "
-                        v-model="
-                            form.status
-                        "
-                        name="status"
-                        type="select"
-                        label="Status"
-                        :options="
-                            statusOptions
-                        "
-                    />
-
-
-            <!-- Actions -->
             <div
                 class="
-                    flex
-                    flex-col-reverse
-                    gap-3
-                    border-t
-                    border-accent
-                    pt-6
-                    sm:flex-row
-                    sm:justify-end
+                    grid
+                    gap-8
+                    sm:grid-cols-2
                 "
             >
-                <Button
-                    type="button"
-                    text="cancel"
-                    variant="default"
-                    align="left"
-                    :disabled="
-                        saving
+                <FormField
+                    :id="
+                        `ticket-priority-${ticket.id}`
                     "
-                    @click="
-                        closeTicket
+                    v-model="
+                        form.priority
+                    "
+                    name="priority"
+                    type="select"
+                    label="Priority"
+                    :options="
+                        priorityOptions
                     "
                 />
 
 
-                <Button
-                    type="submit"
-                    text="save ticket"
-                    variant="accent"
-                    align="left"
-                    :loading="
-                        saving
+                <FormField
+                    :id="
+                        `ticket-assignee-${ticket.id}`
                     "
-                    :disabled="
-                        saving
+                    v-model="
+                        form.assigned_to
+                    "
+                    name="assigned_to"
+                    type="select"
+                    label="Assignee"
+                    :options="
+                        assigneeOptions
                     "
                 />
             </div>
+
+
+            <FormField
+                :id="
+                    `ticket-status-${ticket.id}`
+                "
+                v-model="
+                    form.status
+                "
+                name="status"
+                type="select"
+                label="Status"
+                :options="
+                    statusOptions
+                "
+            />
+
+            <Button
+                type="submit"
+                text="save ticket"
+                variant="accent"
+                align="right"
+                :loading="
+                    saving
+                "
+                :disabled="
+                    saving
+                "
+            />
         </form>
     </AdminModalShell>
 </template>
