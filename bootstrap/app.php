@@ -13,6 +13,7 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->alias([
             'admin' => \App\Http\Middleware\AdminOnly::class,
+            'admin_or_coworker' => \App\Http\Middleware\AdminOrCoworker::class,
             'client.access' => \App\Http\Middleware\EnsureClientPortalAccess::class,
         ]);
     })

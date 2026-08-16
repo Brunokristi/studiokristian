@@ -26,7 +26,7 @@ class ProjectController extends Controller
         $direction = $request->string('direction')->toString() === 'asc' ? 'asc' : 'desc';
         $search = trim($request->string('search')->toString());
 
-        return ProjectResource::collection(Project::query()
+        $query = Project::query()
             ->whereNotNull('company_id')
             ->with(['company', 'serviceProduct'])
             ->withCount('contacts')
@@ -34,12 +34,21 @@ class ProjectController extends Controller
             ->when($request->filled('status'), fn ($query) => $query->where('portal_status', $request->string('status')))
             ->when($request->integer('company_id'), fn ($query, $id) => $query->where('company_id', $id))
             ->when($request->integer('service_product_id'), fn ($query, $id) => $query->where('service_product_id', $id))
-            ->orderBy($sort, $direction)
-            ->paginate(min(max($request->integer('per_page', 25), 10), 100)));
+            ->orderBy($sort, $direction);
+
+        if (! $request->user()?->is_admin) {
+            $query->whereHas('members', fn ($members) => $members->whereKey($request->user()->id));
+        }
+
+        return ProjectResource::collection(
+            $query->paginate(min(max($request->integer('per_page', 25), 10), 100))
+        );
     }
 
     public function store(StoreProjectRequest $request, ProjectInstantiationService $service): JsonResponse
     {
+        abort_unless($request->user()?->is_admin, 403);
+
         $project = $service->create($request->validated(), $request->user());
 
         return (new ProjectResource($project->load(['company', 'serviceProduct', 'contacts', 'coworkers'])->loadCount('contacts')))
@@ -49,12 +58,21 @@ class ProjectController extends Controller
     public function show(Project $project): ProjectResource
     {
         abort_if($project->company_id === null, 404);
+        $this->authorizeProjectAccess(request(), $project);
 
         return new ProjectResource($project->load(['company', 'serviceProduct', 'blueprintVersion.blueprint', 'contacts', 'coworkers', 'deliverables', 'folders', 'contracts.templateVersion.template'])->loadCount('contacts'));
     }
 
     public function update(StoreProjectRequest $request, Project $project): ProjectResource
     {
+        $this->authorizeProjectAccess($request, $project);
+
+        if (! $request->user()?->is_admin) {
+            return new ProjectResource(
+                $project->fresh()->load(['company', 'serviceProduct', 'contacts', 'coworkers'])->loadCount('contacts')
+            );
+        }
+
         $currentContactIds = $project->contacts()->pluck('client_contacts.id')->map(fn ($id) => (int) $id)->all();
         $currentCoworkerIds = $project->coworkers()->pluck('users.id')->map(fn ($id) => (int) $id)->all();
         $currentAdminId = $request->user()?->is_admin ? (int) $request->user()->id : null;
@@ -78,7 +96,11 @@ class ProjectController extends Controller
                 : $project->url;
             $project->update($data);
             $project->contacts()->sync($request->validated('contact_ids', []));
-            $project->coworkers()->sync($nextCoworkerIds);
+            if (User::hasProjectUserAccessTypeColumn()) {
+                $project->coworkers()->sync($this->syncCoworkerMap($nextCoworkerIds));
+            } else {
+                $project->coworkers()->sync($nextCoworkerIds);
+            }
             if ($project->portal_status !== 'archived') {
                 $project->update(['archived_at' => null]);
             }
@@ -101,7 +123,15 @@ class ProjectController extends Controller
             }
 
             if (! empty($addedCoworkerIds)) {
-                $coworkers = User::query()->whereIn('id', $addedCoworkerIds)->where('is_admin', false)->get();
+                $coworkers = User::query()
+                    ->whereIn('id', $addedCoworkerIds)
+                    ->where('is_admin', false);
+
+                if (User::hasRoleColumn()) {
+                    $coworkers->where('role', 'coworker');
+                }
+
+                $coworkers = $coworkers->get();
                 foreach ($coworkers as $coworker) {
                     $coworker->notify(new ProjectInvitationNotification($project, route('login')));
                 }
@@ -113,6 +143,8 @@ class ProjectController extends Controller
 
     public function archive(Project $project): Response
     {
+        abort_unless(request()->user()?->is_admin, 403);
+        $this->authorizeProjectAccess(request(), $project);
         $project->update(['portal_status' => 'archived', 'archived_at' => now()]);
 
         return response()->noContent();
@@ -120,6 +152,9 @@ class ProjectController extends Controller
 
     public function destroy(Project $project): Response
     {
+        abort_unless(request()->user()?->is_admin, 403);
+        $this->authorizeProjectAccess(request(), $project);
+
         DB::transaction(function () use ($project) {
             $contractIds = $project->contracts()->pluck('id');
 
@@ -157,6 +192,9 @@ class ProjectController extends Controller
 
     public function publish(Project $project, Request $request): ProjectResource
     {
+        abort_unless($request->user()?->is_admin, 403);
+        $this->authorizeProjectAccess($request, $project);
+
         $data = $request->validate(['is_published' => ['required', 'boolean']]);
         $project->update($data);
         return new ProjectResource($project->fresh()->load(['company', 'serviceProduct']));
@@ -172,5 +210,27 @@ class ProjectController extends Controller
         }
 
         return $slug;
+    }
+
+    private function syncCoworkerMap(array $userIds): array
+    {
+        $map = [];
+
+        foreach ($userIds as $userId) {
+            $map[(int) $userId] = ['access_type' => 'coworker'];
+        }
+
+        return $map;
+    }
+
+    private function authorizeProjectAccess(Request $request, Project $project): void
+    {
+        $user = $request->user();
+
+        if ($user?->is_admin) {
+            return;
+        }
+
+        abort_unless($project->members()->whereKey($user?->id)->exists(), 403);
     }
 }

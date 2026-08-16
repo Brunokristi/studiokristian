@@ -1156,6 +1156,11 @@ function confirmMove() {
             ? getItem(destinationId)
             : null
 
+    const normalizedDestinationId =
+        destinationFolder
+            ? destinationFolder.id
+            : null
+
     if (
         destinationId !== null &&
         destinationFolder?.type !==
@@ -1165,7 +1170,7 @@ function confirmMove() {
             'Please select a valid destination folder.'
         return
     }
-
+            normalizedDestinationId ?? '__root__'
     update(
         props.modelValue.map(
             item =>
@@ -1176,7 +1181,7 @@ function confirmMove() {
                     ? {
                         ...item,
                         parent_id:
-                            destinationId,
+                            normalizedDestinationId,
                         parent_client_key:
                             destinationFolder
                                 ? String(

@@ -16,9 +16,19 @@ class CoworkerController extends Controller
 {
     public function index(): JsonResponse
     {
+        $authUser = request()->user();
+
         $query = User::query()
             ->where('is_admin', false)
             ->with(['projects' => fn ($query) => $query->select('projects.id', 'projects.name', 'projects.company_id')]);
+
+        if (User::hasRoleColumn()) {
+            $query->where('role', 'coworker');
+        }
+
+        if (! $authUser?->is_admin) {
+            $query->whereHas('projects.coworkers', fn ($members) => $members->whereKey($authUser?->id));
+        }
 
         $search = trim((string) request('search', ''));
 
@@ -103,6 +113,10 @@ class CoworkerController extends Controller
                 'password' => Hash::make(Str::random(40)),
                 'is_admin' => false,
             ]);
+
+            if (User::hasRoleColumn()) {
+                $user->forceFill(['role' => 'coworker'])->save();
+            }
         } else {
             abort_if($user->is_admin, 422, 'That email belongs to an admin account and cannot be converted into a coworker.');
 
@@ -110,6 +124,10 @@ class CoworkerController extends Controller
                 'name' => $data['name'],
                 'email' => strtolower($data['email']),
             ]);
+
+            if (User::hasRoleColumn()) {
+                $user->forceFill(['role' => 'coworker'])->save();
+            }
         }
 
         $newProjectIds = array_values(array_unique($data['project_ids'] ?? []));
@@ -117,7 +135,7 @@ class CoworkerController extends Controller
         $addedProjectIds = array_values(array_diff($newProjectIds, $existingProjectIds));
 
         if (isset($data['project_ids'])) {
-            $user->projects()->sync($newProjectIds);
+            $this->syncProjects($user, $newProjectIds);
 
             foreach ($user->projects()->whereIn('projects.id', $addedProjectIds)->get() as $project) {
                 $user->notify(new ProjectInvitationNotification($project, route('login')));
@@ -143,11 +161,15 @@ class CoworkerController extends Controller
             'email' => strtolower($data['email']),
         ]);
 
+        if (User::hasRoleColumn()) {
+            $coworker->forceFill(['role' => 'coworker'])->save();
+        }
+
         $newProjectIds = array_values(array_unique($data['project_ids'] ?? []));
         $existingProjectIds = $coworker->projects()->pluck('projects.id')->all();
         $addedProjectIds = array_values(array_diff($newProjectIds, $existingProjectIds));
 
-        $coworker->projects()->sync($newProjectIds);
+        $this->syncProjects($coworker, $newProjectIds);
 
         foreach ($coworker->projects()->whereIn('projects.id', $addedProjectIds)->get() as $project) {
             $coworker->notify(new ProjectInvitationNotification($project, route('login')));
@@ -168,17 +190,41 @@ class CoworkerController extends Controller
 
     private function payload(User $user): array
     {
-        return [
-            'data' => [
-                'id' => $user->id,
-                'name' => $user->name,
-                'email' => $user->email,
-                'project_ids' => $user->projects->pluck('id')->all(),
-                'projects' => $user->projects->map(fn (Project $project) => [
-                    'id' => $project->id,
-                    'name' => $project->name,
-                ]),
-            ],
+        $data = [
+            'id' => $user->id,
+            'name' => $user->name,
+            'email' => $user->email,
+            'project_ids' => $user->projects->pluck('id')->all(),
+            'projects' => $user->projects->map(fn (Project $project) => [
+                'id' => $project->id,
+                'name' => $project->name,
+            ]),
         ];
+
+        return [
+            ...$data,
+            'data' => $data,
+        ];
+    }
+
+    private function syncMap(array $projectIds): array
+    {
+        $map = [];
+
+        foreach ($projectIds as $projectId) {
+            $map[(int) $projectId] = ['access_type' => 'coworker'];
+        }
+
+        return $map;
+    }
+
+    private function syncProjects(User $user, array $projectIds): void
+    {
+        if (User::hasProjectUserAccessTypeColumn()) {
+            $user->coworkerProjects()->sync($this->syncMap($projectIds));
+            return;
+        }
+
+        $user->projects()->sync($projectIds);
     }
 }

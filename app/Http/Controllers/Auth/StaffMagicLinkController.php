@@ -43,6 +43,6 @@ class StaffMagicLinkController extends Controller
         if (! $user) return redirect()->route('login')->withErrors(['email' => 'This sign-in link is invalid or expired.']);
         if (! $user->hasVerifiedEmail()) $user->markEmailAsVerified();
         Auth::login($user); $request->session()->regenerate();
-        return redirect()->intended($user->is_admin ? route('admin.client-portal.index') : route('staff.workspace'));
+        return redirect()->intended($user->is_admin ? route('admin.client-portal.index') : '/admin/client-portal/projects');
     }
 }

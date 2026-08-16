@@ -9,5 +9,10 @@
 </head>
 <body class="bg-light text-dark antialiased">
     <div id="client-portal-admin"></div>
+    <script id="client-portal-admin-user" type="application/json">{!! json_encode([
+        'id' => auth()->id(),
+        'is_admin' => (bool) (auth()->user()?->is_admin),
+        'role' => method_exists(auth()->user(), 'portalRole') ? auth()->user()?->portalRole() : null,
+    ], JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) !!}</script>
 </body>
 </html>

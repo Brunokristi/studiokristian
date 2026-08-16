@@ -81,8 +81,21 @@ const csrfToken =
         'meta[name="csrf-token"]'
     )?.content ?? ''
 
+const currentUserPayload =
+    JSON.parse(
+        document.querySelector(
+            '#client-portal-admin-user'
+        )?.textContent ||
+        '{}'
+    )
 
-const navigation = [
+const isAdminUser =
+    Boolean(
+        currentUserPayload?.is_admin
+    )
+
+
+const adminNavigation = [
     {
         label: 'Dashboard',
         route: {
@@ -131,6 +144,23 @@ const navigation = [
         match: 'portfolio'
     }
 ]
+
+const coworkerNavigation = [
+    {
+        label: 'Projects',
+        route: {
+            name: 'projects.index'
+        },
+        match: 'projects'
+    },
+]
+
+const navigation =
+    computed(() =>
+        isAdminUser
+            ? adminNavigation
+            : coworkerNavigation
+    )
 
 
 const currentRouteName =

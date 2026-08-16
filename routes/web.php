@@ -20,6 +20,7 @@ use App\Http\Controllers\Admin\ClientPortal\ProjectDeliverableController as Admi
 use App\Http\Controllers\Admin\ClientPortal\ProjectCoworkerController as AdminProjectCoworkerController;
 use App\Http\Controllers\Admin\ClientPortal\ProjectTicketController as AdminProjectTicketController;
 use App\Http\Controllers\Admin\ClientPortal\CoworkerController;
+use App\Http\Controllers\Admin\ClientPortal\PortalUserController;
 use App\Http\Controllers\Admin\ClientPortal\InternalStorageController;
 use App\Http\Controllers\Client\Auth\MagicLinkController;
 use App\Http\Controllers\Client\ContractController as ClientContractController;
@@ -28,6 +29,7 @@ use App\Http\Controllers\Client\ProjectFileController as ClientProjectFileContro
 use App\Http\Controllers\Client\DashboardController as ClientDashboardController;
 use App\Http\Controllers\Client\PriceOfferController as ClientPriceOfferController;
 use App\Http\Controllers\Client\ProjectTicketController as ClientProjectTicketController;
+use App\Http\Controllers\Portal\PortalController;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\StaffWorkspaceController;
 
@@ -74,8 +76,29 @@ Route::prefix('client')->name('client.')->group(function () {
 
 // Redirect dashboard to admin portfolio after login
 Route::get('/dashboard', function () {
-    return redirect()->route('admin.client-portal.index');
+    $user = request()->user();
+
+    if ($user?->is_admin) {
+        return redirect()->route('admin.client-portal.index');
+    }
+
+    return redirect('/admin/client-portal/projects');
 })->middleware(['auth', 'verified'])->name('dashboard');
+
+Route::middleware(['auth', 'verified'])->prefix('portal')->name('portal.')->group(function () {
+    Route::get('/', [PortalController::class, 'index'])->name('index');
+
+    Route::prefix('api')->name('api.')->group(function () {
+        Route::get('/me', [PortalController::class, 'me'])->name('me');
+        Route::get('/projects', [PortalController::class, 'projects'])->name('projects.index');
+        Route::get('/projects/{project}', [PortalController::class, 'showProject'])->name('projects.show');
+        Route::get('/projects/{project}/files/{file}/open', [PortalController::class, 'openFile'])->name('projects.files.open');
+        Route::get('/projects/{project}/files/{file}/download', [PortalController::class, 'downloadFile'])->name('projects.files.download');
+        Route::post('/projects/{project}/tickets', [PortalController::class, 'storeTicket'])->name('projects.tickets.store');
+        Route::put('/projects/{project}/tickets/{ticket}', [PortalController::class, 'updateTicket'])->name('projects.tickets.update');
+        Route::post('/projects/{project}/documents/{folder}/sign', [PortalController::class, 'signDocument'])->name('projects.documents.sign');
+    });
+});
 
 Route::middleware(['auth', 'verified'])->prefix('workspace')->name('staff.')->group(function () {
     Route::get('/', [StaffWorkspaceController::class, 'index'])->name('workspace');
@@ -85,6 +108,45 @@ Route::middleware(['auth', 'verified'])->prefix('workspace')->name('staff.')->gr
         Route::put('/projects/{project}/tickets/{ticket}', [StaffWorkspaceController::class, 'updateTicket'])->name('tickets.update');
         Route::get('/projects/{project}/files/{file}', [StaffWorkspaceController::class, 'file'])->name('files.show');
     });
+});
+
+Route::prefix('admin/client-portal')->middleware(['auth', 'verified', 'admin_or_coworker'])->group(function () {
+    Route::prefix('coworker-api')->group(function () {
+        Route::get('/lookups', AdminLookupController::class);
+        Route::get('/companies/{company}/contacts/options', [AdminLookupController::class, 'contacts']);
+        Route::get('/coworkers', [CoworkerController::class, 'index']);
+
+        Route::get('/projects', [AdminProjectController::class, 'index']);
+        Route::get('/projects/{project}', [AdminProjectController::class, 'show']);
+        Route::put('/projects/{project}', [AdminProjectController::class, 'update']);
+        Route::put('/projects/{project}/publishing', [AdminProjectController::class, 'publish']);
+
+        Route::get('/projects/{project}/files', [AdminProjectFileController::class, 'index']);
+        Route::put('/projects/{project}/structure', [AdminProjectFileController::class, 'updateStructure']);
+        Route::post('/projects/{project}/folders', [AdminProjectFileController::class, 'storeFolder']);
+        Route::put('/projects/{project}/folders/{folder}', [AdminProjectFileController::class, 'updateFolder']);
+        Route::post('/projects/{project}/files', [AdminProjectFileController::class, 'upload']);
+        Route::delete('/projects/{project}/files/{file}', [AdminProjectFileController::class, 'destroy']);
+        Route::patch('/projects/{project}/files/{file}', [AdminProjectFileController::class, 'rename']);
+        Route::get('/projects/{project}/files/{file}/download', [AdminProjectFileController::class, 'download']);
+        Route::get('/projects/{project}/files/{file}/open', [AdminProjectFileController::class, 'open']);
+
+        Route::post('/projects/{project}/coworkers', [AdminProjectCoworkerController::class, 'store']);
+        Route::post('/projects/{project}/coworkers/{user}/resend-invitation', [AdminProjectCoworkerController::class, 'resendCoworkerInvitation']);
+        Route::post('/projects/{project}/contacts/invite', [AdminProjectCoworkerController::class, 'inviteContact']);
+        Route::post('/projects/{project}/contacts/{contact}/resend-invitation', [AdminProjectCoworkerController::class, 'resendContactInvitation']);
+
+        Route::get('/projects/{project}/tickets', [AdminProjectTicketController::class, 'index']);
+        Route::post('/projects/{project}/tickets', [AdminProjectTicketController::class, 'store']);
+        Route::put('/projects/{project}/tickets/{ticket}', [AdminProjectTicketController::class, 'update']);
+        Route::post('/projects/{project}/deliverables', [AdminProjectDeliverableController::class, 'store']);
+        Route::put('/projects/{project}/deliverables/{deliverable}', [AdminProjectDeliverableController::class, 'update']);
+    });
+
+    Route::get('/projects', AdminShellController::class);
+    Route::get('/projects/create', AdminShellController::class);
+    Route::get('/projects/{project}', AdminShellController::class);
+    Route::get('/projects/{project}/edit', AdminShellController::class);
 });
 
 // Admin Portfolio (protected)
@@ -133,6 +195,10 @@ Route::prefix('admin/client-portal')->middleware(['auth', 'admin'])->name('admin
         Route::get('/coworkers/{coworker}', [CoworkerController::class, 'show'])->name('coworkers.show');
         Route::put('/coworkers/{coworker}', [CoworkerController::class, 'update'])->name('coworkers.update');
         Route::delete('/coworkers/{coworker}', [CoworkerController::class, 'destroy'])->name('coworkers.destroy');
+        Route::get('/portal-users', [PortalUserController::class, 'index'])->name('portal-users.index');
+        Route::post('/portal-users', [PortalUserController::class, 'store'])->name('portal-users.store');
+        Route::put('/portal-users/{portalUser}', [PortalUserController::class, 'update'])->name('portal-users.update');
+        Route::delete('/portal-users/{portalUser}', [PortalUserController::class, 'destroy'])->name('portal-users.destroy');
         Route::get('/internal-storage', [InternalStorageController::class, 'index'])->name('internal-storage.index');
         Route::put('/internal-storage/structure', [InternalStorageController::class, 'updateStructure'])->name('internal-storage.structure.update');
         Route::post('/internal-storage/files', [InternalStorageController::class, 'upload'])->name('internal-storage.files.upload');

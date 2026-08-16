@@ -1,6 +1,7 @@
 <script setup>
 import {
     computed,
+    nextTick,
     onBeforeUnmount,
     onMounted,
     reactive,
@@ -124,6 +125,25 @@ const currentUser =
     ref(null)
 
 
+function currentAdminShellUser() {
+    try {
+        const raw =
+            document.querySelector(
+                '#client-portal-admin-user'
+            )?.textContent ||
+            '{}'
+
+        return JSON.parse(raw)
+    } catch {
+        return {}
+    }
+}
+
+
+const shellUser =
+    currentAdminShellUser()
+
+
 const coworker =
     reactive({
         name: '',
@@ -241,6 +261,10 @@ const structureSaveTimer =
 
 
 const structureSaving =
+    ref(false)
+
+
+const structureSaveQueued =
     ref(false)
 
 
@@ -509,6 +533,16 @@ const projectReady =
     computed(() =>
         Boolean(
             projectId.value
+        )
+    )
+
+
+const canManageProjectSettings =
+    computed(() =>
+        Boolean(
+            currentUser.value
+                ?.is_admin ??
+            shellUser?.is_admin
         )
     )
 
@@ -856,6 +890,12 @@ function getProjectAutosaveSnapshot() {
 
 
 function canAutosaveProject() {
+    if (
+        !canManageProjectSettings.value
+    ) {
+        return false
+    }
+
     return Boolean(
         String(
             projectForm.company_id ||
@@ -1192,6 +1232,13 @@ function applyProjectToForm(
         projectData
 
 
+    currentUser.value =
+        projectData.current_user ||
+        currentUser.value ||
+        shellUser ||
+        null
+
+
     projectId.value =
         String(
             projectData.id ||
@@ -1274,6 +1321,25 @@ function applyProjectToForm(
 
 
 async function loadLookupsAndCoworkers() {
+    if (
+        !canManageProjectSettings.value
+    ) {
+        currentUser.value =
+            currentUser.value ||
+            shellUser ||
+            null
+
+        lookups.value = {
+            companies: [],
+            service_products: []
+        }
+
+        coworkers.value =
+            []
+
+        return
+    }
+
     const [
         lookupsResponse,
         coworkersResponse
@@ -1706,6 +1772,7 @@ async function load() {
 
 async function saveProjectForm() {
     if (
+        !canManageProjectSettings.value ||
         saving.value ||
         !canAutosaveProject()
     ) {
@@ -2019,6 +2086,7 @@ onMounted(
 
 async function togglePublishing() {
     if (
+        !canManageProjectSettings.value ||
         !project.value ||
         busy.value
     ) {
@@ -2060,6 +2128,12 @@ async function togglePublishing() {
 
 
 function requestDelete() {
+    if (
+        !canManageProjectSettings.value
+    ) {
+        return
+    }
+
     showDeleteConfirm.value =
         true
 }
@@ -2080,6 +2154,7 @@ function closeDeleteConfirm() {
 
 async function destroyProject() {
     if (
+        !canManageProjectSettings.value ||
         busy.value
     ) {
         return
@@ -2133,6 +2208,12 @@ async function destroyProject() {
 */
 
 async function inviteCoworker() {
+    if (
+        !canManageProjectSettings.value
+    ) {
+        return
+    }
+
     try {
         await api.post(
             `/projects/${projectId.value}/coworkers`,
@@ -2165,6 +2246,7 @@ async function inviteContact(
     contactId
 ) {
     if (
+        !canManageProjectSettings.value ||
         !contactId
     ) {
         return
@@ -2198,6 +2280,7 @@ async function resendCoworkerInvitation(
     userId
 ) {
     if (
+        !canManageProjectSettings.value ||
         !userId ||
         resendingCoworkerId.value
     ) {
@@ -2232,6 +2315,7 @@ async function resendContactInvitation(
     contactId
 ) {
     if (
+        !canManageProjectSettings.value ||
         !contactId ||
         resendingContactId.value
     ) {
@@ -2277,10 +2361,33 @@ async function createTicket() {
     }
 
     try {
-        await api.post(
+        const response =
+            await api.post(
             `/projects/${projectId.value}/tickets`,
             ticketForm
         )
+
+        const createdTicket =
+            response.data?.data ||
+            response.data ||
+            null
+
+        if (
+            createdTicket
+        ) {
+            tickets.value = [
+                createdTicket,
+                ...tickets.value.filter(
+                    item =>
+                        String(
+                            item.id
+                        ) !==
+                        String(
+                            createdTicket.id
+                        )
+                )
+            ]
+        }
 
         Object.assign(
             ticketForm,
@@ -2306,12 +2413,17 @@ async function createTicket() {
             description.style.height = 'auto'
         }
 
-        tickets.value =
-            (
+        try {
+            const refreshed =
                 await api.get(
                     `/projects/${projectId.value}/tickets`
                 )
-            ).data
+
+            tickets.value =
+                refreshed.data
+        } catch {
+            // Keep optimistic ticket list if refresh fails.
+        }
     } catch (
         exception
     ) {
@@ -2551,12 +2663,18 @@ async function saveProjectStructure() {
     if (
         structureSaving.value
     ) {
+        structureSaveQueued.value =
+            true
+
         return
     }
 
 
     structureSaving.value =
         true
+
+    structureSaveQueued.value =
+        false
 
 
     try {
@@ -2597,6 +2715,15 @@ async function saveProjectStructure() {
     } finally {
         structureSaving.value =
             false
+
+        if (
+            structureSaveQueued.value
+        ) {
+            structureSaveQueued.value =
+                false
+
+            void saveProjectStructure()
+        }
     }
 }
 
@@ -3739,6 +3866,9 @@ onBeforeUnmount(
             >
                 <!-- Project information -->
                 <section
+                    v-if="
+                        canManageProjectSettings
+                    "
                     class="
                         space-y-14
                     "
@@ -3920,6 +4050,9 @@ onBeforeUnmount(
                 >
                     <!-- Assigned people -->
                     <section
+                        v-if="
+                            canManageProjectSettings
+                        "
                         class="
                             space-y-8
                         "
@@ -4312,6 +4445,9 @@ onBeforeUnmount(
 
                     <!-- Danger zone -->
                     <section
+                        v-if="
+                            canManageProjectSettings
+                        "
                         class="
                             space-y-8
                         "

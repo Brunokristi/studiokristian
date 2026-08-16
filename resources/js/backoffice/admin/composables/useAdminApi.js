@@ -20,8 +20,22 @@ function xsrfToken() {
     }
 }
 
+function currentAdminShellUser() {
+    try {
+        const raw = document.querySelector('#client-portal-admin-user')?.textContent || '{}'
+        return JSON.parse(raw)
+    } catch {
+        return {}
+    }
+}
+
+const adminShellUser = currentAdminShellUser()
+const apiBaseUrl = adminShellUser?.is_admin
+    ? '/admin/client-portal/api'
+    : '/admin/client-portal/coworker-api'
+
 const api = axios.create({
-    baseURL: '/admin/client-portal/api',
+    baseURL: apiBaseUrl,
     withCredentials: true,
     xsrfCookieName: 'XSRF-TOKEN',
     xsrfHeaderName: 'X-XSRF-TOKEN',

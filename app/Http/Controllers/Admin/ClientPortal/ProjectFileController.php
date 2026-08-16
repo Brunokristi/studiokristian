@@ -23,6 +23,7 @@ class ProjectFileController extends Controller
 {
     public function index(Project $project, Request $request): JsonResponse
     {
+        $this->authorizeProjectAccess($request, $project);
         $folder = $request->integer('folder_id') ? $project->folders()->findOrFail($request->integer('folder_id')) : null;
 
         return response()->json([
@@ -33,13 +34,14 @@ class ProjectFileController extends Controller
                 ->where('project_folder_id', $folder?->id)
                 ->latest()
                 ->get()
-                ->map(fn (ProjectFile $file) => $this->filePayload($project, $file))
+                ->map(fn (ProjectFile $file) => $this->filePayload($request, $project, $file))
                 ->values(),
         ]);
     }
 
     public function storeFolder(Project $project, Request $request): JsonResponse
     {
+        $this->authorizeProjectAccess($request, $project);
         $data = $request->validate(['parent_id' => ['nullable', 'integer'], 'name' => ['required', 'string', 'max:150', 'not_in:.,..'], 'client_visible' => ['required', 'boolean']]);
         if (($data['parent_id'] ?? null) && ! $project->folders()->whereKey($data['parent_id'])->exists()) throw ValidationException::withMessages(['parent_id' => 'Parent folder must belong to this project.']);
         $folder = $project->folders()->create($data + ['created_by' => $request->user()->id]);
@@ -49,6 +51,7 @@ class ProjectFileController extends Controller
 
     public function updateFolder(Project $project, ProjectFolder $folder, Request $request): JsonResponse
     {
+        $this->authorizeProjectAccess($request, $project);
         abort_unless($folder->project_id === $project->id, 404);
         $data = $request->validate(['parent_id' => ['nullable', 'integer'], 'name' => ['required', 'string', 'max:150', 'not_in:.,..'], 'client_visible' => ['required', 'boolean']]);
         if (($data['parent_id'] ?? null) && (! $project->folders()->whereKey($data['parent_id'])->exists() || $data['parent_id'] === $folder->id || $this->isDescendant($folder, $data['parent_id']))) throw ValidationException::withMessages(['parent_id' => 'Invalid destination folder.']);
@@ -59,6 +62,7 @@ class ProjectFileController extends Controller
 
     public function updateStructure(Project $project, Request $request): JsonResponse
     {
+        $this->authorizeProjectAccess($request, $project);
         $data = $request->validate([
             'folders' => ['array'],
             'folders.*.id' => ['nullable', 'integer'],
@@ -160,6 +164,7 @@ class ProjectFileController extends Controller
 
     public function upload(Project $project, UploadProjectFilesRequest $request, ProjectUploadPathService $paths): JsonResponse
     {
+        $this->authorizeProjectAccess($request, $project);
         $base = $request->integer('folder_id') ? $project->folders()->findOrFail($request->integer('folder_id')) : null;
         $uploads = $this->normalizedUploads($request);
 
@@ -247,7 +252,7 @@ class ProjectFileController extends Controller
                     ]);
                 });
 
-                $created[] = $this->filePayload($project, $record);
+                $created[] = $this->filePayload($request, $project, $record);
 
                 app(AuditLogger::class)->record(
                     'project_file_uploaded',
@@ -285,6 +290,7 @@ class ProjectFileController extends Controller
 
     public function download(Project $project, ProjectFile $file): StreamedResponse
     {
+        $this->authorizeProjectAccess(request(), $project);
         abort_unless($file->project_id === $project->id, 404);
         $disk = $file->disk ?: 'local';
         abort_unless(Storage::disk($disk)->exists($file->storage_path), 404);
@@ -297,6 +303,7 @@ class ProjectFileController extends Controller
 
     public function open(Project $project, ProjectFile $file): StreamedResponse
     {
+        $this->authorizeProjectAccess(request(), $project);
         abort_unless($file->project_id === $project->id, 404);
         $disk = $file->disk ?: 'local';
         abort_unless(Storage::disk($disk)->exists($file->storage_path), 404);
@@ -315,6 +322,7 @@ class ProjectFileController extends Controller
 
     public function rename(Project $project, ProjectFile $file, Request $request): JsonResponse
     {
+        $this->authorizeProjectAccess($request, $project);
         abort_unless($file->project_id === $project->id, 404);
 
         $data = Validator::make($request->all(), [
@@ -337,11 +345,12 @@ class ProjectFileController extends Controller
             ['name' => $normalized]
         );
 
-        return response()->json($this->filePayload($project, $file->fresh()));
+        return response()->json($this->filePayload($request, $project, $file->fresh()));
     }
 
     public function destroy(Project $project, ProjectFile $file, Request $request): JsonResponse
     {
+        $this->authorizeProjectAccess($request, $project);
         abort_unless($file->project_id === $project->id, 404);
 
         $disk = $file->disk ?: 'local';
@@ -481,8 +490,10 @@ class ProjectFileController extends Controller
         ], true);
     }
 
-    private function filePayload(Project $project, ProjectFile $file): array
+    private function filePayload(Request $request, Project $project, ProjectFile $file): array
     {
+        $apiPrefix = $request->user()?->is_admin ? 'api' : 'coworker-api';
+
         return [
             'id' => $file->id,
             'project_id' => $file->project_id,
@@ -496,8 +507,19 @@ class ProjectFileController extends Controller
             'visibility' => $file->visibility,
             'created_at' => $file->created_at,
             'updated_at' => $file->updated_at,
-            'open_url' => route('admin.client-portal.api.projects.files.open', [$project, $file]),
-            'download_url' => route('admin.client-portal.api.projects.files.download', [$project, $file]),
+            'open_url' => url("/admin/client-portal/{$apiPrefix}/projects/{$project->id}/files/{$file->id}/open"),
+            'download_url' => url("/admin/client-portal/{$apiPrefix}/projects/{$project->id}/files/{$file->id}/download"),
         ];
+    }
+
+    private function authorizeProjectAccess(Request $request, Project $project): void
+    {
+        $user = $request->user();
+
+        if ($user?->is_admin) {
+            return;
+        }
+
+        abort_unless($project->members()->whereKey($user?->id)->exists(), 403);
     }
 }

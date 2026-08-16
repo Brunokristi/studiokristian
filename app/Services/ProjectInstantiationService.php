@@ -79,7 +79,11 @@ class ProjectInstantiationService
             }
 
             $project->contacts()->sync($contactIds);
-            $project->coworkers()->sync($coworkerIds);
+            if (User::hasProjectUserAccessTypeColumn()) {
+                $project->coworkers()->sync($this->syncCoworkerMap($coworkerIds));
+            } else {
+                $project->coworkers()->sync($coworkerIds);
+            }
 
             if (! empty($contactIds)) {
                 ClientContact::query()->whereIn('id', $contactIds)->update([
@@ -98,7 +102,15 @@ class ProjectInstantiationService
                 }
 
                 if (! empty($coworkerIds)) {
-                    $coworkers = User::query()->whereIn('id', $coworkerIds)->where('is_admin', false)->get();
+                    $coworkers = User::query()
+                        ->whereIn('id', $coworkerIds)
+                        ->where('is_admin', false);
+
+                    if (User::hasRoleColumn()) {
+                        $coworkers->where('role', 'coworker');
+                    }
+
+                    $coworkers = $coworkers->get();
                     foreach ($coworkers as $coworker) {
                         $coworker->notify(new ProjectInvitationNotification($project, route('login')));
                     }
@@ -117,5 +129,16 @@ class ProjectInstantiationService
         $base = Str::slug($name) ?: 'project'; $slug = $base; $suffix = 2;
         while (Project::query()->where('url', $slug)->exists()) $slug = $base.'-'.$suffix++;
         return $slug;
+    }
+
+    private function syncCoworkerMap(array $userIds): array
+    {
+        $map = [];
+
+        foreach ($userIds as $userId) {
+            $map[(int) $userId] = ['access_type' => 'coworker'];
+        }
+
+        return $map;
     }
 }

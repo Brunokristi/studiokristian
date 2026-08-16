@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Facades\Schema;
 
 class Project extends Model
 {
@@ -65,9 +66,47 @@ class Project extends Model
         return $this->belongsToMany(ClientContact::class)->withTimestamps();
     }
 
+    public function members(): BelongsToMany
+    {
+        $relation = $this->belongsToMany(User::class)->withTimestamps();
+
+        if (Schema::hasColumn('project_user', 'access_type')) {
+            $relation->withPivot('access_type');
+        }
+
+        return $relation;
+    }
+
     public function coworkers(): BelongsToMany
     {
-        return $this->belongsToMany(User::class)->withTimestamps();
+        $relation = $this->belongsToMany(User::class)->withTimestamps();
+
+        if (Schema::hasColumn('project_user', 'access_type')) {
+            $relation
+                ->withPivot('access_type')
+                ->where(function ($query) {
+                    $query
+                        ->where('project_user.access_type', 'coworker')
+                        ->orWhereNull('project_user.access_type');
+                });
+        }
+
+        return $relation;
+    }
+
+    public function clients(): BelongsToMany
+    {
+        $relation = $this->belongsToMany(User::class)->withTimestamps();
+
+        if (Schema::hasColumn('project_user', 'access_type')) {
+            $relation
+                ->withPivot('access_type')
+                ->wherePivot('access_type', 'client');
+        } else {
+            $relation->whereRaw('1 = 0');
+        }
+
+        return $relation;
     }
 
     public function tickets(): HasMany
@@ -108,5 +147,10 @@ class Project extends Model
     public function serviceAccounts(): HasMany
     {
         return $this->hasMany(ServiceAccount::class);
+    }
+
+    public function documentSignatures(): HasMany
+    {
+        return $this->hasMany(ProjectFolderSignature::class);
     }
 }

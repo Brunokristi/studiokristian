@@ -78,6 +78,22 @@ const {
     )
 
 
+const canCreateProject =
+    computed(() => {
+        if (
+            !rows.value.length
+        ) {
+            return true
+        }
+
+        return Boolean(
+            rows.value[0]
+                ?.current_user
+                ?.is_admin
+        )
+    })
+
+
 const statusOptions =
     computed(() => [
         {
@@ -118,6 +134,10 @@ const statusOptions =
 
 
 function createProject() {
+    if (!canCreateProject.value) {
+        return
+    }
+
     router.push({
         name: 'projects.create'
     })
@@ -247,7 +267,11 @@ function formatDate(value) {
             "
             empty-title="No projects yet."
             empty-text="Create your first project to start collaboration."
-            add-label=" "
+            :add-label="
+                canCreateProject
+                    ? ' '
+                    : ''
+            "
             @sort="
                 sortBy
             "
@@ -371,6 +395,9 @@ function formatDate(value) {
 
 
             <template
+                v-if="
+                    canCreateProject
+                "
                 #empty-action
             >
                 <button

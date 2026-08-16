@@ -6,6 +6,23 @@ use Illuminate\Validation\Rule;
 
 class UploadProjectFilesRequest extends AdminClientPortalRequest
 {
+    public function authorize(): bool
+    {
+        $user = $this->user();
+
+        if (! $user) {
+            return false;
+        }
+
+        if ($user->is_admin) {
+            return true;
+        }
+
+        $project = $this->route('project');
+
+        return $project && $project->members()->whereKey($user->id)->exists();
+    }
+
     public function rules(): array
     {
         $project = $this->route('project');

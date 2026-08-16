@@ -38,7 +38,7 @@ class ProjectTicketController extends Controller
     }
     private function authorizeProject(Project $project, Request $request): void
     {
-        abort_unless($request->user()->is_admin || $project->coworkers()->whereKey($request->user()->id)->exists(), 403);
+        abort_unless($request->user()->is_admin || $project->members()->whereKey($request->user()->id)->exists(), 403);
     }
 
     private function assertAssignable(Project $project, mixed $assignedTo): void
@@ -66,7 +66,15 @@ class ProjectTicketController extends Controller
             return;
         }
 
-        $assignee = User::query()->whereKey($assignedTo)->where('is_admin', false)->first();
+        $assignee = User::query()
+            ->whereKey($assignedTo)
+            ->where('is_admin', false)
+            ->first();
+
+        if ($assignee && User::hasRoleColumn() && $assignee->role !== 'coworker') {
+            return;
+        }
+
         if (! $assignee) {
             return;
         }

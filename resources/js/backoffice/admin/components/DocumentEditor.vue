@@ -186,6 +186,7 @@ const blockTools = ref({
 })
 
 const draggedBlockIndex = ref(null)
+const dragSourceIndex = ref(null)
 const dropIndicator = ref({
     visible: false,
     top: 0,
@@ -1265,6 +1266,8 @@ function handleToolbarDragStart(
 
     draggedBlockIndex.value =
         blockTools.value.index
+    dragSourceIndex.value =
+        blockTools.value.index
 
     event.dataTransfer.effectAllowed =
         'move'
@@ -1292,6 +1295,16 @@ function handleToolbarDragEnd() {
         () => {
             draggedBlockIndex.value =
                 null
+
+            // Keep the source index briefly so late drop handlers can still resolve the move.
+            window.setTimeout(
+                () => {
+                    dragSourceIndex.value =
+                        null
+                },
+                120
+            )
+
             clearDropIndicator()
             clearActiveBlockVisuals()
             updateBlockToolsUI()
@@ -1306,7 +1319,9 @@ function handleBlockDragOver(
 ) {
     if (
         draggedBlockIndex.value ===
-        null
+            null &&
+        dragSourceIndex.value ===
+            null
     ) {
         return
     }
@@ -1397,10 +1412,46 @@ function handleBlockDrop(
 ) {
     event.preventDefault()
 
-    const sourceIndex =
+    let sourceIndex =
         draggedBlockIndex.value
 
+    if (
+        sourceIndex === null &&
+        dragSourceIndex.value !==
+            null
+    ) {
+        sourceIndex =
+            dragSourceIndex.value
+    }
+
+    if (
+        sourceIndex === null &&
+        event.dataTransfer
+    ) {
+        const raw =
+            event.dataTransfer.getData(
+                'application/x-document-block-index'
+            )
+
+        if (raw !== '') {
+            const parsed = Number(
+                raw
+            )
+
+            if (
+                !Number.isNaN(
+                    parsed
+                )
+            ) {
+                sourceIndex =
+                    parsed
+            }
+        }
+    }
+
     draggedBlockIndex.value =
+        null
+    dragSourceIndex.value =
         null
 
     const targetElement =
@@ -1482,6 +1533,8 @@ function handleDocumentDragOver(
 ) {
     if (
         draggedBlockIndex.value ===
+            null &&
+        dragSourceIndex.value ===
             null ||
         !props.editable
     ) {
@@ -1549,6 +1602,15 @@ function handleDocumentDrop(
 
     let sourceIndex =
         draggedBlockIndex.value
+
+    if (
+        sourceIndex === null &&
+        dragSourceIndex.value !==
+            null
+    ) {
+        sourceIndex =
+            dragSourceIndex.value
+    }
 
     if (
         sourceIndex === null &&
@@ -1620,6 +1682,8 @@ function handleDocumentDrop(
     }
 
     draggedBlockIndex.value =
+        null
+    dragSourceIndex.value =
         null
     clearDropIndicator()
 
