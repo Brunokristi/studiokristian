@@ -6,6 +6,10 @@ import {
 } from 'vue'
 
 import {
+    NodeSelection
+} from '@tiptap/pm/state'
+
+import {
     NodeViewWrapper
 } from '@tiptap/vue-3'
 
@@ -19,6 +23,12 @@ const props = defineProps({
     selected: {
         type: Boolean,
         default: false
+    },
+
+    getPos: {
+        type: Function,
+        required: false,
+        default: null
     },
 
     updateAttributes: {
@@ -111,10 +121,16 @@ const currentHeight = computed(() => {
 
 
 const wrapperStyle = computed(() => {
+    const height =
+        currentHeight.value
+
     return {
         width: '100%',
         maxWidth: '100%',
-        height: currentHeight.value
+        height:
+            height === 'auto'
+                ? undefined
+                : height
     }
 })
 
@@ -126,7 +142,10 @@ const imageStyle = computed(() => {
     return {
         width: '100%',
         maxWidth: '100%',
-        height,
+        height:
+            height === 'auto'
+                ? 'auto'
+                : height,
         display: 'block',
         margin: '0 auto',
         objectFit: 'contain'
@@ -140,11 +159,44 @@ const showResizeHandle = computed(() => {
         !isPending.value &&
         (
             props.selected ||
-            isHovered.value ||
             isResizing.value
         )
     )
 })
+
+
+function selectNode() {
+    if (
+        !editable.value ||
+        isPending.value ||
+        props.selected ||
+        !props.editor?.view ||
+        typeof props.getPos !== 'function'
+    ) {
+        return
+    }
+
+    const pos =
+        Number(props.getPos())
+
+    if (
+        !Number.isInteger(pos)
+    ) {
+        return
+    }
+
+    const selection =
+        NodeSelection.create(
+            props.editor.view.state.doc,
+            pos
+        )
+
+    props.editor.view.dispatch(
+        props.editor.view.state.tr.setSelection(
+            selection
+        )
+    )
+}
 
 
 function getNaturalImageHeight() {
@@ -294,12 +346,14 @@ function finishResize() {
     if (
         liveHeightPx.value !== null
     ) {
+        const nextHeight =
+            `${Math.round(
+                liveHeightPx.value
+            )}px`
+
         props.updateAttributes({
             width: '100%',
-            height:
-                `${Math.round(
-                    liveHeightPx.value
-                )}px`
+            height: nextHeight
         })
     }
 
@@ -354,13 +408,22 @@ onBeforeUnmount(() => {
         class="document-image-node"
         :class="{
             'document-image-node--resizing':
-                isResizing
+                isResizing,
+            'is-editor-active-block':
+                selected
         }"
         :style="wrapperStyle"
+        @click.stop="selectNode"
         @mouseenter="
             handleMouseEnter
         "
         @mouseleave="
+            handleMouseLeave
+        "
+        @focusin="
+            handleMouseEnter
+        "
+        @focusout="
             handleMouseLeave
         "
     >
@@ -417,7 +480,13 @@ onBeforeUnmount(() => {
                 @pointerdown.stop.prevent="
                     startResize
                 "
-            />
+            >
+                <span
+                    class="
+                        document-image-node__resize-handle-line
+                    "
+                />
+            </button>
         </div>
     </NodeViewWrapper>
 </template>
@@ -447,6 +516,7 @@ onBeforeUnmount(() => {
     padding: 0;
 
     box-sizing: border-box;
+    overflow: visible;
 }
 
 
@@ -495,9 +565,6 @@ onBeforeUnmount(() => {
     img[pendingprojectimage='true'] {
     min-height: 140px;
 
-    border: 1px dashed
-        rgb(19 62 180 / 0.45);
-
     background:
         repeating-linear-gradient(
             -45deg,
@@ -523,10 +590,10 @@ onBeforeUnmount(() => {
     position: absolute;
 
     left: 50%;
-    bottom: -7px;
+    bottom: -10px;
 
-    width: 16px;
-    height: 16px;
+    width: 8px;
+    height: 8px;
 
     margin: 0;
     padding: 0;
@@ -539,7 +606,7 @@ onBeforeUnmount(() => {
     border-radius: 50%;
 
     background:
-        var(--color-light);
+        rgb(19 62 180);
 
     box-shadow: none;
 
@@ -557,25 +624,18 @@ onBeforeUnmount(() => {
 
     transition:
         transform 120ms ease,
-        background-color 120ms ease;
+        background-color 120ms ease,
+        box-shadow 120ms ease;
 }
 
 
-.document-image-node__resize-handle:hover {
-    transform:
-        translateX(-50%)
-        scale(1.12);
-}
+.document-image-node__resize-handle-line {
+    display: block;
 
+    width: 0;
+    height: 0;
 
-.document-image-node--resizing
-    .document-image-node__resize-handle {
-    transform:
-        translateX(-50%)
-        scale(1.12);
-
-    background:
-        rgb(19 62 180 / 0.12);
+    margin: 0 auto;
 }
 
 

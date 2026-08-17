@@ -5028,8 +5028,6 @@ onUnmounted(() => {
         img[pendingprojectimage='true']
 ) {
     min-height: 140px;
-    border: 1px dashed
-        rgb(19 62 180 / 0.45);
     background:
         repeating-linear-gradient(
             -45deg,
