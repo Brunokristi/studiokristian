@@ -217,6 +217,10 @@ async function syncHeading() {
         props.heading ||
         DEFAULT_HEADING
 
+    if (!headingElement.value) {
+        return
+    }
+
     if (
         headingElement.value.textContent !==
         value
@@ -246,6 +250,10 @@ async function syncText() {
     const value =
         props.text ||
         DEFAULT_TEXT
+
+    if (!textElement.value) {
+        return
+    }
 
     if (
         textElement.value.textContent !==

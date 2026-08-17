@@ -14,10 +14,6 @@ if (document.querySelector('#client-portal-admin')) {
     import('./backoffice/admin/main.js');
 }
 
-if (document.querySelector('#staff-workspace')) {
-    import('./backoffice/staff/main.js');
-}
-
 if (document.querySelector('#client-backoffice')) {
     import('./backoffice/client/main.js');
 }

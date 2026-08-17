@@ -18,7 +18,6 @@ import { BubbleMenu } from '@tiptap/vue-3/menus'
 import StarterKit from '@tiptap/starter-kit'
 import Placeholder from '@tiptap/extension-placeholder'
 import Link from '@tiptap/extension-link'
-import Image from '@tiptap/extension-image'
 import Underline from '@tiptap/extension-underline'
 
 import {
@@ -27,18 +26,23 @@ import {
     TableHeader,
     TableCell
 } from '@tiptap/extension-table'
+import {
+    NodeSelection,
+    Selection,
+    TextSelection
+} from '@tiptap/pm/state'
 
 import TaskList from '@tiptap/extension-task-list'
 import TaskItem from '@tiptap/extension-task-item'
 import HorizontalRule from '@tiptap/extension-horizontal-rule'
-import { mergeAttributes } from '@tiptap/core'
 
+import useAutosavePolicy from '../composables/useAutosavePolicy'
 import api, {
     errorMessage
 } from '../composables/useAdminApi'
-import useAutosavePolicy from '../composables/useAutosavePolicy'
 import Slider from './document-editor/extensions/Slider'
 import InfoBlock from './document-editor/extensions/Info'
+import ResizableImage from './document-editor/extensions/ResizableImage'
 
 import AdminModal from './AdminModal.vue'
 import ProjectFilePickerModal from './ProjectFilePickerModal.vue'
@@ -143,7 +147,6 @@ const emit = defineEmits([
 
 const hasPendingSave = ref(false)
 const autosaveTimer = ref(null)
-const imageInput = ref(null)
 const savedSelection = ref(null)
 const commandMenuRoot = ref(null)
 
@@ -161,6 +164,7 @@ const imagePickerUploading = ref(false)
 
 const sliderPickerContext = ref(null)
 const imageNodePickerContext = ref(false)
+const imageNodePickerPos = ref(null)
 
 const saveRevision = ref(0)
 const pendingRevision = ref(0)
@@ -183,16 +187,6 @@ const blockTools = ref({
     top: 0,
     left: 0,
     index: -1
-})
-
-const draggedBlockIndex = ref(null)
-const dragSourceIndex = ref(null)
-const dropIndicator = ref({
-    visible: false,
-    top: 0,
-    left: 0,
-    width: 0,
-    insertIndex: -1
 })
 
 
@@ -449,7 +443,9 @@ function imageNode(
         attrs: {
             src,
             alt,
-            title
+            title,
+            width: '100%',
+            pendingProjectImage: false
         }
     }
 }
@@ -909,7 +905,7 @@ function getTopLevelBlockStartPos(
     doc,
     index
 ) {
-    let position = 1
+    let position = 0
 
     for (
         let i = 0;
@@ -922,6 +918,64 @@ function getTopLevelBlockStartPos(
     }
 
     return position
+}
+
+
+function topLevelChildCount(doc) {
+    return Number(
+        doc?.childCount ||
+        0
+    )
+}
+
+
+function topLevelInsertPos(
+    doc,
+    index
+) {
+    return getTopLevelBlockStartPos(
+        doc,
+        Math.max(
+            0,
+            Math.min(
+                index,
+                topLevelChildCount(doc)
+            )
+        )
+    )
+}
+
+
+function getActiveTopLevelIndex(
+    selection,
+    doc
+) {
+    if (
+        !selection ||
+        !doc?.childCount
+    ) {
+        return -1
+    }
+
+    if (
+        selection.$from?.depth >= 1
+    ) {
+        return selection.$from.index(0)
+    }
+
+    const safePos = Math.max(
+        0,
+        Math.min(
+            Number(
+                selection.from || 0
+            ),
+            doc.content.size
+        )
+    )
+
+    return doc.resolve(
+        safePos
+    ).index(0)
 }
 
 
@@ -946,17 +1000,6 @@ function clearActiveBlockVisuals() {
                 'is-editor-drop-target'
             )
         })
-}
-
-
-function clearDropIndicator() {
-    dropIndicator.value = {
-        visible: false,
-        top: 0,
-        left: 0,
-        width: 0,
-        insertIndex: -1
-    }
 }
 
 
@@ -991,13 +1034,7 @@ function updateBlockToolsUI() {
         return
     }
 
-    const depth =
-        selection.$from.depth
-
-    if (
-        depth < 1 ||
-        !doc.childCount
-    ) {
+    if (!doc.childCount) {
         clearActiveBlockVisuals()
         blockTools.value.visible =
             false
@@ -1005,7 +1042,10 @@ function updateBlockToolsUI() {
     }
 
     const index =
-        selection.$from.index(0)
+        getActiveTopLevelIndex(
+            selection,
+            doc
+        )
 
     if (
         index < 0 ||
@@ -1063,66 +1103,172 @@ function moveBlockByInsertIndex(
         return
     }
 
-    const docJson =
-        instance.getJSON()
+    const {
+        state,
+        view
+    } = instance
 
-    const content =
-        Array.isArray(
-            docJson?.content
+    const blockCount =
+        topLevelChildCount(
+            state.doc
         )
-            ? [...docJson.content]
-            : []
 
     if (
         sourceIndex < 0 ||
+        sourceIndex >= blockCount ||
         insertIndex < 0 ||
-        sourceIndex >=
-            content.length ||
-        insertIndex >
-            content.length
+        insertIndex > blockCount
     ) {
         return
     }
 
-    const [moved] =
-        content.splice(
-            sourceIndex,
-            1
-        )
-
-    const insertAt =
+    const normalizedInsertIndex =
         sourceIndex <
         insertIndex
             ? insertIndex - 1
             : insertIndex
 
-    if (insertAt === sourceIndex) {
+    if (
+        normalizedInsertIndex ===
+        sourceIndex
+    ) {
         return
     }
 
-    content.splice(
-        insertAt,
-        0,
-        moved
+    const sourcePos =
+        getTopLevelBlockStartPos(
+            state.doc,
+            sourceIndex
+        )
+
+    const sourceNode =
+        state.doc.child(
+            sourceIndex
+        )
+
+    const sourceEndPos =
+        sourcePos +
+        sourceNode.nodeSize
+
+    const tr =
+        state.tr.delete(
+            sourcePos,
+            sourceEndPos
+        )
+
+    const insertPos =
+        topLevelInsertPos(
+            tr.doc,
+            normalizedInsertIndex
+        )
+
+    tr.insert(
+        insertPos,
+        sourceNode
     )
 
-    instance
-        .chain()
-        .focus()
-        .setContent(
-            {
-                ...docJson,
-                content
-            },
-            false
+    const movedNodePos =
+        topLevelInsertPos(
+            tr.doc,
+            normalizedInsertIndex
         )
-        .run()
+
+    const movedNode =
+        tr.doc.child(
+            normalizedInsertIndex
+        )
+
+    if (
+        tr.doc.nodeAt(
+            movedNodePos
+        )
+    ) {
+        if (
+            movedNode?.isTextblock
+        ) {
+            const textPos = Math.max(
+                1,
+                Math.min(
+                    movedNodePos + 1,
+                    tr.doc.content
+                        .size
+                )
+            )
+
+            tr.setSelection(
+                TextSelection.near(
+                    tr.doc.resolve(
+                        textPos
+                    )
+                )
+            )
+        } else {
+            try {
+                tr.setSelection(
+                    NodeSelection.create(
+                        tr.doc,
+                        movedNodePos
+                    )
+                )
+            } catch {
+                tr.setSelection(
+                    Selection.near(
+                        tr.doc.resolve(
+                            Math.min(
+                                movedNodePos + 1,
+                                tr.doc.content
+                                    .size
+                            )
+                        ),
+                        1
+                    )
+                )
+            }
+        }
+    }
+
+    view.dispatch(
+        tr.scrollIntoView()
+    )
+
+    instance.commands.focus()
 
     markDirty()
 
     nextTick(() => {
+        try {
+            const coords =
+                instance.view.coordsAtPos(
+                    Math.max(
+                        1,
+                        movedNodePos + 1
+                    )
+                )
+
+            const viewportHeight =
+                window.innerHeight ||
+                900
+
+            if (
+                coords.top < 96 ||
+                coords.bottom >
+                    viewportHeight -
+                        96
+            ) {
+                window.scrollTo({
+                    top:
+                        window.scrollY +
+                        coords.top -
+                        viewportHeight / 2,
+                    behavior:
+                        'smooth'
+                })
+            }
+        } catch {
+            // Keep move operation resilient when positions shift rapidly.
+        }
+
         updateBlockToolsUI()
-        syncBlockDropTargets()
     })
 }
 
@@ -1182,7 +1328,6 @@ function deleteActiveBlock() {
 
     nextTick(() => {
         updateBlockToolsUI()
-        syncBlockDropTargets()
     })
 }
 
@@ -1247,7 +1392,6 @@ function duplicateActiveBlock() {
 
     nextTick(() => {
         updateBlockToolsUI()
-        syncBlockDropTargets()
     })
 }
 
@@ -1270,505 +1414,6 @@ function moveActiveBlock(
     moveBlockByInsertIndex(
         index,
         insertIndex
-    )
-}
-
-
-function handleToolbarDragStart(
-    event
-) {
-    if (
-        blockTools.value.index < 0
-    ) {
-        return
-    }
-
-    draggedBlockIndex.value =
-        blockTools.value.index
-    dragSourceIndex.value =
-        blockTools.value.index
-
-    event.dataTransfer.effectAllowed =
-        'move'
-    event.dataTransfer.dropEffect =
-        'move'
-
-    event.dataTransfer.setData(
-        'application/x-document-block-index',
-        String(
-            blockTools.value.index
-        )
-    )
-
-    // Avoid ProseMirror inserting plain dropped text if a native drop slips through.
-    event.dataTransfer.setData(
-        'text/plain',
-        ''
-    )
-}
-
-
-function handleToolbarDragEnd() {
-    // Let drop handlers run first; some browsers dispatch dragend before reactive updates settle.
-    window.setTimeout(
-        () => {
-            draggedBlockIndex.value =
-                null
-
-            // Keep the source index briefly so late drop handlers can still resolve the move.
-            window.setTimeout(
-                () => {
-                    dragSourceIndex.value =
-                        null
-                },
-                120
-            )
-
-            clearDropIndicator()
-            clearActiveBlockVisuals()
-            updateBlockToolsUI()
-        },
-        0
-    )
-}
-
-
-function handleBlockDragOver(
-    event
-) {
-    if (
-        draggedBlockIndex.value ===
-            null &&
-        dragSourceIndex.value ===
-            null
-    ) {
-        return
-    }
-
-    event.preventDefault()
-
-    if (
-        event.currentTarget instanceof
-        HTMLElement
-    ) {
-        const target =
-            event.currentTarget
-
-        const targetIndex = Number(
-            target.dataset
-                .blockIndex
-        )
-
-        if (
-            Number.isNaN(
-                targetIndex
-            )
-        ) {
-            return
-        }
-
-        const rect =
-            target.getBoundingClientRect()
-
-        const before =
-            event.clientY <
-            rect.top +
-                rect.height / 2
-
-        const insertIndex =
-            before
-                ? targetIndex
-                : targetIndex + 1
-
-        dropIndicator.value = {
-            visible: true,
-            top: before
-                ? rect.top
-                : rect.bottom,
-            left:
-                rect.left,
-            width:
-                rect.width,
-            insertIndex
-        }
-
-        target.classList.add(
-            'is-editor-drop-target'
-        )
-    }
-}
-
-
-function handleBlockDragLeave(
-    event
-) {
-    if (
-        event.currentTarget instanceof
-        HTMLElement
-    ) {
-        const nextTarget =
-            event.relatedTarget
-
-        if (
-            nextTarget instanceof
-                Node &&
-            event.currentTarget.contains(
-                nextTarget
-            )
-        ) {
-            return
-        }
-
-        event.currentTarget.classList.remove(
-            'is-editor-drop-target'
-        )
-    }
-}
-
-
-function handleBlockDrop(
-    event
-) {
-    event.preventDefault()
-
-    let sourceIndex =
-        draggedBlockIndex.value
-
-    if (
-        sourceIndex === null &&
-        dragSourceIndex.value !==
-            null
-    ) {
-        sourceIndex =
-            dragSourceIndex.value
-    }
-
-    if (
-        sourceIndex === null &&
-        event.dataTransfer
-    ) {
-        const raw =
-            event.dataTransfer.getData(
-                'application/x-document-block-index'
-            )
-
-        if (raw !== '') {
-            const parsed = Number(
-                raw
-            )
-
-            if (
-                !Number.isNaN(
-                    parsed
-                )
-            ) {
-                sourceIndex =
-                    parsed
-            }
-        }
-    }
-
-    draggedBlockIndex.value =
-        null
-    dragSourceIndex.value =
-        null
-
-    const targetElement =
-        event.currentTarget
-
-    if (
-        !(targetElement instanceof HTMLElement)
-    ) {
-        clearDropIndicator()
-        clearActiveBlockVisuals()
-        updateBlockToolsUI()
-        return
-    }
-
-    const insertIndex = Number(
-        dropIndicator.value
-            .insertIndex
-    )
-
-    if (
-        sourceIndex === null ||
-        Number.isNaN(
-            insertIndex
-        )
-    ) {
-        clearDropIndicator()
-        clearActiveBlockVisuals()
-        updateBlockToolsUI()
-        return
-    }
-
-    clearDropIndicator()
-
-    moveBlockByInsertIndex(
-        sourceIndex,
-        insertIndex
-    )
-}
-
-
-function getTopLevelBlockElementFromNode(node) {
-    const root =
-        editor.value?.view
-            ?.dom
-
-    if (
-        !(root instanceof HTMLElement) ||
-        !(node instanceof Node)
-    ) {
-        return null
-    }
-
-    let current =
-        node instanceof HTMLElement
-            ? node
-            : node.parentElement
-
-    while (
-        current &&
-        current.parentElement !== root
-    ) {
-        current =
-            current.parentElement
-    }
-
-    if (
-        current &&
-        current.parentElement === root
-    ) {
-        return current
-    }
-
-    return null
-}
-
-
-function handleDocumentDragOver(
-    event
-) {
-    if (
-        draggedBlockIndex.value ===
-            null &&
-        dragSourceIndex.value ===
-            null ||
-        !props.editable
-    ) {
-        return
-    }
-
-    const targetBlock =
-        getTopLevelBlockElementFromNode(
-            event.target
-        )
-
-    if (!targetBlock) {
-        return
-    }
-
-    event.preventDefault()
-
-    clearActiveBlockVisuals()
-    targetBlock.classList.add(
-        'is-editor-drop-target'
-    )
-
-    const targetIndex = Number(
-        targetBlock.dataset
-            .blockIndex
-    )
-
-    if (
-        Number.isNaN(
-            targetIndex
-        )
-    ) {
-        return
-    }
-
-    const rect =
-        targetBlock.getBoundingClientRect()
-
-    const before =
-        event.clientY <
-        rect.top +
-            rect.height / 2
-
-    const insertIndex =
-        before
-            ? targetIndex
-            : targetIndex + 1
-
-    dropIndicator.value = {
-        visible: true,
-        top: before
-            ? rect.top
-            : rect.bottom,
-        left: rect.left,
-        width: rect.width,
-        insertIndex
-    }
-}
-
-
-function handleDocumentDrop(
-    event
-) {
-    event.preventDefault()
-
-    let sourceIndex =
-        draggedBlockIndex.value
-
-    if (
-        sourceIndex === null &&
-        dragSourceIndex.value !==
-            null
-    ) {
-        sourceIndex =
-            dragSourceIndex.value
-    }
-
-    if (
-        sourceIndex === null &&
-        event.dataTransfer
-    ) {
-        const raw =
-            event.dataTransfer.getData(
-                'application/x-document-block-index'
-            )
-
-        if (raw !== '') {
-            const parsed = Number(
-                raw
-            )
-
-            if (
-                !Number.isNaN(
-                    parsed
-                )
-            ) {
-                sourceIndex =
-                    parsed
-            }
-        }
-    }
-
-    let insertIndex = Number(
-        dropIndicator.value
-            .insertIndex
-    )
-
-    if (
-        Number.isNaN(
-            insertIndex
-        )
-    ) {
-        const targetBlock =
-            getTopLevelBlockElementFromNode(
-                event.target
-            )
-
-        if (
-            targetBlock instanceof
-            HTMLElement
-        ) {
-            const targetIndex = Number(
-                targetBlock.dataset
-                    .blockIndex
-            )
-
-            if (
-                !Number.isNaN(
-                    targetIndex
-                )
-            ) {
-                const rect =
-                    targetBlock.getBoundingClientRect()
-
-                const before =
-                    event.clientY <
-                    rect.top +
-                        rect.height / 2
-
-                insertIndex = before
-                    ? targetIndex
-                    : targetIndex + 1
-            }
-        }
-    }
-
-    draggedBlockIndex.value =
-        null
-    dragSourceIndex.value =
-        null
-    clearDropIndicator()
-
-    if (
-        sourceIndex === null ||
-        Number.isNaN(
-            insertIndex
-        )
-    ) {
-        clearActiveBlockVisuals()
-        updateBlockToolsUI()
-        return
-    }
-
-    moveBlockByInsertIndex(
-        sourceIndex,
-        insertIndex
-    )
-}
-
-
-function syncBlockDropTargets() {
-    const root =
-        editor.value?.view
-            ?.dom
-
-    if (
-        !(root instanceof HTMLElement)
-    ) {
-        return
-    }
-
-    const blocks =
-        Array.from(
-            root.children
-        )
-
-    blocks.forEach(
-        (
-            block,
-            index
-        ) => {
-            if (
-                !(block instanceof HTMLElement)
-            ) {
-                return
-            }
-
-            block.dataset.blockIndex =
-                String(index)
-
-            block.ondragover =
-                props.editable
-                    ? handleBlockDragOver
-                    : null
-
-            block.ondragleave =
-                props.editable
-                    ? handleBlockDragLeave
-                    : null
-
-            block.ondrop =
-                props.editable
-                    ? handleBlockDrop
-                    : null
-        }
     )
 }
 
@@ -2168,15 +1813,13 @@ const commands = [
         ],
 
         action() {
-            if (
-                props.projectFilesEnabled &&
-                props.projectId
-            ) {
-                openProjectFilesForImageNode()
-                return
-            }
+            const placeholderPos =
+                insertPendingImagePlaceholder()
 
-            imageInput.value?.click()
+            openProjectFilesForImageNode({
+                replacePos:
+                    placeholderPos
+            })
         }
     },
 
@@ -2387,56 +2030,6 @@ function openCommandMenu(
 }
 
 
-function handleImageUpload(
-    event
-) {
-    const file =
-        event.target.files?.[0]
-
-    if (!file) {
-        return
-    }
-
-    const reader =
-        new FileReader()
-
-    reader.onload =
-        () => {
-            const src =
-                typeof reader.result ===
-                'string'
-                    ? reader.result
-                    : ''
-
-            if (
-                !src ||
-                !editor.value
-            ) {
-                return
-            }
-
-            editor.value
-                .chain()
-                .focus()
-                .setImage({
-                    src,
-                    alt:
-                        file.name
-                })
-                .run()
-
-            closeMenus()
-            markDirty()
-        }
-
-    reader.readAsDataURL(
-        file
-    )
-
-    event.target.value = ''
-}
-
-
 function runTableCommand(command) {
     const instance =
         editor.value
@@ -2496,17 +2089,116 @@ function runTableCommand(command) {
 }
 
 
-function openProjectFilesForImageNode() {
+function findPendingImagePos(
+    doc,
+    anchorPos
+) {
+    let foundPos = null
+    let bestDistance =
+        Number.POSITIVE_INFINITY
+
+    doc.descendants(
+        (node, pos) => {
+            if (
+                node.type.name !==
+                    'image' ||
+                !node.attrs
+                    ?.pendingProjectImage
+            ) {
+                return
+            }
+
+            const distance =
+                Math.abs(
+                    pos - anchorPos
+                )
+
+            if (
+                distance <
+                bestDistance
+            ) {
+                bestDistance =
+                    distance
+                foundPos = pos
+            }
+        }
+    )
+
+    return foundPos
+}
+
+
+function insertPendingImagePlaceholder() {
+    const instance =
+        editor.value
+
+    if (!instance) {
+        return null
+    }
+
+    const insertPos =
+        instance.state.selection.from
+
+    const placeholderSrc =
+        'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 420"><rect width="1200" height="420" fill="%23f5f8ff"/></svg>'
+
+    const inserted =
+        instance
+            .chain()
+            .focus()
+            .insertContent({
+                type: 'image',
+                attrs: {
+                    src:
+                        placeholderSrc,
+                    alt: '',
+                    title: '',
+                    width: '100%',
+                    pendingProjectImage:
+                        true
+                }
+            })
+            .run()
+
+    if (!inserted) {
+        return null
+    }
+
+    const pendingPos =
+        findPendingImagePos(
+            instance.state.doc,
+            insertPos
+        )
+
+    markDirty()
+
+    return pendingPos ?? insertPos
+}
+
+
+function openProjectFilesForImageNode(
+    context = {}
+) {
     if (
-        !props.projectFilesEnabled ||
         !props.projectId
     ) {
-        imageInput.value?.click()
+        imagePickerError.value =
+            'Project files are not available for this document.'
+        showImagePickerModal.value =
+            true
         return
     }
 
     imageNodePickerContext.value =
         true
+    imageNodePickerPos.value =
+        Number.isInteger(
+            context?.replacePos
+        )
+            ? Number(
+                context.replacePos
+            )
+            : null
     sliderPickerContext.value =
         null
     imagePickerCurrentFolderId.value =
@@ -2515,6 +2207,1043 @@ function openProjectFilesForImageNode() {
         true
 
     void loadImagePickerItems()
+}
+
+
+function imagePickerFileName(
+    file
+) {
+    return (
+        file?.display_name ||
+        file?.original_filename ||
+        file?.name ||
+        'image'
+    )
+}
+
+
+function isPngProjectFile(
+    file
+) {
+    const mime = String(
+        file?.mime_type ||
+        ''
+    ).toLowerCase()
+
+    if (
+        mime ===
+        'image/png'
+    ) {
+        return true
+    }
+
+    const name = String(
+        imagePickerFileName(
+            file
+        ) ||
+        ''
+    ).toLowerCase()
+
+    return name.endsWith('.png')
+}
+
+
+function isImageProjectFile(
+    file
+) {
+    const mime = String(
+        file?.mime_type ||
+        ''
+    ).toLowerCase()
+
+    if (
+        mime.startsWith(
+            'image/'
+        )
+    ) {
+        return true
+    }
+
+    const name = String(
+        imagePickerFileName(
+            file
+        ) ||
+        ''
+    ).toLowerCase()
+
+    return /\.(png|jpe?g|gif|webp|svg|avif)$/i.test(
+        name
+    )
+}
+
+
+function pickerAcceptsProjectFile(
+    file
+) {
+    if (
+        imageNodePickerContext.value
+    ) {
+        return isImageProjectFile(
+            file
+        )
+    }
+
+    return isPngProjectFile(
+        file
+    )
+}
+
+
+function normalizeProjectFolders(
+    serverFolders = [],
+    previousFolders = []
+) {
+    const source =
+        Array.isArray(
+            serverFolders
+        )
+            ? [
+                ...serverFolders
+            ]
+            : []
+
+    const previous =
+        Array.isArray(
+            previousFolders
+        )
+            ? [
+                ...previousFolders
+            ]
+            : []
+
+    source.sort(
+        (a, b) =>
+            Number(
+                a?.sort_order ||
+                0
+            ) -
+            Number(
+                b?.sort_order ||
+                0
+            )
+    )
+
+    const previousById =
+        new Map(
+            previous
+                .filter(item =>
+                    isPersistedFolderId(
+                        item?.id
+                    )
+                )
+                .map(item => [
+                    String(
+                        item.id
+                    ),
+                    item
+                ])
+        )
+
+    const normalized =
+        source.map(
+            (
+                item,
+                index
+            ) => {
+                const previousItem =
+                    previousById.get(
+                        String(
+                            item.id
+                        )
+                    ) ||
+                    previous[
+                        index
+                    ] ||
+                    null
+
+                return {
+                    ...item,
+                    type: 'folder',
+                    client_key:
+                        previousItem?.client_key ||
+                        item.client_key ||
+                        String(
+                            item.id
+                        ),
+                    parent_client_key:
+                        item.parent_id !== null &&
+                        item.parent_id !== undefined
+                            ? String(
+                                item.parent_id
+                            )
+                            : null,
+                    client_visible:
+                        item.client_visible ??
+                        previousItem?.client_visible ??
+                        true
+                }
+            }
+        )
+
+    const idToClientKey =
+        new Map(
+            normalized.map(
+                item => [
+                    String(
+                        item.id
+                    ),
+                    String(
+                        item.client_key
+                    )
+                ]
+            )
+        )
+
+    return normalized.map(
+        item => ({
+            ...item,
+            parent_client_key:
+                item.parent_id !==
+                    null &&
+                item.parent_id !==
+                    undefined
+                    ? (
+                        idToClientKey.get(
+                            String(
+                                item.parent_id
+                            )
+                        ) ||
+                        String(
+                            item.parent_id
+                        )
+                    )
+                    : null
+        })
+    )
+}
+
+
+function isPersistedFolderId(
+    value
+) {
+    if (
+        value === null ||
+        value === undefined
+    ) {
+        return false
+    }
+
+    const numeric =
+        Number(value)
+
+    return (
+        Number.isInteger(
+            numeric
+        ) &&
+        numeric > 0
+    )
+}
+
+
+function imagePickerStructureItems() {
+    return (
+        imagePickerItems.value ||
+        []
+    ).filter(
+        item =>
+            !item?.__uploaded_file
+    )
+}
+
+
+function imagePickerFoldersPayloadForSave() {
+    const items =
+        imagePickerStructureItems().map(
+            item => ({
+                ...item,
+                id:
+                    isPersistedFolderId(
+                        item.id
+                    )
+                        ? Number(
+                            item.id
+                        )
+                        : null,
+                client_key:
+                    String(
+                        item.client_key ||
+                        item.id
+                    ),
+                parent_client_key:
+                    item.parent_client_key ??
+                    null,
+                client_visible:
+                    item.client_visible ??
+                    true
+            })
+        )
+
+    const keyById =
+        new Map(
+            items
+                .filter(item =>
+                    item.id !== null
+                )
+                .map(item => [
+                    String(
+                        item.id
+                    ),
+                    String(
+                        item.client_key
+                    )
+                ])
+        )
+
+    return items.map(
+        item => ({
+            ...item,
+            parent_client_key:
+                item.parent_id !==
+                    null &&
+                item.parent_id !==
+                    undefined
+                    ? (
+                        keyById.get(
+                            String(
+                                item.parent_id
+                            )
+                        ) ||
+                        String(
+                            item.parent_client_key ||
+                            item.parent_id
+                        )
+                    )
+                    : null
+        })
+    )
+}
+
+
+async function persistImagePickerStructure() {
+    if (!props.projectId) {
+        return
+    }
+
+    const response =
+        await api.put(
+            `/projects/${props.projectId}/structure`,
+            {
+                folders:
+                    imagePickerFoldersPayloadForSave()
+            }
+        )
+
+    const uploadedFiles =
+        (
+            imagePickerItems.value ||
+            []
+        ).filter(
+            item =>
+                item?.__uploaded_file
+        )
+
+    const structureItems =
+        normalizeProjectFolders(
+            response.data?.folders ||
+            [],
+            imagePickerStructureItems()
+        )
+
+    imagePickerItems.value = [
+        ...structureItems,
+        ...uploadedFiles
+    ]
+}
+
+
+function normalizePickerFile(
+    file
+) {
+    return {
+        id:
+            `project-file-${file.id}`,
+        client_key:
+            `project-file-${file.id}`,
+        type: 'file',
+        resource_type: 'file',
+        name:
+            imagePickerFileName(
+                file
+            ),
+        parent_id:
+            file.folder_id ??
+            null,
+        parent_client_key:
+            file.folder_id
+                ? String(
+                    file.folder_id
+                )
+                : null,
+        mime_type:
+            file.mime_type ||
+            '',
+        open_url:
+            file.open_url ||
+            '',
+        download_url:
+            file.download_url ||
+            '',
+        extension:
+            file.extension ||
+            '',
+        size: Number(
+            file.size ||
+            0
+        ),
+        __uploaded_file: true
+    }
+}
+
+
+async function loadImagePickerItems() {
+    if (
+        !props.projectId
+    ) {
+        imagePickerItems.value = []
+        return
+    }
+
+    imagePickerLoading.value =
+        true
+    imagePickerError.value =
+        ''
+
+    try {
+        const projectResponse =
+            await api.get(
+                `/projects/${props.projectId}`
+            )
+
+        const projectData =
+            projectResponse.data?.data ||
+            {}
+
+        const structureItems =
+            normalizeProjectFolders(
+                projectData?.folders ||
+                [],
+                imagePickerStructureItems()
+            )
+
+        const collectedFiles = []
+        const queue = [null]
+        const visited =
+            new Set()
+
+        while (queue.length) {
+            const folderId =
+                queue.shift()
+
+            const response =
+                await api.get(
+                    `/projects/${props.projectId}/files`,
+                    {
+                        params: {
+                            folder_id:
+                                folderId
+                        }
+                    }
+                )
+
+            const files =
+                Array.isArray(
+                    response.data?.files
+                )
+                    ? response.data.files
+                    : []
+
+            const folders =
+                Array.isArray(
+                    response.data?.folders
+                )
+                    ? response.data.folders
+                    : []
+
+            folders.forEach(
+                folder => {
+                    const id =
+                        Number(
+                            folder?.id
+                        )
+
+                    if (
+                        !Number.isFinite(
+                            id
+                        ) ||
+                        visited.has(id)
+                    ) {
+                        return
+                    }
+
+                    visited.add(id)
+                    queue.push(id)
+                }
+            )
+
+            files
+                .filter(
+                    pickerAcceptsProjectFile
+                )
+                .forEach(
+                    file => {
+                        collectedFiles.push(
+                            normalizePickerFile(
+                                file
+                            )
+                        )
+                    }
+                )
+        }
+
+        imagePickerItems.value = [
+            ...structureItems,
+            ...collectedFiles
+        ]
+    } catch (exception) {
+        imagePickerError.value =
+            errorMessage(
+                exception
+            )
+    } finally {
+        imagePickerLoading.value =
+            false
+    }
+}
+
+
+function closeImagePickerModal() {
+    showImagePickerModal.value =
+        false
+    sliderPickerContext.value =
+        null
+    imageNodePickerContext.value =
+        false
+    imageNodePickerPos.value =
+        null
+    imagePickerError.value =
+        ''
+}
+
+
+function handleImagePickerFolderOpen(
+    folder
+) {
+    imagePickerCurrentFolderId.value =
+        folder?.id ??
+        null
+}
+
+
+function handleImagePickerStructureUpdate(
+    value
+) {
+    imagePickerItems.value =
+        Array.isArray(value)
+            ? value
+            : []
+}
+
+
+function openProjectFilesForSliderAdd(
+    context
+) {
+    if (
+        !props.projectId
+    ) {
+        return
+    }
+
+    sliderPickerContext.value = {
+        ...context,
+        mode: 'add',
+        index: null
+    }
+    imageNodePickerContext.value =
+        false
+
+    imagePickerCurrentFolderId.value =
+        null
+
+    showImagePickerModal.value =
+        true
+
+    void loadImagePickerItems()
+}
+
+
+function openProjectFilesForSliderReplace(payload) {
+    if (
+        !props.projectId
+    ) {
+        return
+    }
+
+    sliderPickerContext.value = {
+        ...payload,
+        mode: 'replace',
+        index: Number(
+            payload?.index
+        )
+    }
+    imageNodePickerContext.value =
+        false
+
+    imagePickerCurrentFolderId.value =
+        null
+
+    showImagePickerModal.value =
+        true
+
+    void loadImagePickerItems()
+}
+
+
+async function createSliderImageFromProjectFile(file) {
+    const openUrl =
+        String(
+            file?.open_url ||
+            ''
+        ).trim()
+
+    if (!openUrl) {
+        throw new Error(
+            'Selected file is missing an open URL.'
+        )
+    }
+
+    const response =
+        await fetch(openUrl)
+
+    if (!response.ok) {
+        throw new Error(
+            'Failed to read the selected image file.'
+        )
+    }
+
+    const blob =
+        await response.blob()
+
+    const fileName =
+        imagePickerFileName(file)
+
+    const imageFile =
+        new File(
+            [blob],
+            fileName,
+            {
+                type:
+                    blob.type ||
+                    file.mime_type ||
+                    'image/*'
+            }
+        )
+
+    const preview =
+        URL.createObjectURL(imageFile)
+
+    return {
+        path: '',
+        existing_path: '',
+        src: preview,
+        preview,
+        description: '',
+        description_sk: '',
+        alt: '',
+        alt_sk: '',
+        caption: '',
+        file: imageFile
+    }
+}
+
+
+async function handleImagePickerFileOpen(file) {
+    if (!file?.open_url) {
+        return
+    }
+
+    if (
+        !pickerAcceptsProjectFile(file)
+    ) {
+        imagePickerError.value =
+            imageNodePickerContext.value
+                ? 'Please select an image file from Project Files.'
+                : 'Please select a PNG file from Project Files.'
+
+        return
+    }
+
+    if (
+        imageNodePickerContext.value
+    ) {
+        try {
+            const instance =
+                editor.value
+
+            if (!instance) {
+                return
+            }
+
+            const imageSrc =
+                String(
+                    file?.open_url ||
+                    ''
+                ).trim()
+
+            if (!imageSrc) {
+                throw new Error(
+                    'Selected file is missing an open URL.'
+                )
+            }
+
+            const replacePos =
+                Number.isInteger(
+                    imageNodePickerPos.value
+                )
+                    ? Number(
+                        imageNodePickerPos.value
+                    )
+                    : null
+
+            if (
+                replacePos !== null &&
+                replacePos >= 0 &&
+                instance.state.doc.nodeAt(
+                    replacePos
+                )?.type?.name ===
+                    'image'
+            ) {
+                const node =
+                    instance.state.doc.nodeAt(
+                        replacePos
+                    )
+
+                const tr =
+                    instance.state.tr.setNodeMarkup(
+                        replacePos,
+                        undefined,
+                        {
+                            ...(
+                                node?.attrs ||
+                                {}
+                            ),
+                            src:
+                                imageSrc,
+                            alt:
+                                file?.name ||
+                                'image',
+                            title:
+                                '',
+                            width:
+                                '100%',
+                            pendingProjectImage:
+                                false
+                        }
+                    )
+
+                instance.view.dispatch(
+                    tr.scrollIntoView()
+                )
+            } else {
+                instance
+                    .chain()
+                    .focus()
+                    .setImage({
+                        src:
+                            imageSrc,
+                        alt:
+                            file?.name ||
+                            'image',
+                        title:
+                            '',
+                        width:
+                            '100%',
+                        pendingProjectImage:
+                            false
+                    })
+                    .run()
+            }
+
+            closeImagePickerModal()
+            markDirty()
+        } catch (exception) {
+            imagePickerError.value =
+                exception instanceof Error
+                    ? exception.message
+                    : 'Could not attach image from project files.'
+        }
+
+        return
+    }
+
+    const context =
+        sliderPickerContext.value
+
+    if (!context) {
+        return
+    }
+
+    try {
+        const sliderImage =
+            await createSliderImageFromProjectFile(file)
+
+        const currentImages =
+            context.getCurrentImages?.() ||
+            []
+
+        const nextImages =
+            Array.isArray(
+                currentImages
+            )
+                ? [...currentImages]
+                : []
+
+        if (
+            context.mode ===
+                'replace' &&
+            Number.isInteger(
+                context.index
+            ) &&
+            context.index >= 0 &&
+            context.index <
+                nextImages.length
+        ) {
+            nextImages[
+                context.index
+            ] = {
+                ...nextImages[
+                    context.index
+                ],
+                ...sliderImage
+            }
+        } else {
+            nextImages.push(
+                sliderImage
+            )
+        }
+
+        context.setImages?.(
+            nextImages
+        )
+
+        closeImagePickerModal()
+
+        markDirty()
+    } catch (exception) {
+        imagePickerError.value =
+            exception instanceof Error
+                ? exception.message
+                : 'Could not attach image from project files.'
+    }
+}
+
+
+async function handleImagePickerUpload(
+    payload = {}
+) {
+    if (
+        !props.projectId
+    ) {
+        return
+    }
+
+    const files = Array.from(
+        payload?.files ||
+        []
+    ).filter(
+        pickerAcceptsProjectFile
+    )
+
+    if (!files.length) {
+        imagePickerError.value =
+            imageNodePickerContext.value
+                ? 'Please upload at least one image file.'
+                : 'Please upload at least one PNG file.'
+        return
+    }
+
+    const parent =
+        payload?.parent ||
+        null
+
+    let folderId =
+        null
+
+    if (
+        isPersistedFolderId(
+            payload?.folderId
+        )
+    ) {
+        folderId =
+            Number(
+                payload.folderId
+            )
+    } else if (
+        parent?.client_key
+    ) {
+        const match =
+            imagePickerStructureItems().find(
+                item =>
+                    String(
+                        item.client_key
+                    ) ===
+                    String(
+                        parent.client_key
+                    )
+            )
+
+        if (
+            isPersistedFolderId(
+                match?.id
+            )
+        ) {
+            folderId =
+                Number(
+                    match.id
+                )
+        }
+    }
+
+    if (
+        payload?.folderId &&
+        !folderId
+    ) {
+        await persistImagePickerStructure()
+
+        const refreshed =
+            imagePickerStructureItems().find(
+                item =>
+                    String(
+                        item.client_key
+                    ) ===
+                    String(
+                        payload.folderId
+                    )
+            )
+
+        if (
+            isPersistedFolderId(
+                refreshed?.id
+            )
+        ) {
+            folderId =
+                Number(
+                    refreshed.id
+                )
+        }
+    }
+
+    imagePickerUploading.value =
+        true
+
+    try {
+        const maxFilesPerRequest =
+            20
+
+        const chunks = []
+
+        for (
+            let offset = 0;
+            offset < files.length;
+            offset +=
+                maxFilesPerRequest
+        ) {
+            chunks.push(
+                files.slice(
+                    offset,
+                    offset +
+                        maxFilesPerRequest
+                )
+            )
+        }
+
+        for (
+            let chunkIndex = 0;
+            chunkIndex < chunks.length;
+            chunkIndex += 1
+        ) {
+            const chunk =
+                chunks[
+                    chunkIndex
+                ]
+
+            const chunkOffset =
+                chunkIndex *
+                maxFilesPerRequest
+
+            const body =
+                new FormData()
+
+            chunk.forEach(
+                (
+                    file,
+                    index
+                ) => {
+                    const sourceIndex =
+                        chunkOffset +
+                        index
+
+                    const relativePath =
+                        String(
+                            payload
+                                ?.relativePaths?.[
+                                sourceIndex
+                            ] ||
+                            file.name ||
+                            `image-${sourceIndex + 1}.png`
+                        )
+
+                    body.append(
+                        `files[${index}]`,
+                        file
+                    )
+
+                    body.append(
+                        `relative_paths[${index}]`,
+                        relativePath
+                    )
+                }
+            )
+
+            if (folderId) {
+                body.append(
+                    'folder_id',
+                    String(
+                        folderId
+                    )
+                )
+            }
+
+            body.append(
+                'client_visible',
+                '1'
+            )
+
+            await api.post(
+                `/projects/${props.projectId}/files`,
+                body
+            )
+        }
+
+        await loadImagePickerItems()
+    } catch (exception) {
+        imagePickerError.value =
+            errorMessage(
+                exception
+            )
+    } finally {
+        imagePickerUploading.value =
+            false
+    }
 }
 
 
@@ -2656,632 +3385,6 @@ function handleCommandMenuOutsideClick(event) {
 }
 
 
-function imagePickerFileName(
-    file
-) {
-    return (
-        file?.display_name ||
-        file?.original_filename ||
-        file?.name ||
-        'image'
-    )
-}
-
-
-function isPngProjectFile(
-    file
-) {
-    const mime = String(
-        file?.mime_type ||
-        ''
-    ).toLowerCase()
-
-    if (
-        mime ===
-        'image/png'
-    ) {
-        return true
-    }
-
-    const name = String(
-        imagePickerFileName(
-            file
-        ) ||
-        ''
-    ).toLowerCase()
-
-    return name.endsWith('.png')
-}
-
-
-function isImageProjectFile(
-    file
-) {
-    const mime = String(
-        file?.mime_type ||
-        ''
-    ).toLowerCase()
-
-    if (
-        mime.startsWith(
-            'image/'
-        )
-    ) {
-        return true
-    }
-
-    const name = String(
-        imagePickerFileName(
-            file
-        ) ||
-        ''
-    ).toLowerCase()
-
-    return /\.(png|jpe?g|gif|webp|svg|avif)$/i.test(
-        name
-    )
-}
-
-
-function pickerAcceptsProjectFile(
-    file
-) {
-    if (
-        imageNodePickerContext.value
-    ) {
-        return isImageProjectFile(
-            file
-        )
-    }
-
-    return isPngProjectFile(
-        file
-    )
-}
-
-
-function normalizeProjectFolderItems(
-    folders = []
-) {
-    return Array.isArray(folders)
-        ? folders.map(
-            folder => ({
-                ...folder,
-                type: 'folder',
-                client_key:
-                    folder.client_key ||
-                    String(
-                        folder.id ||
-                        ''
-                    ),
-                parent_client_key:
-                    folder.parent_client_key ||
-                    (
-                        folder.parent_id !== null &&
-                        folder.parent_id !== undefined
-                            ? String(
-                                folder.parent_id
-                            )
-                            : null
-                    )
-            })
-        )
-        : []
-}
-
-
-function normalizePickerFile(
-    file
-) {
-    return {
-        id:
-            `project-file-${file.id}`,
-        client_key:
-            `project-file-${file.id}`,
-        type: 'file',
-        resource_type: 'file',
-        name:
-            imagePickerFileName(
-                file
-            ),
-        parent_id:
-            file.folder_id ??
-            null,
-        parent_client_key:
-            file.folder_id
-                ? String(
-                    file.folder_id
-                )
-                : null,
-        mime_type:
-            file.mime_type ||
-            '',
-        open_url:
-            file.open_url ||
-            '',
-        download_url:
-            file.download_url ||
-            '',
-        extension:
-            file.extension ||
-            '',
-        size: Number(
-            file.size ||
-            0
-        ),
-        __uploaded_file: true
-    }
-}
-
-
-async function loadImagePickerItems() {
-    if (
-        !props.projectFilesEnabled ||
-        !props.projectId
-    ) {
-        imagePickerItems.value = []
-        return
-    }
-
-    imagePickerLoading.value =
-        true
-    imagePickerError.value =
-        ''
-
-    try {
-        const projectResponse =
-            await api.get(
-                `/projects/${props.projectId}`
-            )
-
-        const projectData =
-            projectResponse.data?.data ||
-            {}
-
-        const structureItems =
-            normalizeProjectFolderItems(
-                projectData?.folders ||
-                []
-            )
-
-        const collectedFiles = []
-        const queue = [null]
-        const visited =
-            new Set()
-
-        while (queue.length) {
-            const folderId =
-                queue.shift()
-
-            const response =
-                await api.get(
-                    `/projects/${props.projectId}/files`,
-                    {
-                        params: {
-                            folder_id:
-                                folderId
-                        }
-                    }
-                )
-
-            const files =
-                Array.isArray(
-                    response.data?.files
-                )
-                    ? response.data.files
-                    : []
-
-            const folders =
-                Array.isArray(
-                    response.data?.folders
-                )
-                    ? response.data.folders
-                    : []
-
-            folders.forEach(
-                folder => {
-                    const id =
-                        Number(
-                            folder?.id
-                        )
-
-                    if (
-                        !Number.isFinite(
-                            id
-                        ) ||
-                        visited.has(id)
-                    ) {
-                        return
-                    }
-
-                    visited.add(id)
-                    queue.push(id)
-                }
-            )
-
-            files
-                .filter(
-                    pickerAcceptsProjectFile
-                )
-                .forEach(
-                    file => {
-                        collectedFiles.push(
-                            normalizePickerFile(
-                                file
-                            )
-                        )
-                    }
-                )
-        }
-
-        imagePickerItems.value = [
-            ...structureItems,
-            ...collectedFiles
-        ]
-    } catch (exception) {
-        imagePickerError.value =
-            errorMessage(
-                exception
-            )
-    } finally {
-        imagePickerLoading.value =
-            false
-    }
-}
-
-
-function closeImagePickerModal() {
-    showImagePickerModal.value =
-        false
-    sliderPickerContext.value =
-        null
-    imageNodePickerContext.value =
-        false
-    imagePickerError.value =
-        ''
-}
-
-
-function handleImagePickerFolderOpen(
-    folder
-) {
-    imagePickerCurrentFolderId.value =
-        folder?.id ??
-        null
-}
-
-
-function handleImagePickerStructureUpdate(
-    value
-) {
-    imagePickerItems.value =
-        Array.isArray(value)
-            ? value
-            : []
-}
-
-
-function openProjectFilesForSliderAdd(
-    context
-) {
-    if (
-        !props.projectFilesEnabled ||
-        !props.projectId
-    ) {
-        return
-    }
-
-    sliderPickerContext.value = {
-        ...context,
-        mode: 'add',
-        index: null
-    }
-    imageNodePickerContext.value =
-        false
-
-    imagePickerCurrentFolderId.value =
-        null
-
-    showImagePickerModal.value =
-        true
-
-    void loadImagePickerItems()
-}
-
-
-function openProjectFilesForSliderReplace(payload) {
-    if (
-        !props.projectFilesEnabled ||
-        !props.projectId
-    ) {
-        return
-    }
-
-    sliderPickerContext.value = {
-        ...payload,
-        mode: 'replace',
-        index: Number(
-            payload?.index
-        )
-    }
-    imageNodePickerContext.value =
-        false
-
-    imagePickerCurrentFolderId.value =
-        null
-
-    showImagePickerModal.value =
-        true
-
-    void loadImagePickerItems()
-}
-
-
-async function createSliderImageFromProjectFile(file) {
-    const openUrl =
-        String(
-            file?.open_url ||
-            ''
-        ).trim()
-
-    if (!openUrl) {
-        throw new Error(
-            'Selected file is missing an open URL.'
-        )
-    }
-
-    const response =
-        await fetch(openUrl)
-
-    if (!response.ok) {
-        throw new Error(
-            'Failed to read the selected image file.'
-        )
-    }
-
-    const blob =
-        await response.blob()
-
-    const fileName =
-        imagePickerFileName(file)
-
-    const imageFile =
-        new File(
-            [blob],
-            fileName,
-            {
-                type:
-                    blob.type ||
-                    file.mime_type ||
-                    'image/*'
-            }
-        )
-
-    const preview =
-        URL.createObjectURL(imageFile)
-
-    return {
-        path: '',
-        existing_path: '',
-        src: preview,
-        preview,
-        description: '',
-        description_sk: '',
-        alt: '',
-        alt_sk: '',
-        caption: '',
-        file: imageFile
-    }
-}
-
-
-async function handleImagePickerFileOpen(file) {
-    if (!file?.open_url) {
-        return
-    }
-
-    if (
-        !pickerAcceptsProjectFile(file)
-    ) {
-        imagePickerError.value =
-            imageNodePickerContext.value
-                ? 'Please select an image file from Project Files.'
-                : 'Please select a PNG file from Project Files.'
-
-        return
-    }
-
-    if (
-        imageNodePickerContext.value
-    ) {
-        try {
-            const image =
-                await createSliderImageFromProjectFile(file)
-
-            editor.value
-                ?.chain()
-                .focus()
-                .setImage({
-                    src:
-                        image.src,
-                    alt:
-                        file?.name ||
-                        'image',
-                    title:
-                        '',
-                    width:
-                        '100%'
-                })
-                .run()
-
-            closeImagePickerModal()
-            markDirty()
-        } catch (exception) {
-            imagePickerError.value =
-                exception instanceof Error
-                    ? exception.message
-                    : 'Could not attach image from project files.'
-        }
-
-        return
-    }
-
-    const context =
-        sliderPickerContext.value
-
-    if (!context) {
-        return
-    }
-
-    try {
-        const sliderImage =
-            await createSliderImageFromProjectFile(file)
-
-        const currentImages =
-            context.getCurrentImages?.() ||
-            []
-
-        const nextImages =
-            Array.isArray(
-                currentImages
-            )
-                ? [...currentImages]
-                : []
-
-        if (
-            context.mode ===
-                'replace' &&
-            Number.isInteger(
-                context.index
-            ) &&
-            context.index >= 0 &&
-            context.index <
-                nextImages.length
-        ) {
-            nextImages[
-                context.index
-            ] = {
-                ...nextImages[
-                    context.index
-                ],
-                ...sliderImage
-            }
-        } else {
-            nextImages.push(
-                sliderImage
-            )
-        }
-
-        context.setImages?.(
-            nextImages
-        )
-
-        closeImagePickerModal()
-
-        markDirty()
-    } catch (exception) {
-        imagePickerError.value =
-            exception instanceof Error
-                ? exception.message
-                : 'Could not attach image from project files.'
-    }
-}
-
-
-async function handleImagePickerUpload(
-    payload = {}
-) {
-    if (
-        !props.projectFilesEnabled ||
-        !props.projectId
-    ) {
-        return
-    }
-
-    const files = Array.from(
-        payload?.files ||
-        []
-    ).filter(
-        pickerAcceptsProjectFile
-    )
-
-    if (!files.length) {
-        imagePickerError.value =
-            imageNodePickerContext.value
-                ? 'Please upload at least one image file.'
-                : 'Please upload at least one PNG file.'
-        return
-    }
-
-    imagePickerUploading.value =
-        true
-
-    try {
-        const body =
-            new FormData()
-
-        files.forEach(
-            (file, index) => {
-                body.append(
-                    `files[${index}]`,
-                    file
-                )
-
-                body.append(
-                    `relative_paths[${index}]`,
-                    String(
-                        payload
-                            ?.relativePaths?.[
-                            index
-                        ] ||
-                        file.name ||
-                        `image-${index + 1}.png`
-                    )
-                )
-            }
-        )
-
-        if (
-            payload?.folderId !==
-                null &&
-            payload?.folderId !==
-                undefined &&
-            String(
-                payload.folderId
-            ).trim() !==
-                ''
-        ) {
-            body.append(
-                'folder_id',
-                String(
-                    payload.folderId
-                )
-            )
-        }
-
-        body.append(
-            'client_visible',
-            '1'
-        )
-
-        await api.post(
-            `/projects/${props.projectId}/files`,
-            body
-        )
-
-        await loadImagePickerItems()
-    } catch (exception) {
-        imagePickerError.value =
-            errorMessage(
-                exception
-            )
-    } finally {
-        imagePickerUploading.value =
-            false
-    }
-}
-
-
 onMounted(() => {
     document.addEventListener(
         'mousedown',
@@ -3299,21 +3402,109 @@ onMounted(() => {
         handleViewportReposition
     )
 
-    document.addEventListener(
-        'dragover',
-        handleDocumentDragOver
-    )
-
-    document.addEventListener(
-        'drop',
-        handleDocumentDrop
-    )
-
     nextTick(() => {
         updateBlockToolsUI()
-        syncBlockDropTargets()
     })
 })
+
+
+
+function shouldShowTextBubbleMenu({
+    editor
+}) {
+    if (
+        !editor ||
+        !editor.isEditable
+    ) {
+        return false
+    }
+
+    const {
+        selection
+    } = editor.state
+
+    /*
+     * NodeSelection is used by images, sliders,
+     * info blocks and other building elements.
+     * Never show the text BubbleMenu for those.
+     */
+    if (
+        selection instanceof NodeSelection
+    ) {
+        return false
+    }
+
+    if (
+        selection.empty
+    ) {
+        return false
+    }
+
+    /*
+     * BubbleMenu is only for actual text
+     * selections inside textblocks.
+     */
+    const fromParent =
+        selection.$from?.parent
+
+    const toParent =
+        selection.$to?.parent
+
+    if (
+        !fromParent?.isTextblock ||
+        !toParent?.isTextblock
+    ) {
+        return false
+    }
+
+    /*
+     * Do not show the text toolbar while the
+     * selection belongs to a non-text building
+     * element such as an image, slider or info block.
+     */
+    const nonTextNodeNames = new Set([
+        'image',
+        'slider',
+        'info',
+        'horizontalRule'
+    ])
+
+    for (
+        let depth = selection.$from.depth;
+        depth > 0;
+        depth -= 1
+    ) {
+        const node =
+            selection.$from.node(depth)
+
+        if (
+            nonTextNodeNames.has(
+                node.type.name
+            )
+        ) {
+            return false
+        }
+    }
+
+    for (
+        let depth = selection.$to.depth;
+        depth > 0;
+        depth -= 1
+    ) {
+        const node =
+            selection.$to.node(depth)
+
+        if (
+            nonTextNodeNames.has(
+                node.type.name
+            )
+        ) {
+            return false
+        }
+    }
+
+    return true
+}
 
 
 const editor = useEditor({
@@ -3376,34 +3567,7 @@ const editor = useEditor({
             linkOnPaste: true
         }),
 
-        Image.extend({
-            addAttributes() {
-                return {
-                    ...this.parent?.(),
-                    width: {
-                        default:
-                            '100%'
-                    }
-                }
-            },
-
-            renderHTML({ HTMLAttributes }) {
-                const width =
-                    HTMLAttributes?.width ||
-                    '100%'
-
-                return [
-                    'img',
-                    mergeAttributes(
-                        this.options.HTMLAttributes,
-                        HTMLAttributes,
-                        {
-                            style: `width: ${width}; max-width: 100%; display: block; margin-left: auto; margin-right: auto; object-fit: contain;`
-                        }
-                    )
-                ]
-            }
-        }).configure({
+        ResizableImage.configure({
             inline: false,
             allowBase64: true
         }),
@@ -3440,30 +3604,73 @@ const editor = useEditor({
                 'document-editor-content'
         },
 
-        handleDrop(
-            _view,
-            event
+        handleClickOn(
+            view,
+            _pos,
+            node,
+            nodePos
         ) {
-            const hasCustomDrag =
-                Boolean(
-                    event.dataTransfer?.types?.includes(
-                        'application/x-document-block-index'
-                    )
-                )
-
             if (
-                draggedBlockIndex.value ===
-                    null &&
-                !hasCustomDrag
+                node?.type?.name !==
+                    'image'
             ) {
                 return false
             }
 
-            handleDocumentDrop(
-                event
-            )
+            const src =
+                String(
+                    node?.attrs?.src ||
+                    ''
+                ).trim()
 
-            return true
+            /*
+             * A pending image is only a picker
+             * placeholder. Clicking it opens the
+             * project file picker.
+             */
+            if (
+                props.editable &&
+                (
+                    !src ||
+                    node?.attrs
+                        ?.pendingProjectImage
+                )
+            ) {
+                openProjectFilesForImageNode({
+                    replacePos:
+                        nodePos
+                })
+
+                return true
+            }
+
+            /*
+             * A real image behaves like every other
+             * top-level building element: it receives
+             * a real ProseMirror NodeSelection.
+             *
+             * The block-selection system then adds
+             * the single normal editor outline.
+             */
+            try {
+                const selection =
+                    NodeSelection.create(
+                        view.state.doc,
+                        nodePos
+                    )
+
+                view.dispatch(
+                    view.state.tr.setSelection(
+                        selection
+                    )
+                )
+
+                view.focus()
+
+                return true
+            } catch {
+                return false
+            }
         },
 
         handleKeyDown(
@@ -3505,7 +3712,6 @@ const editor = useEditor({
 
         nextTick(() => {
             updateBlockToolsUI()
-            syncBlockDropTargets()
         })
     },
 
@@ -3515,7 +3721,6 @@ const editor = useEditor({
 
         nextTick(() => {
             updateBlockToolsUI()
-            syncBlockDropTargets()
         })
     },
 
@@ -3524,13 +3729,10 @@ const editor = useEditor({
 
         nextTick(() => {
             updateBlockToolsUI()
-            syncBlockDropTargets()
         })
     },
 
     onBlur() {
-        clearDropIndicator()
-
         if (
             commandMenu.value
                 .mode ===
@@ -3538,6 +3740,44 @@ const editor = useEditor({
         ) {
             closeMenus()
         }
+
+        /*
+         * Give clicks on the block toolbar / resize handle a
+         * chance to run before clearing the active block.
+         * A real click somewhere else will remove the active
+         * NodeSelection and updateBlockToolsUI() on the next
+         * selection change.
+         */
+        window.setTimeout(() => {
+            const activeElement =
+                document.activeElement
+
+            const editorRoot =
+                editor.value?.view?.dom
+
+            if (
+                activeElement instanceof Node &&
+                editorRoot instanceof HTMLElement &&
+                editorRoot.contains(
+                    activeElement
+                )
+            ) {
+                return
+            }
+
+            if (
+                commandMenuRoot.value?.contains(
+                    activeElement
+                )
+            ) {
+                return
+            }
+
+            blockTools.value.visible =
+                false
+
+            clearActiveBlockVisuals()
+        }, 0)
     }
 })
 
@@ -3573,9 +3813,7 @@ watch(
             .run()
 
         nextTick(() => {
-            clearDropIndicator()
             updateBlockToolsUI()
-            syncBlockDropTargets()
         })
     }
 )
@@ -3663,16 +3901,6 @@ onUnmounted(() => {
     window.removeEventListener(
         'resize',
         handleViewportReposition
-    )
-
-    document.removeEventListener(
-        'dragover',
-        handleDocumentDragOver
-    )
-
-    document.removeEventListener(
-        'drop',
-        handleDocumentDrop
     )
 
     clearAutosaveTimer()
@@ -3992,8 +4220,8 @@ onUnmounted(() => {
                     <!-- Contextual plus -->
                     <div
                         v-if="
-                            insertHandle.visible &&
-                            insertHandle.coords &&
+                            insertHandle?.visible &&
+                            insertHandle?.coords &&
                             editable
                         "
                         class="
@@ -4052,29 +4280,7 @@ onUnmounted(() => {
                     <div
                         v-if="
                             editable &&
-                            dropIndicator.visible
-                        "
-                        class="
-                            fixed
-                            z-40
-                            h-[2px]
-                            bg-accent
-                            pointer-events-none
-                        "
-                        :style="{
-                            top:
-                                `${dropIndicator.top}px`,
-                            left:
-                                `${dropIndicator.left}px`,
-                            width:
-                                `${dropIndicator.width}px`
-                        }"
-                    />
-
-                    <div
-                        v-if="
-                            editable &&
-                            blockTools.visible
+                            blockTools?.visible
                         "
                         class="
                             fixed
@@ -4093,7 +4299,7 @@ onUnmounted(() => {
                             left:
                                 `${blockTools.left}px`
                         }"
-                        @mousedown.stop
+                        @mousedown.prevent.stop
                     >
                         <button
                             type="button"
@@ -4107,31 +4313,8 @@ onUnmounted(() => {
                                 hover:bg-accent
                                 hover:text-light
                             "
-                            title="Drag to reorder"
-                            draggable="true"
-                            @dragstart="
-                                handleToolbarDragStart
-                            "
-                            @dragend="
-                                handleToolbarDragEnd
-                            "
-                        >
-                            <i class="bi bi-grip-vertical" />
-                        </button>
-
-                        <button
-                            type="button"
-                            class="
-                                grid
-                                h-7
-                                w-7
-                                place-items-center
-                                text-dark
-                                transition-colors
-                                hover:bg-accent
-                                hover:text-light
-                            "
                             title="Move up"
+                            @mousedown.prevent
                             @click="
                                 moveActiveBlock(
                                     'up'
@@ -4154,6 +4337,7 @@ onUnmounted(() => {
                                 hover:text-light
                             "
                             title="Move down"
+                            @mousedown.prevent
                             @click="
                                 moveActiveBlock(
                                     'down'
@@ -4176,6 +4360,7 @@ onUnmounted(() => {
                                 hover:text-light
                             "
                             title="Duplicate block"
+                            @mousedown.prevent
                             @click="
                                 duplicateActiveBlock
                             "
@@ -4196,11 +4381,12 @@ onUnmounted(() => {
                                 hover:text-light
                             "
                             title="Delete block"
+                            @mousedown.prevent
                             @click="
                                 deleteActiveBlock
                             "
                         >
-                            <i class="bi bi-trash" />
+                            <i class="bi bi-eraser" />
                         </button>
                     </div>
                 </div>
@@ -4216,6 +4402,9 @@ onUnmounted(() => {
             "
             :editor="
                 editor
+            "
+            :should-show="
+                shouldShowTextBubbleMenu
             "
             :tippy-options="{
                 duration: 120,
@@ -4522,21 +4711,6 @@ onUnmounted(() => {
                 </div>
             </div>
         </div>
-
-
-        <input
-            ref="
-                imageInput
-            "
-            type="file"
-            accept="image/*"
-            class="hidden"
-            @change="
-                handleImageUpload
-            "
-        />
-
-
         <AdminModal
             :open="
                 showLinkModal
@@ -4673,13 +4847,17 @@ onUnmounted(() => {
     background: rgb(23 23 23 / 0.04);
 }
 
+/* =========================================================
+   EDITOR
+   ========================================================= */
+
 .article-editor :deep(.ProseMirror) {
     min-height: 60vh;
     color: rgb(23 23 23);
     font-family: 'Inter', sans-serif;
     font-weight: 300;
     font-size: 1.08rem;
-    line-height: 1.9;
+    line-height: 1.4;
     outline: none;
 }
 
@@ -4687,7 +4865,14 @@ onUnmounted(() => {
     margin-top: 2rem;
 }
 
-/* Tighter spacing for content that belongs to the same group */
+.article-editor :deep(.ProseMirror > *) {
+    position: relative;
+}
+
+/* =========================================================
+   TIGHTER CONTENT SPACING
+   ========================================================= */
+
 .article-editor :deep(.ProseMirror h1 + p),
 .article-editor :deep(.ProseMirror h2 + p),
 .article-editor :deep(.ProseMirror h3 + p),
@@ -4702,6 +4887,7 @@ onUnmounted(() => {
 .article-editor :deep(.ProseMirror h3 + ul[data-type='taskList']),
 .article-editor :deep(.ProseMirror p + ul),
 .article-editor :deep(.ProseMirror p + ol),
+.article-editor :deep(.ProseMirror p + p),
 .article-editor :deep(.ProseMirror p + ul[data-type='taskList']),
 .article-editor :deep(.ProseMirror ul + p),
 .article-editor :deep(.ProseMirror ol + p),
@@ -4712,6 +4898,10 @@ onUnmounted(() => {
 .article-editor :deep(.ProseMirror p) {
     margin: 0;
 }
+
+/* =========================================================
+   HEADINGS
+   ========================================================= */
 
 .article-editor :deep(.ProseMirror h1),
 .article-editor :deep(.ProseMirror h2),
@@ -4736,9 +4926,13 @@ onUnmounted(() => {
     font-size: 1.35rem;
 }
 
+/* =========================================================
+   BLOCKQUOTE
+   ========================================================= */
+
 .article-editor :deep(.ProseMirror blockquote) {
     margin: 2rem 0;
-    border-left: 3px solid var(--color-accent);
+    border-left: 3px solid rgb(19 62 180);
     background: rgb(19 62 180 / 0.05);
     padding: 0.8rem 1rem 0.8rem 1.2rem;
     color: rgb(23 23 23 / 0.68);
@@ -4746,11 +4940,19 @@ onUnmounted(() => {
     font-style: italic;
 }
 
+/* =========================================================
+   HORIZONTAL RULE
+   ========================================================= */
+
 .article-editor :deep(.ProseMirror hr) {
     margin: 3rem 0;
     border: 0;
     border-top: 1px solid var(--color-accent);
 }
+
+/* =========================================================
+   LISTS
+   ========================================================= */
 
 .article-editor :deep(.ProseMirror ul),
 .article-editor :deep(.ProseMirror ol) {
@@ -4766,22 +4968,82 @@ onUnmounted(() => {
     list-style-type: decimal;
 }
 
-.article-editor :deep(.ProseMirror li:not([data-type='taskItem'])) {
+.article-editor :deep(
+    .ProseMirror li:not([data-type='taskItem'])
+) {
     display: list-item;
     padding-left: 0.25rem;
 }
 
-.article-editor :deep(.ProseMirror li:not([data-type='taskItem']) + li:not([data-type='taskItem'])) {
+.article-editor :deep(
+    .ProseMirror li:not([data-type='taskItem'])
+        + li:not([data-type='taskItem'])
+) {
     margin-top: 0.12rem;
 }
 
-.article-editor :deep(.ProseMirror img) {
+/* =========================================================
+   IMAGE
+   ========================================================= */
+
+/*
+ * The image is rendered by ResizableImageNodeView as a
+ * top-level NodeViewWrapper. Its width is controlled by the
+ * node's width attribute.
+ *
+ * The initial width is 100%, matching the full-width slider
+ * stage used by the document editor.
+ *
+ * Do not add an outline here. The generic top-level block
+ * selection above supplies the one and only outline.
+ */
+
+.article-editor :deep(
+    .ProseMirror .document-image-node
+) {
     display: block;
     width: 100%;
+    max-width: 100%;
+    margin: 2rem auto;
+}
+
+.article-editor :deep(
+    .ProseMirror .document-image-node img
+) {
+    display: block;
+    width: 100%;
+    max-width: 100%;
+    height: auto;
     max-height: 720px;
-    margin: 2rem 0;
+    margin: 0;
     object-fit: contain;
 }
+
+/*
+ * Pending image placeholder.
+ */
+
+.article-editor :deep(
+    .ProseMirror .document-image-node
+        img[pendingprojectimage='true']
+) {
+    min-height: 140px;
+    border: 1px dashed
+        rgb(19 62 180 / 0.45);
+    background:
+        repeating-linear-gradient(
+            -45deg,
+            rgb(19 62 180 / 0.06),
+            rgb(19 62 180 / 0.06) 10px,
+            transparent 10px,
+            transparent 20px
+        );
+    cursor: pointer;
+}
+
+/* =========================================================
+   LINKS
+   ========================================================= */
 
 .article-editor :deep(.ProseMirror a) {
     color: var(--color-accent);
@@ -4789,6 +5051,10 @@ onUnmounted(() => {
     text-decoration-thickness: 1px;
     text-underline-offset: 3px;
 }
+
+/* =========================================================
+   TABLE
+   ========================================================= */
 
 .article-editor :deep(.ProseMirror table) {
     width: 100%;
@@ -4820,13 +5086,17 @@ onUnmounted(() => {
    TASK LIST / CHECKBOX
    ========================================================= */
 
-.article-editor :deep(.ProseMirror ul[data-type='taskList']) {
+.article-editor :deep(
+    .ProseMirror ul[data-type='taskList']
+) {
     list-style: none !important;
     margin: 1rem 0 !important;
     padding: 0 !important;
 }
 
-.article-editor :deep(.ProseMirror ul[data-type='taskList'] li) {
+.article-editor :deep(
+    .ProseMirror ul[data-type='taskList'] li
+) {
     display: grid !important;
     grid-template-columns: 1rem minmax(0, 1fr) !important;
     align-items: center !important;
@@ -4840,6 +5110,7 @@ onUnmounted(() => {
 }
 
 /* Space between checklist items */
+
 .article-editor :deep(
     .ProseMirror ul[data-type='taskList'] li + li
 ) {
@@ -4847,6 +5118,7 @@ onUnmounted(() => {
 }
 
 /* Checkbox wrapper */
+
 .article-editor :deep(
     .ProseMirror ul[data-type='taskList'] li > label
 ) {
@@ -4868,8 +5140,13 @@ onUnmounted(() => {
 }
 
 /* Actual checkbox */
+
 .article-editor :deep(
-    .ProseMirror ul[data-type='taskList'] li > label > input[type='checkbox']
+    .ProseMirror
+        ul[data-type='taskList']
+        li
+        > label
+        > input[type='checkbox']
 ) {
     display: block !important;
 
@@ -4885,6 +5162,7 @@ onUnmounted(() => {
 }
 
 /* Text wrapper */
+
 .article-editor :deep(
     .ProseMirror ul[data-type='taskList'] li > div
 ) {
@@ -4900,8 +5178,13 @@ onUnmounted(() => {
 }
 
 /* Text paragraph */
+
 .article-editor :deep(
-    .ProseMirror ul[data-type='taskList'] li > div > p
+    .ProseMirror
+        ul[data-type='taskList']
+        li
+        > div
+        > p
 ) {
     display: block !important;
 
@@ -4913,7 +5196,13 @@ onUnmounted(() => {
     line-height: inherit !important;
 }
 
-.article-editor :deep(.ProseMirror p.is-editor-empty:first-child::before) {
+/* =========================================================
+   PLACEHOLDERS
+   ========================================================= */
+
+.article-editor :deep(
+    .ProseMirror p.is-editor-empty:first-child::before
+) {
     float: left;
     height: 0;
     color: rgb(23 23 23 / 0.25);
@@ -4921,9 +5210,15 @@ onUnmounted(() => {
     pointer-events: none;
 }
 
-.article-editor :deep(.ProseMirror h1.is-empty::before),
-.article-editor :deep(.ProseMirror h2.is-empty::before),
-.article-editor :deep(.ProseMirror h3.is-empty::before) {
+.article-editor :deep(
+    .ProseMirror h1.is-empty::before
+),
+.article-editor :deep(
+    .ProseMirror h2.is-empty::before
+),
+.article-editor :deep(
+    .ProseMirror h3.is-empty::before
+) {
     float: left;
     height: 0;
     color: rgb(23 23 23 / 0.2);
@@ -4935,38 +5230,113 @@ onUnmounted(() => {
     outline: none;
 }
 
+/* =========================================================
+   GENERIC BLOCK SELECTION
+   ========================================================= */
+
+/*
+ * Every top-level building element uses the same selection
+ * system. There is exactly ONE visual outline:
+ *
+ *     outline
+ *
+ * Do not add an inset box-shadow here. ProseMirror's
+ * .ProseMirror-selectednode is also explicitly neutralized
+ * below so NodeViews cannot create a second outline.
+ */
+
 .article-editor--editable :deep(.ProseMirror > *) {
     outline: 1px solid transparent;
     outline-offset: 5px;
     transition:
-        outline-color 140ms ease,
-        box-shadow 140ms ease;
+        outline-color 140ms ease;
 }
 
-.article-editor--editable :deep(.ProseMirror > *:hover) {
-    outline-color: rgb(19 62 180 / 0.18);
+.article-editor--editable :deep(
+    .ProseMirror > *:hover
+) {
+    outline-color:
+        rgb(19 62 180 / 0.18);
 }
 
-.article-editor--editable :deep(.ProseMirror > *.is-editor-active-block) {
-    outline-color: rgb(19 62 180 / 0.42);
+.article-editor--editable :deep(
+    .ProseMirror > *.is-editor-active-block
+) {
+    outline-color:
+        rgb(19 62 180 / 0.95);
 }
 
-.article-editor--editable :deep(.ProseMirror > *.is-editor-drop-target) {
-    box-shadow: inset 0 0 0 2px rgb(19 62 180 / 0.35);
+/*
+ * The active block class is the only active outline.
+ * Tiptap/ProseMirror adds this class to selected NodeViews.
+ * It must not create another visual selection.
+ */
+
+.article-editor :deep(
+    .ProseMirror > .ProseMirror-selectednode
+) {
+    outline-color: transparent !important;
+    box-shadow: none !important;
 }
 
-.article-editor :deep(.ProseMirror .document-custom-block) {
+/*
+ * The block-selection system still wins over the neutralized
+ * ProseMirror node selection.
+ */
+
+.article-editor--editable :deep(
+    .ProseMirror > .ProseMirror-selectednode.is-editor-active-block
+) {
+    outline-color:
+        rgb(19 62 180 / 0.95) !important;
+}
+
+/*
+ * Drop targets use the same outline language instead of
+ * another inset border.
+ */
+
+.article-editor--editable :deep(
+    .ProseMirror > *.is-editor-drop-target
+) {
+    outline-color:
+        rgb(19 62 180 / 0.35);
+}
+
+/*
+ * ResizableImage owns the resize handle, but NOT the outline.
+ * Its NodeViewWrapper participates in the same generic block
+ * selection system as every other top-level element.
+ */
+
+.article-editor :deep(
+    .ProseMirror .document-image-node
+) {
+    position: relative;
+}
+
+/* =========================================================
+   CUSTOM BLOCKS
+   ========================================================= */
+
+.article-editor :deep(
+    .ProseMirror .document-custom-block
+) {
     margin: 2rem 0;
 }
 
-.article-editor :deep(.ProseMirror .document-custom-block-toolbar) {
+.article-editor :deep(
+    .ProseMirror .document-custom-block-toolbar
+) {
     display: flex;
     justify-content: flex-end;
     margin-bottom: 0.45rem;
     transition: opacity 160ms ease;
 }
 
-.article-editor :deep(.ProseMirror .document-custom-block-label) {
+.article-editor :deep(
+    .ProseMirror .document-custom-block-label
+) {
     display: inline-flex;
     align-items: center;
     gap: 0.35rem;
@@ -4981,9 +5351,19 @@ onUnmounted(() => {
     text-transform: uppercase;
 }
 
-.article-editor :deep(.ProseMirror .ProseMirror-selectednode .document-custom-block) {
-    box-shadow: 0 0 0 1px rgb(19 62 180 / 0.35);
+.article-editor :deep(
+    .ProseMirror
+        .ProseMirror-selectednode
+        .document-custom-block
+) {
+    box-shadow:
+        0 0 0 1px
+        rgb(19 62 180 / 0.35);
 }
+
+/* =========================================================
+   MOBILE
+   ========================================================= */
 
 @media (max-width: 640px) {
     .article-editor :deep(.ProseMirror) {
@@ -5009,6 +5389,15 @@ onUnmounted(() => {
     .article-editor :deep(.ProseMirror th) {
         min-width: 100px;
         padding: 0.55rem;
+    }
+
+    /*
+     * Images must still stay inside the editor on small screens.
+     */
+
+    .article-editor :deep(.ProseMirror > img) {
+        max-width: 100%;
+        height: auto;
     }
 }
 </style>

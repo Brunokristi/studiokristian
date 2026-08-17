@@ -27,6 +27,12 @@ const props = defineProps({
         required: true
     },
 
+    getPos: {
+        type: Function,
+        required: false,
+        default: null
+    },
+
     updateAttributes: {
         type: Function,
         required: true
@@ -60,6 +66,13 @@ const language = computed(() => {
 
 
 const editable = computed(() => {
+    if (
+        typeof props.editor?.isEditable ===
+        'boolean'
+    ) {
+        return props.editor.isEditable
+    }
+
     return Boolean(
         props.node?.attrs?.editable ?? true
     )
@@ -120,6 +133,31 @@ function focusNode() {
         return
     }
 
+    const nodePos =
+        typeof props.getPos ===
+            'function'
+            ? Number(
+                props.getPos()
+            )
+            : NaN
+
+    if (
+        Number.isInteger(
+            nodePos
+        ) &&
+        nodePos >= 0
+    ) {
+        props.editor
+            .chain()
+            .focus()
+            .setNodeSelection(
+                nodePos
+            )
+            .run()
+
+        return
+    }
+
     props.editor.view.focus()
 }
 </script>
@@ -129,14 +167,9 @@ function focusNode() {
     <NodeViewWrapper
         as="div"
         class="document-custom-block"
-        :class="[
-            selected
-                ? 'ring-1 ring-accent/40'
-                : ''
-        ]"
         @mouseenter="hover = true"
         @mouseleave="hover = false"
-        @mousedown="focusNode"
+        @mousedown.prevent="focusNode"
     >
         <div
             v-if="editable"
