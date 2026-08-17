@@ -24,6 +24,7 @@ import Tag from '@shared/components/Tag.vue'
 import Toast from '@shared/components/Toast.vue'
 import Slideshow from '@shared/components/Slideshow.vue'
 import Info from '@shared/components/Info.vue'
+import LanguageToggle from '@shared/components/LanguageToggle.vue'
 import ProjectFilePickerModal from '../../components/ProjectFilePickerModal.vue'
 import FormField from '../../../../shared/components/FormField.vue'
 import useAutosavePolicy from '../../composables/useAutosavePolicy'
@@ -104,13 +105,6 @@ const pageTitle = computed(() => {
     }
 
     return project.value.name || 'Portfolio'
-})
-
-
-const languageLabel = computed(() => {
-    return language.value === 'sk'
-        ? 'Slovak'
-        : 'English'
 })
 
 
@@ -2614,72 +2608,11 @@ onBeforeUnmount(() => {
                         Preview
                     </h2>
 
-                    <div
-                        class="
-                            fixed
-                            top-11
-                            right-1
-                            flex
-                            items-center
-                            gap-1
-                            border
-                            border-dark
-                            bg-light
-                            p-1
-                            z-50
-                        "
-                    >
-                        <button
-                            type="button"
-                            class="
-                                px-3
-                                py-2
-                                font-mono
-                                text-xs
-                                font-bold
-                                uppercase
-                                transition-colors
-                            "
-                            :class="
-                                language === 'en'
-                                    ? 'bg-accent text-light'
-                                    : 'text-dark hover:text-accent'
-                            "
-                            @click="
-                                changeLanguage(
-                                    'en'
-                                )
-                            "
-                        >
-                            EN
-                        </button>
-
-
-                        <button
-                            type="button"
-                            class="
-                                px-3
-                                py-2
-                                font-mono
-                                text-xs
-                                font-bold
-                                uppercase
-                                transition-colors
-                            "
-                            :class="
-                                language === 'sk'
-                                    ? 'bg-accent text-light'
-                                    : 'text-dark hover:text-accent'
-                            "
-                            @click="
-                                changeLanguage(
-                                    'sk'
-                                )
-                            "
-                        >
-                            SK
-                        </button>
-                    </div>
+                    <LanguageToggle
+                        :model-value="language"
+                        class="fixed top-11 right-1 z-50"
+                        @update:model-value="changeLanguage"
+                    />
 
                     <div class="border border-accent py-10 space-y-20">
                         <Slideshow

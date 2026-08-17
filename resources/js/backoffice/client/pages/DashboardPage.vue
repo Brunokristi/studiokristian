@@ -1,33 +1,394 @@
 <script setup>
-defineProps({
-    data: { type: Object, required: true },
+import {
+    computed,
+    ref
+} from 'vue'
+
+
+import AdminDataTable from '../../admin/components/AdminDataTable.vue'
+import ClientPageHeader from '../components/ClientPageHeader.vue'
+
+
+const props = defineProps({
+    data: {
+        type: Object,
+        required: true
+    },
+
+    locale: {
+        type: String,
+        required: true
+    }
 })
+
+
+/*
+|--------------------------------------------------------------------------
+| Copy
+|--------------------------------------------------------------------------
+*/
+
+const copy =
+    computed(() => {
+        if (
+            props.locale === 'sk'
+        ) {
+            return {
+                heading:
+                    'Projekty',
+
+                tableHeading:
+                    'Prehľad vašich projektov',
+
+                project:
+                    'Projekt',
+
+                service:
+                    'Služba',
+
+                requiredActions:
+                    'Vyžaduje akciu',
+
+                searchPlaceholder:
+                    'Hľadať projekty',
+
+                noProjects:
+                    'Zatiaľ tu nie sú žiadne aktívne projekty.',
+
+                open:
+                    'Otvoriť',
+
+                actionRequired:
+                    'Vyžaduje vašu pozornosť',
+
+                noAction:
+                    'Žiadna akcia'
+            }
+        }
+
+
+        return {
+            heading:
+                'Projects',
+
+            tableHeading:
+                'Overview of your projects',
+
+            project:
+                'Project',
+
+            service:
+                'Service',
+
+            requiredActions:
+                'Required actions',
+
+            searchPlaceholder:
+                'Search projects',
+
+            noProjects:
+                'There are no active projects here yet.',
+
+            open:
+                'Open',
+
+            actionRequired:
+                'Action required',
+
+            noAction:
+                'No action'
+        }
+    })
+
+
+/*
+|--------------------------------------------------------------------------
+| Search
+|--------------------------------------------------------------------------
+*/
+
+const search =
+    ref('')
+
+
+/*
+|--------------------------------------------------------------------------
+| Columns
+|--------------------------------------------------------------------------
+*/
+
+const columns =
+    computed(() => [
+        {
+            key:
+                'name',
+
+            label:
+                copy.value.project,
+
+            sortable:
+                true
+        },
+
+        {
+            key:
+                'service_name',
+
+            label:
+                copy.value.service,
+
+            sortable:
+                true
+        },
+
+        {
+            key:
+                'action_count',
+
+            label:
+                copy.value.requiredActions,
+
+            sortable:
+                true
+        }
+    ])
+
+
+/*
+|--------------------------------------------------------------------------
+| Rows
+|--------------------------------------------------------------------------
+*/
+
+const rows =
+    computed(() => {
+        const query =
+            search.value
+                .trim()
+                .toLowerCase()
+
+
+        return (
+            props.data.projects ||
+            []
+        )
+            .filter(
+                project => {
+                    if (
+                        !query
+                    ) {
+                        return true
+                    }
+
+
+                    return [
+                        String(
+                            project.name ||
+                            ''
+                        ),
+
+                        String(
+                            project.service_name ||
+                            ''
+                        )
+                    ].some(
+                        value =>
+                            value
+                                .toLowerCase()
+                                .includes(
+                                    query
+                                )
+                    )
+                }
+            )
+            .map(
+                project => ({
+                    ...project,
+
+                    action_count:
+                        Number(
+                            project.action_count ||
+                            0
+                        )
+                })
+            )
+    })
+
+
+/*
+|--------------------------------------------------------------------------
+| Navigation
+|--------------------------------------------------------------------------
+*/
+
+function openProject(
+    project
+) {
+    const url =
+        String(
+            project?.url ||
+            ''
+        ).trim()
+
+
+    if (
+        !url
+    ) {
+        return
+    }
+
+
+    window.location.assign(
+        url
+    )
+}
 </script>
 
-<template>
-    <section>
-        <p class="font-mono text-xs font-bold uppercase text-dark/45">{{ data.company_name }}</p>
-        <h1 class="mt-3 font-mono text-4xl font-bold uppercase sm:text-5xl">Your projects</h1>
 
-        <div class="mt-10 grid gap-3 md:grid-cols-2">
-            <a
-                v-for="project in data.projects"
-                :key="project.id"
-                :href="project.url"
-                class="flex min-h-48 flex-col justify-between border border-dark/20 bg-white p-6 transition-colors hover:border-dark"
+<template>
+    <div
+        class="
+            w-full
+            space-y-12
+            lg:space-y-14
+        "
+    >
+        <!--
+        |--------------------------------------------------------------------------
+        | Page header
+        |--------------------------------------------------------------------------
+        -->
+
+        <ClientPageHeader
+            :title="
+                copy.heading
+            "
+            :eyebrow="
+                data.company_name
+            "
+            :home-url="
+                data.urls.dashboard
+            "
+        />
+
+
+        <!--
+        |--------------------------------------------------------------------------
+        | Projects table
+        |--------------------------------------------------------------------------
+        -->
+
+        <AdminDataTable
+            v-model:search="
+                search
+            "
+            :title="
+                copy.tableHeading
+            "
+            :columns="
+                columns
+            "
+            :rows="
+                rows
+            "
+            :search-placeholder="
+                copy.searchPlaceholder
+            "
+            :empty-title="
+                copy.noProjects
+            "
+            @row-click="
+                openProject
+            "
+        >
+            <!-- Project -->
+
+            <template
+                #cell-name="{
+                    row
+                }"
             >
-                <div>
-                    <p class="text-xs text-dark/45">{{ project.service_name }}</p>
-                    <h2 class="mt-3 font-mono text-xl font-bold">{{ project.name }}</h2>
-                </div>
-                <div class="flex items-end justify-between gap-4 font-mono text-xs uppercase">
-                    <span>{{ project.status }}</span>
-                    <span>{{ project.action_count ? `Action required: ${project.action_count}` : '↗' }}</span>
-                </div>
-            </a>
-            <p v-if="!data.projects.length" class="border border-dark/20 bg-white p-6 text-sm text-dark/50">
-                There are no active projects here yet.
-            </p>
-        </div>
-    </section>
+                <p
+                    class="
+                        p
+                        font-medium
+                        uppercase
+                    "
+                >
+                    {{
+                        row.name
+                    }}
+                </p>
+            </template>
+
+
+            <!-- Service -->
+
+            <template
+                #cell-service_name="{
+                    value
+                }"
+            >
+                <span
+                    class="
+                        p
+                        uppercase
+                    "
+                >
+                    {{
+                        value ||
+                        '—'
+                    }}
+                </span>
+            </template>
+
+
+            <!-- Required actions -->
+
+            <template
+                #cell-action_count="{
+                    value
+                }"
+            >
+                <span
+                    class="
+                        p
+                        uppercase
+                    "
+                    :class="
+                        value > 0
+                            ? 'text-accent font-medium'
+                            : 'text-dark/40'
+                    "
+                >
+                    {{
+                        value > 0
+                            ? `${value} ${copy.actionRequired}`
+                            : copy.noAction
+                    }}
+                </span>
+            </template>
+
+
+            <!-- Empty state -->
+
+            <template
+                #empty-action
+            >
+                <span
+                    class="
+                        font-mono
+                        text-xs
+                        font-bold
+                        uppercase
+                        text-dark/40
+                    "
+                >
+                    {{
+                        copy.noProjects
+                    }}
+                </span>
+            </template>
+        </AdminDataTable>
+    </div>
 </template>

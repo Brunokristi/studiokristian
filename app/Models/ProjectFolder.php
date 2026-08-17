@@ -17,6 +17,8 @@ class ProjectFolder extends Model
     public function children(): HasMany { return $this->hasMany(self::class, 'parent_id')->orderBy('sort_order'); }
     public function files(): HasMany { return $this->hasMany(ProjectFile::class); }
 
+    public function signatures(): HasMany { return $this->hasMany(ProjectFolderSignature::class); }
+
     public function isEffectivelyClientVisible(): bool
     {
         if (! $this->client_visible) return false;

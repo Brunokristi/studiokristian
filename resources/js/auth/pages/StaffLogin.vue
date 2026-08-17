@@ -54,7 +54,7 @@ const root =
 const {
     copy,
     locale,
-    toggleLocale
+    setLocale
 } = useAuthLocale(
     messages
 )
@@ -165,8 +165,8 @@ async function submit() {
 <template>
     <AuthLayout
         :locale="locale"
-        @toggle-locale="
-            toggleLocale
+        @set-locale="
+            setLocale
         "
     >
         <Toast

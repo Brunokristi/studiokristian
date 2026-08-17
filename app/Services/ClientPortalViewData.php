@@ -6,12 +6,19 @@ use App\Models\ClientContact;
 use App\Models\ContractInstance;
 use App\Models\PriceOffer;
 use App\Models\Project;
+use App\Models\ProjectFolder;
+use App\Services\ClientDocumentSignatureService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
 
 class ClientPortalViewData
 {
+    public function __construct(
+        private readonly ClientDocumentSignatureService $signatures
+    ) {
+    }
+
     public function dashboard(Request $request, ClientContact $contact, Collection $projects): array
     {
         return $this->page($request, 'dashboard', 'Projects', $contact, [
@@ -21,7 +28,11 @@ class ClientPortalViewData
                 'name' => $project->name,
                 'service_name' => $project->serviceProduct?->name ?? 'Project',
                 'status' => $project->portal_status,
-                'action_count' => $project->pending_contracts_count + $project->pending_offers_count,
+                'pending_signatures_count' => (int) ($project->pending_signatures_count ?? 0),
+                'action_count' =>
+                    $project->pending_contracts_count +
+                    $project->pending_offers_count +
+                    (int) ($project->pending_signatures_count ?? 0),
                 'url' => route('client.projects.show', $project),
             ])->values(),
         ]);
@@ -29,6 +40,31 @@ class ClientPortalViewData
 
     public function project(Request $request, ClientContact $contact, Project $project): array
     {
+        $signatureUserId = $this->signatures->signatureUser($contact)->id;
+        $documents = $this->signatures->visibleDocuments($project);
+        $signedFolderIds = $this->signatures->signedFolderIds($project, $signatureUserId);
+
+        $documentPayload = $documents->map(function (ProjectFolder $document) use ($project, $contact, $signedFolderIds) {
+            $isSigned = $signedFolderIds->contains((int) $document->id);
+
+            return [
+                'id' => $document->id,
+                'name' => $document->name,
+                'content' => $document->content,
+                'requires_signature' => (bool) $document->requires_client_signature,
+                'signed' => $isSigned,
+                'can_sign' =>
+                    (bool) $contact->can_accept_documents &&
+                    (bool) $document->requires_client_signature &&
+                    ! $isSigned,
+                'sign_url' => route('client.projects.documents.sign', [$project, $document]),
+            ];
+        })->values();
+
+        $todoSignatures = $documentPayload
+            ->filter(fn ($document) => $document['requires_signature'] && ! $document['signed'])
+            ->values();
+
         return $this->page($request, 'project', $project->name, $contact, [
             'project' => [
                 'id' => $project->id,
@@ -36,6 +72,7 @@ class ClientPortalViewData
                 'service_name' => $project->serviceProduct?->name ?? 'Project',
                 'status' => $project->portal_status,
                 'ticket_url' => route('client.tickets.store', $project),
+                'pending_signatures_count' => $todoSignatures->count(),
                 'contracts' => $project->contracts->map(fn ($contract) => [
                     'id' => $contract->id,
                     'title' => $contract->title,
@@ -59,6 +96,8 @@ class ClientPortalViewData
                     'size' => $file->size,
                     'url' => route('client.files.download', $file),
                 ])->values(),
+                'documents' => $documentPayload,
+                'todo_signatures' => $todoSignatures,
                 'services' => $project->serviceAccounts->map(fn ($account) => [
                     'id' => $account->id,
                     'name' => $account->service_name,

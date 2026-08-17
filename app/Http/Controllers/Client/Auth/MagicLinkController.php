@@ -89,7 +89,7 @@ class MagicLinkController extends Controller
         $request->session()->regenerate();
         $audit->record('portal.login', $contact, $contact, $contact->company_id, request: $request);
 
-        return redirect()->intended(route('client.dashboard'));
+        return redirect()->route('client.dashboard');
     }
 
     public function destroy(Request $request): RedirectResponse

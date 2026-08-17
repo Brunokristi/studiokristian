@@ -25,6 +25,7 @@ use App\Http\Controllers\Admin\ClientPortal\InternalStorageController;
 use App\Http\Controllers\Client\Auth\MagicLinkController;
 use App\Http\Controllers\Client\ContractController as ClientContractController;
 use App\Http\Controllers\Client\ProjectController as ClientProjectController;
+use App\Http\Controllers\Client\ProjectDocumentSignatureController as ClientProjectDocumentSignatureController;
 use App\Http\Controllers\Client\ProjectFileController as ClientProjectFileController;
 use App\Http\Controllers\Client\DashboardController as ClientDashboardController;
 use App\Http\Controllers\Client\PriceOfferController as ClientPriceOfferController;
@@ -66,6 +67,9 @@ Route::prefix('client')->name('client.')->group(function () {
             ->name('contracts.download');
         Route::get('/files/{file}/open', [ClientProjectFileController::class, 'open'])->name('files.open');
         Route::get('/files/{file}/download', [ClientProjectFileController::class, 'download'])->name('files.download');
+        Route::post('/projects/{project}/documents/{folder}/sign', [ClientProjectDocumentSignatureController::class, 'store'])
+            ->middleware('throttle:10,1')
+            ->name('projects.documents.sign');
         Route::post('/projects/{project}/tickets', [ClientProjectTicketController::class, 'store'])->name('tickets.store');
         Route::get('/offers/{offer}', [ClientPriceOfferController::class, 'show'])->name('offers.show');
         Route::post('/offers/{offer}/accept', [ClientPriceOfferController::class, 'accept'])->middleware('throttle:10,1')->name('offers.accept');

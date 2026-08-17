@@ -18,6 +18,7 @@ class ProjectController extends Controller
             'contracts' => fn ($query) => $query->whereIn('status', ['sent', 'viewed', 'accepted', 'superseded'])->latest(),
             'priceOffers' => fn ($query) => $query->whereIn('status', ['sent', 'viewed', 'accepted'])->latest(),
             'files' => fn ($query) => $query->where('visibility', 'client')->latest(),
+            'folders' => fn ($query) => $query->orderBy('sort_order'),
             'guides' => fn ($query) => $query->where('client_visible', true)->orderBy('sort_order'),
             'serviceAccounts' => fn ($query) => $query->where('client_visible', true)->with('credential')->orderBy('service_name'),
             'tickets' => fn ($query) => $query->where('created_by_client_contact_id', auth('client')->id())->latest(),

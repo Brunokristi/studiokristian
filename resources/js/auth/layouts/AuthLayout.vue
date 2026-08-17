@@ -1,5 +1,6 @@
 <script setup>
 import Navbar from '@shared/components/Navbar.vue'
+import LanguageToggle from '@shared/components/LanguageToggle.vue'
 
 defineProps({
     locale: {
@@ -8,7 +9,7 @@ defineProps({
     },
 })
 
-defineEmits(['toggle-locale'])
+defineEmits(['set-locale'])
 </script>
 
 <template>
@@ -21,14 +22,10 @@ defineEmits(['toggle-locale'])
             </section>
         </main>
 
-        <button
-            class="fixed bottom-6 right-6 z-50 cursor-pointer p uppercase text-dark transition-colors hover:text-accent"
-            type="button"
-            :title="locale === 'en' ? 'Prepnúť do slovenčiny' : 'Switch to English'"
-            :aria-label="locale === 'en' ? 'Prepnúť do slovenčiny' : 'Switch to English'"
-            @click="$emit('toggle-locale')"
-        >
-            <span class="ml-2">{{ locale === 'en' ? 'SK' : 'EN' }}</span>
-        </button>
+        <LanguageToggle
+            :model-value="locale"
+            class="fixed bottom-6 right-6 z-50"
+            @update:model-value="$emit('set-locale', $event)"
+        />
     </div>
 </template>

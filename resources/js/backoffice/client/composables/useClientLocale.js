@@ -13,11 +13,16 @@ function initialLocale() {
     return supportedLocales.includes(browserLocale) ? browserLocale : 'en'
 }
 
-export function useAuthLocale(messages) {
-    const locale = ref(initialLocale())
-    const copy = computed(() => messages[locale.value])
+function applyLocaleToDocument(locale) {
+    document.documentElement.lang = locale
+}
 
-    document.documentElement.lang = locale.value
+export function useClientLocale() {
+    const locale = ref(initialLocale())
+
+    applyLocaleToDocument(locale.value)
+
+    const isEnglish = computed(() => locale.value === 'en')
 
     function setLocale(nextLocale) {
         if (!supportedLocales.includes(nextLocale)) {
@@ -25,13 +30,18 @@ export function useAuthLocale(messages) {
         }
 
         locale.value = nextLocale
-        window.localStorage.setItem('locale', locale.value)
-        document.documentElement.lang = locale.value
+        window.localStorage.setItem('locale', nextLocale)
+        applyLocaleToDocument(nextLocale)
     }
 
     function toggleLocale() {
         setLocale(locale.value === 'en' ? 'sk' : 'en')
     }
 
-    return { copy, locale, setLocale, toggleLocale }
+    return {
+        locale,
+        isEnglish,
+        setLocale,
+        toggleLocale,
+    }
 }

@@ -39,6 +39,15 @@ class PasswordlessLoginTest extends TestCase
         $this->assertSame($known->getSession()->get('status'), $unknown->getSession()->get('status'));
     }
 
+    public function test_authenticated_client_visiting_client_login_is_redirected_to_client_dashboard(): void
+    {
+        $contact = $this->contact();
+
+        $this->actingAs($contact, 'client')
+            ->get(route('client.login'))
+            ->assertRedirect(route('client.dashboard'));
+    }
+
     public function test_vue_login_request_receives_the_generic_json_response(): void
     {
         Notification::fake();
