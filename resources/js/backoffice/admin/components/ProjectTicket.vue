@@ -1,9 +1,11 @@
 <script setup>
 import {
+    computed,
     ref
 } from 'vue'
 
 
+import AdminConfirmDialog from '@admin/components/AdminConfirmDialog.vue'
 import AdminModalShell from '@admin/components/AdminModalShell.vue'
 import Button from '@shared/components/Button.vue'
 import FormField from '@shared/components/FormField.vue'
@@ -38,6 +40,7 @@ const emit =
     defineEmits([
         'move',
         'save',
+        'delete',
         'drag-start',
         'drag-end'
     ])
@@ -48,6 +51,14 @@ const open =
 
 
 const saving =
+    ref(false)
+
+
+const deleting =
+    ref(false)
+
+
+const showDeleteConfirm =
     ref(false)
 
 
@@ -76,6 +87,12 @@ const form =
         status:
             props.ticket.status ||
             'new'
+    })
+
+
+const deleteConfirmText =
+    computed(() => {
+        return `Are you sure you want to delete "${props.ticket.title}"?`
     })
 
 
@@ -160,7 +177,8 @@ function endDrag() {
 
 function saveTicket() {
     if (
-        saving.value
+        saving.value ||
+        deleting.value
     ) {
         return
     }
@@ -182,6 +200,58 @@ function saveTicket() {
 
             done: () => {
                 saving.value =
+                    false
+
+                open.value =
+                    false
+            }
+        }
+    )
+}
+
+
+function promptDeleteTicket() {
+    if (
+        saving.value ||
+        deleting.value
+    ) {
+        return
+    }
+
+
+    showDeleteConfirm.value =
+        true
+}
+
+
+function confirmDeleteTicket() {
+    if (
+        saving.value ||
+        deleting.value
+    ) {
+        return
+    }
+
+
+    showDeleteConfirm.value =
+        false
+
+
+    deleting.value =
+        true
+
+
+    emit(
+        'delete',
+        {
+            ticket:
+                props.ticket,
+
+            done: () => {
+                deleting.value =
+                    false
+
+                showDeleteConfirm.value =
                     false
 
                 open.value =
@@ -340,7 +410,7 @@ function getCreatorName() {
             `Edit ticket ${ticket.title}`
         "
         close-label="Close ticket"
-        panel-class="overflow-y-auto"
+        panel-class="overflow-y-auto border border-accent bg-light shadow-xl"
         max-width-class="max-w-2xl"
         body-class="p-0"
         @close="
@@ -349,6 +419,7 @@ function getCreatorName() {
     >
         <form
             class="
+                bg-light
                 space-y-8
                 p-5
                 sm:p-6
@@ -441,18 +512,68 @@ function getCreatorName() {
                 "
             />
 
-            <Button
-                type="submit"
-                text="save ticket"
-                variant="accent"
-                align="right"
-                :loading="
-                    saving
+            <div
+                class="
+                    flex
+                    flex-col
+                    gap-4
                 "
-                :disabled="
-                    saving
-                "
-            />
+            >
+                <Button
+                    type="button"
+                    text="delete ticket"
+                    variant="dark"
+                    align="right"
+                    :loading="
+                        deleting
+                    "
+                    :disabled="
+                        saving ||
+                        deleting
+                    "
+                    @click="
+                        promptDeleteTicket
+                    "
+                />
+
+
+                <Button
+                    type="submit"
+                    text="save ticket"
+                    variant="accent"
+                    align="right"
+                    :loading="
+                        saving
+                    "
+                    :disabled="
+                        saving ||
+                        deleting
+                    "
+                    hover-variant="dark"
+                />
+            </div>
         </form>
     </AdminModalShell>
+
+
+    <AdminConfirmDialog
+        :open="
+            showDeleteConfirm
+        "
+        title="Delete ticket"
+        :text="
+            deleteConfirmText
+        "
+        confirm-label="Delete ticket"
+        :busy="
+            deleting
+        "
+        @close="
+            showDeleteConfirm =
+                false
+        "
+        @confirm="
+            confirmDeleteTicket
+        "
+    />
 </template>

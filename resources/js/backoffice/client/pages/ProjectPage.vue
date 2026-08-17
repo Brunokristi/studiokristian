@@ -1368,6 +1368,9 @@ async function submitTicket() {
                     :model-value="
                         documentItems
                     "
+                    :language="
+                        locale
+                    "
                     :initial-folder-id="
                         activeStructureFolderId
                     "

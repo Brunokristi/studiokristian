@@ -441,7 +441,7 @@ function toggleMenu() {
                                     hover:text-light
                                 "
                                 :class="{
-                                    'bg-accent text-light':
+                                    'text-accent':
                                         isNavigationItemActive(
                                             item
                                         )

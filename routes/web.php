@@ -143,6 +143,7 @@ Route::prefix('admin/client-portal')->middleware(['auth', 'verified', 'admin_or_
         Route::get('/projects/{project}/tickets', [AdminProjectTicketController::class, 'index']);
         Route::post('/projects/{project}/tickets', [AdminProjectTicketController::class, 'store']);
         Route::put('/projects/{project}/tickets/{ticket}', [AdminProjectTicketController::class, 'update']);
+        Route::delete('/projects/{project}/tickets/{ticket}', [AdminProjectTicketController::class, 'destroy']);
         Route::post('/projects/{project}/deliverables', [AdminProjectDeliverableController::class, 'store']);
         Route::put('/projects/{project}/deliverables/{deliverable}', [AdminProjectDeliverableController::class, 'update']);
     });
@@ -224,6 +225,7 @@ Route::prefix('admin/client-portal')->middleware(['auth', 'admin'])->name('admin
         Route::get('/projects/{project}/tickets', [AdminProjectTicketController::class, 'index'])->name('projects.tickets.index');
         Route::post('/projects/{project}/tickets', [AdminProjectTicketController::class, 'store'])->name('projects.tickets.store');
         Route::put('/projects/{project}/tickets/{ticket}', [AdminProjectTicketController::class, 'update'])->name('projects.tickets.update');
+        Route::delete('/projects/{project}/tickets/{ticket}', [AdminProjectTicketController::class, 'destroy'])->name('projects.tickets.destroy');
         Route::post('/projects/{project}/deliverables', [AdminProjectDeliverableController::class, 'store'])->name('projects.deliverables.store');
         Route::put('/projects/{project}/deliverables/{deliverable}', [AdminProjectDeliverableController::class, 'update'])->name('projects.deliverables.update');
 

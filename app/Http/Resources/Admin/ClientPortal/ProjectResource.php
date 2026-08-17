@@ -45,7 +45,36 @@ class ProjectResource extends JsonResource
             ] : null,
             'blueprint_version' => $this->whenLoaded('blueprintVersion', fn () => $this->blueprintVersion ? ['id'=>$this->blueprintVersion->id,'version'=>$this->blueprintVersion->version,'name'=>$this->blueprintVersion->blueprint->name] : null),
             'deliverables' => $this->whenLoaded('deliverables'),
-            'folders' => $this->whenLoaded('folders'),
+            'folders' => $this->whenLoaded('folders', function () {
+                return $this->folders
+                    ->map(function ($folder) {
+                        $payload = $folder->toArray();
+
+                        unset($payload['signatures']);
+
+                        $isDocument =
+                            $folder->type === 'file' &&
+                            $folder->resource_type === 'document';
+
+                        $latestSignature =
+                            $folder->relationLoaded('signatures')
+                                ? $folder->signatures
+                                    ->sortByDesc(fn ($signature) => $signature->signed_at?->getTimestamp() ?? 0)
+                                    ->first()
+                                : null;
+
+                        $signed =
+                            $isDocument &&
+                            $latestSignature !== null;
+
+                        $payload['is_signed'] = $signed;
+                        $payload['signed'] = $signed;
+                        $payload['signed_at'] = $latestSignature?->signed_at?->toIso8601String();
+
+                        return $payload;
+                    })
+                    ->values();
+            }),
             'contracts' => $this->whenLoaded('contracts'),
             'updated_at' => $this->updated_at?->toIso8601String(),
         ];

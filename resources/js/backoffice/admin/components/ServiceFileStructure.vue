@@ -47,6 +47,11 @@ const props =
         disabled: {
             type: Boolean,
             default: false
+        },
+
+        language: {
+            type: String,
+            default: 'en'
         }
     })
 
@@ -140,6 +145,10 @@ const deleteTarget =
     ref(null)
 
 
+const externalLinkTarget =
+    ref(null)
+
+
 const deleting =
     ref(false)
 
@@ -155,6 +164,7 @@ const fileDraft =
         requirement_level: 'recommended',
         requires_client_signature: false,
         client_visible: true,
+        description: '',
         template_name: '',
         content: '',
         url: ''
@@ -211,6 +221,57 @@ const currentFiles =
                 item.type === 'file'
         )
     )
+
+
+const normalizedLanguage =
+    computed(() => {
+        return String(
+            props.language ||
+            'en'
+        )
+            .trim()
+            .toLowerCase()
+    })
+
+
+const isSlovak =
+    computed(() => {
+        return normalizedLanguage.value === 'sk'
+    })
+
+
+const linkCopy =
+    computed(() => {
+        if (isSlovak.value) {
+            return {
+                linkName: 'Nazov odkazu',
+                linkNamePlaceholder: 'Klientsky disk',
+                externalUrl: 'Externa URL adresa',
+                descriptionLabel: 'Popis',
+                descriptionPlaceholder: 'Strucny kontext k tomuto externemu zdroju',
+                leavingTitle: 'Externy odkaz',
+                leavingSubtitle: 'Opustate tuto stranku',
+                leavingDescriptionDefault: 'Tento odkaz otvori externu stranku v novej karte.',
+                cancel: 'zrusit',
+                openLink: 'otvorit odkaz',
+                createExternalLink: 'vytvorit externy odkaz'
+            }
+        }
+
+        return {
+            linkName: 'Link name',
+            linkNamePlaceholder: 'Client Drive',
+            externalUrl: 'External URL',
+            descriptionLabel: 'Description',
+            descriptionPlaceholder: 'Short context for this external resource',
+            leavingTitle: 'External link',
+            leavingSubtitle: 'You are leaving this site',
+            leavingDescriptionDefault: 'This link opens an external website in a new tab.',
+            cancel: 'cancel',
+            openLink: 'open link',
+            createExternalLink: 'create external link'
+        }
+    })
 
 
 /*
@@ -495,10 +556,103 @@ function openFile(
         return
     }
 
+    if (
+        file?.resource_type ===
+        'link'
+    ) {
+        requestOpenExternalLink(
+            file
+        )
+
+        return
+    }
+
+
     emit(
         'open-file',
         file
     )
+}
+
+
+function normalizeExternalUrl(
+    value
+) {
+    const raw =
+        String(
+            value ||
+            ''
+        ).trim()
+
+
+    if (!raw) {
+        return ''
+    }
+
+
+    if (
+        raw.startsWith('/') ||
+        raw.startsWith('#')
+    ) {
+        return raw
+    }
+
+
+    if (
+        /^[a-z][a-z\d+.-]*:/i.test(
+            raw
+        )
+    ) {
+        return raw
+    }
+
+
+    return `https://${raw}`
+}
+
+
+function requestOpenExternalLink(
+    file
+) {
+    if (!file?.id) {
+        return
+    }
+
+
+    externalLinkTarget.value =
+        file
+}
+
+
+function closeExternalLinkModal() {
+    externalLinkTarget.value =
+        null
+}
+
+
+function openExternalLink() {
+    const linkUrl =
+        normalizeExternalUrl(
+            externalLinkTarget.value?.open_url ||
+            externalLinkTarget.value?.url ||
+            ''
+        )
+
+
+    if (!linkUrl) {
+        closeExternalLinkModal()
+
+        return
+    }
+
+
+    window.open(
+        linkUrl,
+        '_blank',
+        'noopener,noreferrer'
+    )
+
+    closeExternalLinkModal()
 }
 
 
@@ -1416,6 +1570,10 @@ function resetFileDraft() {
         true
 
 
+    fileDraft.description =
+        ''
+
+
     fileDraft.template_name =
         ''
 
@@ -1470,6 +1628,9 @@ function selectCreatorType(
             : 'New document'
 
     fileDraft.url =
+        ''
+
+    fileDraft.description =
         ''
 
     fileDraft.requires_client_signature =
@@ -1604,6 +1765,13 @@ function openFileEditor(
         Boolean(
             item.client_visible ??
             true
+        )
+
+    fileDraft.description =
+        String(
+            item.description ||
+            item.content ||
+            ''
         )
 
     fileDraft.template_name =
@@ -1891,7 +2059,22 @@ function saveFileDraft() {
             fileDraft.template_name.trim(),
 
         content:
-            fileDraft.content,
+            fileDraft.resource_type ===
+            'link'
+                ? String(
+                    fileDraft.description ||
+                    ''
+                )
+                : fileDraft.content,
+
+        description:
+            fileDraft.resource_type ===
+            'link'
+                ? String(
+                    fileDraft.description ||
+                    ''
+                )
+                : '',
 
         url:
             fileDraft.resource_type ===
@@ -3478,12 +3661,12 @@ watch(
                     type="text"
                     :label="
                         fileDraft.resource_type === 'link'
-                            ? 'Link name'
+                            ? linkCopy.linkName
                             : 'Document name'
                     "
                     :placeholder="
                         fileDraft.resource_type === 'link'
-                            ? 'Client Drive'
+                            ? linkCopy.linkNamePlaceholder
                             : 'Project brief'
                     "
                     required
@@ -3504,12 +3687,33 @@ watch(
                     "
                     name="url"
                     type="text"
-                    label="External URL"
+                    :label="
+                        linkCopy.externalUrl
+                    "
                     placeholder="https://example.com"
                     required
                     :error="
                         fileErrors.url ||
                         ''
+                    "
+                />
+
+                <FormField
+                    v-if="
+                        fileDraft.resource_type ===
+                        'link'
+                    "
+                    id="file-description"
+                    v-model="
+                        fileDraft.description
+                    "
+                    name="description"
+                    type="textarea"
+                    :label="
+                        linkCopy.descriptionLabel
+                    "
+                    :placeholder="
+                        linkCopy.descriptionPlaceholder
                     "
                 />
 
@@ -3587,21 +3791,6 @@ watch(
                 <Button
                     v-if="
                         fileCreatorStep !==
-                            'type' &&
-                        fileCreatorMode !==
-                            'edit'
-                    "
-                    type="button"
-                    text="back"
-                    align="right"
-                    @click="
-                        backToTypeSelection
-                    "
-                />
-
-                <Button
-                    v-if="
-                        fileCreatorStep !==
                         'type'
                     "
                     type="button"
@@ -3609,15 +3798,88 @@ watch(
                         fileCreatorMode === 'edit'
                             ? 'save changes'
                             : fileDraft.resource_type === 'link'
-                                ? 'create external link'
+                                ? linkCopy.createExternalLink
                                 : 'create document'
                     "
                     variant="accent"
+                    hover-variant="dark"
                     align="right"
                     @click="
                         saveFileDraft
                     "
                 />
+            </div>
+        </AdminModalShell>
+
+
+        <AdminModalShell
+            :open="
+                Boolean(
+                    externalLinkTarget
+                )
+            "
+            :title="
+                externalLinkTarget?.name ||
+                linkCopy.leavingTitle
+            "
+            :subtitle="
+                linkCopy.leavingSubtitle
+            "
+            max-width-class="max-w-xl"
+            @close="
+                closeExternalLinkModal
+            "
+        >
+            <div
+                class="
+                    space-y-6
+                "
+            >
+                <p
+                    class="
+                        p
+                        uppercase
+                        text-dark
+                    "
+                >
+                    {{
+                        externalLinkTarget?.description ||
+                        externalLinkTarget?.content ||
+                        linkCopy.leavingDescriptionDefault
+                    }}
+                </p>
+
+
+                <div
+                    class="
+                        flex
+                        flex-col
+                        gap-4
+                    "
+                >
+                    <Button
+                        type="button"
+                        :text="
+                            linkCopy.cancel
+                        "
+                        align="right"
+                        @click="
+                            closeExternalLinkModal
+                        "
+                    />
+
+                    <Button
+                        type="button"
+                        :text="
+                            linkCopy.openLink
+                        "
+                        variant="accent"
+                        align="right"
+                        @click="
+                            openExternalLink
+                        "
+                    />
+                </div>
             </div>
         </AdminModalShell>
 

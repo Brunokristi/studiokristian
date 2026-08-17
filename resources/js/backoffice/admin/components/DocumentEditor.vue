@@ -306,10 +306,29 @@ const signatureStatusLabel =
             return ''
         }
 
+        const language =
+            String(
+                props.language ||
+                'en'
+            )
+                .trim()
+                .toLowerCase()
+
+        const slovak =
+            language === 'sk'
+
 
         return props.signatureSigned
-            ? 'signed'
-            : 'not signed'
+            ? (
+                slovak
+                    ? 'podpísané'
+                    : 'signed'
+            )
+            : (
+                slovak
+                    ? 'nepodpísané'
+                    : 'not signed'
+            )
     })
 
 
@@ -323,8 +342,8 @@ const signatureStatusClass =
 
 
         return props.signatureSigned
-            ? 'text-green-700 border-green-700/30 bg-green-50'
-            : 'text-amber-700 border-amber-700/30 bg-amber-50'
+            ? 'bg-light text-accent'
+            : 'bg-dark text-light'
     })
 
 
@@ -3685,9 +3704,7 @@ onUnmounted(() => {
                 items-center
                 justify-between
                 bg-accent
-                px-4
-                sm:px-6
-                lg:px-8
+                px-5
                 -mx-10
                 -mt-10
                 text-light
@@ -3922,8 +3939,6 @@ onUnmounted(() => {
                         requiresSignature
                     "
                     class="
-                        rounded-sm
-                        border
                         px-3
                         py-1
                         font-mono
@@ -3931,6 +3946,7 @@ onUnmounted(() => {
                         font-bold
                         uppercase
                         tracking-[0.12em]
+
                     "
                     :class="
                         signatureStatusClass
@@ -4608,7 +4624,7 @@ onUnmounted(() => {
                 imagePickerSubtitle
             "
             :allow-upload-control="
-                false
+                true
             "
             :allow-metadata-editing="
                 true

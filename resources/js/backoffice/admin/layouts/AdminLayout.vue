@@ -497,12 +497,6 @@ watch(
                                 hover:bg-accent
                                 hover:text-light
                             "
-                            :class="{
-                                'bg-accent text-light':
-                                    isActive(
-                                        item
-                                    )
-                            }"
                         >
                             {{
                                 item.label

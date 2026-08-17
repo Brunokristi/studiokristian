@@ -36,6 +36,17 @@ class ProjectTicketController extends Controller
         $this->notifyAssigneeIfCoworker($project, $ticket, $previousAssignedTo);
         return response()->json($ticket->fresh(['creator:id,name', 'clientCreator:id,first_name,last_name', 'assignee:id,name']));
     }
+
+    public function destroy(Project $project, ProjectTicket $ticket, Request $request): JsonResponse
+    {
+        $this->authorizeProject($project, $request);
+        abort_unless($ticket->project_id === $project->id, 404);
+
+        $ticket->delete();
+
+        return response()->json([], 204);
+    }
+
     private function authorizeProject(Project $project, Request $request): void
     {
         abort_unless($request->user()->is_admin || $project->members()->whereKey($request->user()->id)->exists(), 403);

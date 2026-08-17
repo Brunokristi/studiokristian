@@ -99,7 +99,7 @@ function updateItems(value) {
         :subtitle="subtitle"
         max-width-class="max-w-5xl"
         max-height-class="max-h-[85vh]"
-        panel-class="flex flex-col"
+        panel-class="flex flex-col border border-accent bg-light shadow-xl"
         body-class="min-h-0 flex-1 overflow-hidden"
         close-label="Close project files"
         @close="

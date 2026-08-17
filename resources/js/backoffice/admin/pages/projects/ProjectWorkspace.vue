@@ -999,23 +999,29 @@ function normalizeProjectFolders(
             : []
 
 
+    const previousById =
+        new Map(
+            previous
+                .filter(
+                    item =>
+                        isPersistedFolderId(
+                            item?.id
+                        )
+                )
+                .map(
+                    item => [
+                        String(
+                            Number(
+                                item.id
+                            )
+                        ),
+                        item
+                    ]
+                )
+        )
+
+
     source.sort(
-        (
-            a,
-            b
-        ) =>
-            Number(
-                a?.sort_order ||
-                0
-            ) -
-            Number(
-                b?.sort_order ||
-                0
-            )
-    )
-
-
-    previous.sort(
         (
             a,
             b
@@ -1033,14 +1039,15 @@ function normalizeProjectFolders(
 
     const normalized =
         source.map(
-            (
-                item,
-                index
-            ) => {
+            item => {
                 const previousItem =
-                    previous[
-                        index
-                    ] ||
+                    previousById.get(
+                        String(
+                            Number(
+                                item.id
+                            )
+                        )
+                    ) ||
                     null
 
 
@@ -2493,6 +2500,44 @@ async function saveTicket({
                 updatedTicket
             )
         }
+
+
+        done()
+    } catch (
+        exception
+    ) {
+        showError(
+            errorMessage(
+                exception
+            )
+        )
+
+
+        done()
+    }
+}
+
+
+async function deleteTicket({
+    ticket,
+    done
+}) {
+    try {
+        await api.delete(
+            `/projects/${projectId.value}/tickets/${ticket.id}`
+        )
+
+
+        tickets.value =
+            tickets.value.filter(
+                item =>
+                    String(
+                        item.id
+                    ) !==
+                    String(
+                        ticket.id
+                    )
+            )
 
 
         done()
@@ -4368,6 +4413,9 @@ onBeforeUnmount(
                                         "
                                         @save="
                                             saveTicket
+                                        "
+                                        @delete="
+                                            deleteTicket
                                         "
                                     />
                                 </div>

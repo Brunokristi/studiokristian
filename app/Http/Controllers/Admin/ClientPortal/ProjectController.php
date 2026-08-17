@@ -60,7 +60,7 @@ class ProjectController extends Controller
         abort_if($project->company_id === null, 404);
         $this->authorizeProjectAccess(request(), $project);
 
-        return new ProjectResource($project->load(['company', 'serviceProduct', 'blueprintVersion.blueprint', 'contacts', 'coworkers', 'deliverables', 'folders', 'contracts.templateVersion.template'])->loadCount('contacts'));
+        return new ProjectResource($project->load(['company', 'serviceProduct', 'blueprintVersion.blueprint', 'contacts', 'coworkers', 'deliverables', 'folders.signatures', 'contracts.templateVersion.template'])->loadCount('contacts'));
     }
 
     public function update(StoreProjectRequest $request, Project $project): ProjectResource
