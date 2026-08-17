@@ -55,7 +55,7 @@ const emit = defineEmits([
 ])
 
 
-const isOpen = ref(true)
+const isOpen = ref(false)
 
 const headingElement = ref(null)
 const textElement = ref(null)

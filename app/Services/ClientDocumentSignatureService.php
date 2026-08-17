@@ -21,7 +21,11 @@ class ClientDocumentSignatureService
         $query = User::query();
 
         if (User::hasClientContactColumn()) {
-            $query->where('client_contact_id', $contact->id);
+            $query->where(function ($builder) use ($contact, $shadowEmail) {
+                $builder
+                    ->where('client_contact_id', $contact->id)
+                    ->orWhere('email', $shadowEmail);
+            });
         } else {
             $query->where('email', $shadowEmail);
         }
@@ -29,6 +33,33 @@ class ClientDocumentSignatureService
         $user = $query->first();
 
         if ($user) {
+            $dirty = false;
+
+            if (
+                User::hasClientContactColumn() &&
+                (int) ($user->client_contact_id ?? 0) !== (int) $contact->id
+            ) {
+                $user->client_contact_id = $contact->id;
+                $dirty = true;
+            }
+
+            if (
+                User::hasRoleColumn() &&
+                $user->role !== 'client'
+            ) {
+                $user->role = 'client';
+                $dirty = true;
+            }
+
+            if ((bool) $user->is_admin) {
+                $user->is_admin = false;
+                $dirty = true;
+            }
+
+            if ($dirty) {
+                $user->save();
+            }
+
             return $user;
         }
 

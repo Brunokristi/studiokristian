@@ -6,6 +6,7 @@ use App\Models\ClientContact;
 use App\Models\ContractInstance;
 use App\Models\PriceOffer;
 use App\Models\Project;
+use App\Models\ProjectFile;
 use App\Models\ProjectFolder;
 use App\Services\ClientDocumentSignatureService;
 use Illuminate\Http\Request;
@@ -58,12 +59,15 @@ class ClientPortalViewData
                     (bool) $document->requires_client_signature &&
                     ! $isSigned,
                 'sign_url' => route('client.projects.documents.sign', [$project, $document]),
+                'open_url' => $this->projectDocumentOpenUrl($project, $document),
             ];
         })->values();
 
         $todoSignatures = $documentPayload
             ->filter(fn ($document) => $document['requires_signature'] && ! $document['signed'])
             ->values();
+
+        $visibleStructure = $this->visibleStructure($project, $contact, $signedFolderIds);
 
         return $this->page($request, 'project', $project->name, $contact, [
             'project' => [
@@ -96,6 +100,7 @@ class ClientPortalViewData
                     'size' => $file->size,
                     'url' => route('client.files.download', $file),
                 ])->values(),
+                'document_structure' => $visibleStructure,
                 'documents' => $documentPayload,
                 'todo_signatures' => $todoSignatures,
                 'services' => $project->serviceAccounts->map(fn ($account) => [
@@ -198,5 +203,91 @@ class ClientPortalViewData
             ],
             ...$data,
         ];
+    }
+
+    private function visibleStructure(Project $project, ClientContact $contact, Collection $signedFolderIds): Collection
+    {
+        $folders = $project->relationLoaded('folders')
+            ? $project->folders
+            : $project->folders()->get();
+
+        $files = $project->relationLoaded('files')
+            ? $project->files
+            : $project->files()->get();
+
+        $visibleFolders = $folders
+            ->filter(fn (ProjectFolder $folder) => $folder->isEffectivelyClientVisible())
+            ->keyBy(fn (ProjectFolder $folder) => (int) $folder->id);
+
+        $folderItems = $visibleFolders
+            ->values()
+            ->filter(fn (ProjectFolder $folder) => $folder->type === 'folder')
+            ->map(fn (ProjectFolder $folder) => [
+                'id' => $folder->id,
+                'parent_id' => $folder->parent_id,
+                'type' => 'folder',
+                'name' => $folder->name,
+                'resource_type' => 'folder',
+            ]);
+
+        $documentItems = $visibleFolders
+            ->values()
+            ->filter(fn (ProjectFolder $folder) => $folder->type === 'file')
+            ->filter(fn (ProjectFolder $folder) => $folder->resource_type === 'document')
+            ->map(function (ProjectFolder $folder) use ($project, $contact, $signedFolderIds) {
+                $signed = $signedFolderIds->contains((int) $folder->id);
+
+                return [
+                    'id' => $folder->id,
+                    'parent_id' => $folder->parent_id,
+                    'type' => 'file',
+                    'name' => $folder->name,
+                    'resource_type' => 'document',
+                    'content' => $folder->content,
+                    'requires_client_signature' => (bool) $folder->requires_client_signature,
+                    'requires_signature' => (bool) $folder->requires_client_signature,
+                    'signed' => $signed,
+                    'can_sign' =>
+                        (bool) $contact->can_accept_documents &&
+                        (bool) $folder->requires_client_signature &&
+                        ! $signed,
+                    'sign_url' => route('client.projects.documents.sign', [$project, $folder]),
+                    'open_url' => $this->projectDocumentOpenUrl($project, $folder),
+                    'requirement_level' => $folder->requirement_level,
+                ];
+            });
+
+        $binaryFiles = $files
+            ->filter(fn (ProjectFile $file) => $file->isEffectivelyClientVisible())
+            ->filter(function (ProjectFile $file) use ($visibleFolders) {
+                if (! $file->project_folder_id) {
+                    return true;
+                }
+
+                return $visibleFolders->has((int) $file->project_folder_id);
+            })
+            ->map(fn (ProjectFile $file) => [
+                'id' => 'project-file-'.$file->id,
+                'parent_id' => $file->project_folder_id,
+                'type' => 'file',
+                'name' => $file->display_name,
+                'resource_type' => 'file',
+                'size' => $file->size,
+                'mime_type' => $file->mime_type,
+                'open_url' => route('client.files.open', $file),
+                'download_url' => route('client.files.download', $file),
+            ]);
+
+        return $folderItems
+            ->concat($documentItems)
+            ->concat($binaryFiles)
+            ->values();
+    }
+
+    private function projectDocumentOpenUrl(Project $project, ProjectFolder $document): string
+    {
+        return route('client.projects.show', $project)
+            .'?document='.$document->id
+            .'#client-project-documents';
     }
 }

@@ -3708,170 +3708,176 @@ onUnmounted(() => {
                     <i class="bi bi-arrow-left" />
                 </button>
 
-                <div class="flex gap-4">
-                    <button
-                        type="button"
-                        class="
-                            p
-                            hover:text-dark
-                        "
-                        title="Undo"
-                        @click="
-                            editor
-                                ?.chain()
-                                .focus()
-                                .undo()
-                                .run()
-                        "
-                    >
-                       <i class="bi bi-arrow-counterclockwise" />
-                    </button>
+                <template
+                    v-if="
+                        editable
+                    "
+                >
+                    <div class="flex gap-4">
+                        <button
+                            type="button"
+                            class="
+                                p
+                                hover:text-dark
+                            "
+                            title="Undo"
+                            @click="
+                                editor
+                                    ?.chain()
+                                    .focus()
+                                    .undo()
+                                    .run()
+                            "
+                        >
+                           <i class="bi bi-arrow-counterclockwise" />
+                        </button>
 
 
-                    <button
-                        type="button"
-                        class="
-                            p
-                            hover:text-dark
+                        <button
+                            type="button"
+                            class="
+                                p
+                                hover:text-dark
 
-                        "
-                        title="Redo"
-                        @click="
-                            editor
-                                ?.chain()
-                                .focus()
-                                .redo()
-                                .run()
-                        "
-                    >
-                        <i class="bi bi-arrow-clockwise" />
-                    </button>
-                </div>
+                            "
+                            title="Redo"
+                            @click="
+                                editor
+                                    ?.chain()
+                                    .focus()
+                                    .redo()
+                                    .run()
+                            "
+                        >
+                            <i class="bi bi-arrow-clockwise" />
+                        </button>
+                    </div>
 
-                <div class="flex gap-4">
-                    <button
-                        type="button"
-                        class="
-                            p
-                            font-bold
-                            hover:text-dark
-                        "
-                        title="Bold"
-                        @click="
-                            editor
-                                ?.chain()
-                                .focus()
-                                .toggleBold()
-                                .run()
-                        "
-                    >
-                        B
-                    </button>
-
-
-                    <button
-                        type="button"
-                        class="
-                            p
-                            italic
-                            hover:text-dark
-                        "
-                        title="Italic"
-                        @click="
-                            editor
-                                ?.chain()
-                                .focus()
-                                .toggleItalic()
-                                .run()
-                        "
-                    >
-                        I
-                    </button>
+                    <div class="flex gap-4">
+                        <button
+                            type="button"
+                            class="
+                                p
+                                font-bold
+                                hover:text-dark
+                            "
+                            title="Bold"
+                            @click="
+                                editor
+                                    ?.chain()
+                                    .focus()
+                                    .toggleBold()
+                                    .run()
+                            "
+                        >
+                            B
+                        </button>
 
 
-                    <button
-                        type="button"
-                        class="
-                            p
-                            underline
-                            hover:text-dark
-                        "
-                        title="Underline"
-                        @click="
-                            editor
-                                ?.chain()
-                                .focus()
-                                .toggleUnderline()
-                                .run()
-                        "
-                    >
-                        U
-                    </button>
+                        <button
+                            type="button"
+                            class="
+                                p
+                                italic
+                                hover:text-dark
+                            "
+                            title="Italic"
+                            @click="
+                                editor
+                                    ?.chain()
+                                    .focus()
+                                    .toggleItalic()
+                                    .run()
+                            "
+                        >
+                            I
+                        </button>
 
-                    <button
-                        type="button"
-                        class="
-                            p
-                            hover:text-dark
-                        "
-                        title="Add table row"
-                        @click="
-                            runTableCommand(
-                                'add-row'
-                            )
-                        "
-                    >
-                        <i class="bi bi-row-text" />
-                    </button>
 
-                    <button
-                        type="button"
-                        class="
-                            p
-                            hover:text-dark
-                        "
-                        title="Remove table row"
-                        @click="
-                            runTableCommand(
-                                'remove-row'
-                            )
-                        "
-                    >
-                        <i class="bi bi-dash-square" />
-                    </button>
+                        <button
+                            type="button"
+                            class="
+                                p
+                                underline
+                                hover:text-dark
+                            "
+                            title="Underline"
+                            @click="
+                                editor
+                                    ?.chain()
+                                    .focus()
+                                    .toggleUnderline()
+                                    .run()
+                            "
+                        >
+                            U
+                        </button>
 
-                    <button
-                        type="button"
-                        class="
-                            p
-                            hover:text-dark
-                        "
-                        title="Add table column"
-                        @click="
-                            runTableCommand(
-                                'add-column'
-                            )
-                        "
-                    >
-                        <i class="bi bi-layout-three-columns" />
-                    </button>
+                        <button
+                            type="button"
+                            class="
+                                p
+                                hover:text-dark
+                            "
+                            title="Add table row"
+                            @click="
+                                runTableCommand(
+                                    'add-row'
+                                )
+                            "
+                        >
+                            <i class="bi bi-row-text" />
+                        </button>
 
-                    <button
-                        type="button"
-                        class="
-                            p
-                            hover:text-dark
-                        "
-                        title="Remove table column"
-                        @click="
-                            runTableCommand(
-                                'remove-column'
-                            )
-                        "
-                    >
-                        <i class="bi bi-layout-sidebar" />
-                    </button>
-                </div>
+                        <button
+                            type="button"
+                            class="
+                                p
+                                hover:text-dark
+                            "
+                            title="Remove table row"
+                            @click="
+                                runTableCommand(
+                                    'remove-row'
+                                )
+                            "
+                        >
+                            <i class="bi bi-dash-square" />
+                        </button>
+
+                        <button
+                            type="button"
+                            class="
+                                p
+                                hover:text-dark
+                            "
+                            title="Add table column"
+                            @click="
+                                runTableCommand(
+                                    'add-column'
+                                )
+                            "
+                        >
+                            <i class="bi bi-layout-three-columns" />
+                        </button>
+
+                        <button
+                            type="button"
+                            class="
+                                p
+                                hover:text-dark
+                            "
+                            title="Remove table column"
+                            @click="
+                                runTableCommand(
+                                    'remove-column'
+                                )
+                            "
+                        >
+                            <i class="bi bi-layout-sidebar" />
+                        </button>
+                    </div>
+                </template>
             </div>
 
 
@@ -3902,28 +3908,38 @@ onUnmounted(() => {
 
 
             <div
-                v-if="
-                    showSignatureStatus &&
-                    requiresSignature
-                "
                 class="
-                    rounded-sm
-                    border
-                    px-3
-                    py-1
-                    font-mono
-                    text-[10px]
-                    font-bold
-                    uppercase
-                    tracking-[0.12em]
-                "
-                :class="
-                    signatureStatusClass
+                    flex
+                    items-center
+                    gap-3
                 "
             >
-                {{
-                    signatureStatusLabel
-                }}
+                <slot name="header-actions" />
+
+                <div
+                    v-if="
+                        showSignatureStatus &&
+                        requiresSignature
+                    "
+                    class="
+                        rounded-sm
+                        border
+                        px-3
+                        py-1
+                        font-mono
+                        text-[10px]
+                        font-bold
+                        uppercase
+                        tracking-[0.12em]
+                    "
+                    :class="
+                        signatureStatusClass
+                    "
+                >
+                    {{
+                        signatureStatusLabel
+                    }}
+                </div>
             </div>
 
         </header>
@@ -4179,7 +4195,8 @@ onUnmounted(() => {
         <!-- Text selection menu -->
         <BubbleMenu
             v-if="
-                editor
+                editor &&
+                editable
             "
             :editor="
                 editor
