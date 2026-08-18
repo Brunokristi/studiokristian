@@ -557,11 +557,11 @@ function nodesFromText(
         ) {
             nodes.push({
                 type:
-                    rect.top -
-                    5,
+                    'horizontalRule'
+            })
 
-                    rect.right +
-                    8,
+            continue
+        }
 
         const imageMatch =
             chunk.match(
@@ -1258,6 +1258,16 @@ function updateBlockToolsUI() {
 
     const rect =
         blockDom.getBoundingClientRect()
+
+    if (
+        rect.width <= 0 ||
+        rect.height <= 0
+    ) {
+        blockTools.value.visible =
+            false
+
+        return
+    }
 
     const toolbarGap = 8
 
@@ -3512,7 +3522,9 @@ onMounted(() => {
     )
 
     nextTick(() => {
-        updateBlockToolsUI()
+        window.requestAnimationFrame(() => {
+            updateBlockToolsUI()
+        })
     })
 })
 
@@ -3820,6 +3832,14 @@ const editor = useEditor({
 
             return false
         }
+    },
+
+    onCreate() {
+        nextTick(() => {
+            window.requestAnimationFrame(() => {
+                updateBlockToolsUI()
+            })
+        })
     },
 
     onUpdate({
@@ -4376,7 +4396,7 @@ onUnmounted(() => {
                             border
                             border-accent
                             bg-light
-                            p-1
+                            p-0
                         "
                         :style="{
                             top:
@@ -4394,8 +4414,8 @@ onUnmounted(() => {
                             type="button"
                             class="
                                 grid
-                                h-7
-                                w-7
+                                h-8
+                                w-8
                                 place-items-center
                                 text-dark
                                 transition-colors
@@ -4432,7 +4452,8 @@ onUnmounted(() => {
             "
             :tippy-options="{
                 duration: 120,
-                placement: 'top',
+                placement: 'right-start',
+                offset: [40, 8],
                 interactive: true,
                 hideOnClick: true,
                 onClickOutside: (instance, event) => {
