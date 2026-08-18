@@ -20,6 +20,38 @@ import Placeholder from '@tiptap/extension-placeholder'
 import Link from '@tiptap/extension-link'
 import Underline from '@tiptap/extension-underline'
 
+const DocumentLink = Link.extend({
+    addAttributes() {
+        return {
+            ...this.parent?.(),
+
+            description: {
+                default: null,
+                parseHTML: element => {
+                    const value =
+                        element.getAttribute(
+                            'data-link-description'
+                        )
+
+                    return value || null
+                },
+                renderHTML: attributes => {
+                    if (!attributes.description) {
+                        return {}
+                    }
+
+                    return {
+                        'data-link-description':
+                            String(
+                                attributes.description
+                            )
+                    }
+                }
+            }
+        }
+    }
+})
+
 import {
     Table,
     TableRow,
@@ -28,9 +60,16 @@ import {
 } from '@tiptap/extension-table'
 import {
     NodeSelection,
+    Plugin,
+    PluginKey,
     Selection,
     TextSelection
 } from '@tiptap/pm/state'
+import {
+    Decoration,
+    DecorationSet
+} from '@tiptap/pm/view'
+import { Extension } from '@tiptap/core'
 
 import TaskList from '@tiptap/extension-task-list'
 import TaskItem from '@tiptap/extension-task-item'
@@ -40,7 +79,6 @@ import useAutosavePolicy from '../composables/useAutosavePolicy'
 import api, {
     errorMessage
 } from '../composables/useAdminApi'
-import Slider from './document-editor/extensions/Slider'
 import InfoBlock from './document-editor/extensions/Info'
 import ResizableImage from './document-editor/extensions/ResizableImage'
 
@@ -152,8 +190,17 @@ const commandMenuRoot = ref(null)
 
 const showLinkModal = ref(false)
 const linkHref = ref('')
+const linkDescription = ref('')
 const linkError = ref('')
 const savedLinkSelection = ref(null)
+
+const linkPreview = ref({
+    visible: false,
+    href: '',
+    description: '',
+    top: 20,
+    left: 20
+})
 
 const showImagePickerModal = ref(false)
 const imagePickerLoading = ref(false)
@@ -162,7 +209,6 @@ const imagePickerItems = ref([])
 const imagePickerCurrentFolderId = ref(null)
 const imagePickerUploading = ref(false)
 
-const sliderPickerContext = ref(null)
 const imageNodePickerContext = ref(false)
 const imageNodePickerPos = ref(null)
 
@@ -184,10 +230,39 @@ const insertHandle = ref({
 
 const blockTools = ref({
     visible: false,
-    top: 0,
-    left: 0,
+    top: -5,
+    right: 0,
     index: -1
 })
+
+const tableTools = ref({
+    visible: false,
+    top: 0,
+    left: 0
+})
+
+const tableControls = [
+    {
+        command: 'add-row',
+        title: 'Add row below',
+        icon: 'bi bi-plus-square'
+    },
+    {
+        command: 'remove-row',
+        title: 'Remove row',
+        icon: 'bi bi-dash-square'
+    },
+    {
+        command: 'add-column',
+        title: 'Add column after',
+        icon: 'bi bi-layout-three-columns'
+    },
+    {
+        command: 'remove-column',
+        title: 'Remove column',
+        icon: 'bi bi-layout-sidebar'
+    },
+]
 
 
 const AUTOSAVE_DELAY = 800
@@ -201,9 +276,7 @@ const imagePickerTitle = computed(() => {
 
 
 const imagePickerSubtitle = computed(() => {
-    return imageNodePickerContext.value
-        ? 'Select an image file from project files.'
-        : 'Same project structure as workspace. Double-click a PNG file to select it.'
+    return 'Select an image file from project files.'
 })
 
 
@@ -957,26 +1030,124 @@ function getActiveTopLevelIndex(
         return -1
     }
 
+    let blockPos =
+        Number(
+            selection.from || 0
+        )
+
     if (
-        selection.$from?.depth >= 1
+        selection.$from?.depth > 0
     ) {
-        return selection.$from.index(0)
+        blockPos =
+            selection.$from.before(
+                1
+            )
     }
 
     const safePos = Math.max(
         0,
         Math.min(
-            Number(
-                selection.from || 0
-            ),
+            blockPos,
             doc.content.size
         )
     )
 
-    return doc.resolve(
-        safePos
-    ).index(0)
+    const resolved =
+        doc.resolve(
+            safePos
+        )
+
+    const topLevelIndex =
+        resolved.index(
+            0
+        )
+
+    if (
+        Number.isInteger(
+            topLevelIndex
+        ) &&
+        topLevelIndex >= 0 &&
+        topLevelIndex <
+            doc.childCount
+    ) {
+        return topLevelIndex
+    }
+
+    return -1
 }
+
+
+/*
+ * Marks the top-level block that currently holds the
+ * selection. A decoration is used so the outline survives
+ * every ProseMirror re-render.
+ */
+const ActiveBlockHighlight = Extension.create({
+    name: 'activeBlockHighlight',
+
+    addProseMirrorPlugins() {
+        const editorInstance =
+            this.editor
+
+        return [
+            new Plugin({
+                key:
+                    new PluginKey(
+                        'activeBlockHighlight'
+                    ),
+
+                props: {
+                    decorations(state) {
+                        if (
+                            !editorInstance
+                                ?.isEditable
+                        ) {
+                            return null
+                        }
+
+                        const {
+                            doc,
+                            selection
+                        } = state
+
+                        const index =
+                            getActiveTopLevelIndex(
+                                selection,
+                                doc
+                            )
+
+                        if (index < 0) {
+                            return null
+                        }
+
+                        const from =
+                            getTopLevelBlockStartPos(
+                                doc,
+                                index
+                            )
+
+                        return DecorationSet.create(
+                            doc,
+                            [
+                                Decoration.node(
+                                    from,
+                                    from +
+                                        doc.child(
+                                            index
+                                        ).nodeSize,
+                                    {
+                                        class:
+                                            'is-editor-active-block'
+                                    }
+                                )
+                            ]
+                        )
+                    }
+                }
+            })
+        ]
+    }
+})
 
 
 function clearActiveBlockVisuals() {
@@ -984,18 +1155,17 @@ function clearActiveBlockVisuals() {
         editor.value?.view
             ?.dom
 
-    if (!(root instanceof HTMLElement)) {
+    if (
+        !(root instanceof HTMLElement)
+    ) {
         return
     }
 
     root
         .querySelectorAll(
-            '.is-editor-active-block, .is-editor-drop-target'
+            '.is-editor-drop-target'
         )
         .forEach(node => {
-            node.classList.remove(
-                'is-editor-active-block'
-            )
             node.classList.remove(
                 'is-editor-drop-target'
             )
@@ -1007,13 +1177,18 @@ function updateBlockToolsUI() {
     const instance =
         editor.value
 
+    tableTools.value.visible =
+        false
+
     if (
         !instance ||
         !props.editable
     ) {
         clearActiveBlockVisuals()
+
         blockTools.value.visible =
             false
+
         return
     }
 
@@ -1031,13 +1206,18 @@ function updateBlockToolsUI() {
     ) {
         blockTools.value.visible =
             false
+
         return
     }
 
-    if (!doc.childCount) {
+    if (
+        !doc.childCount
+    ) {
         clearActiveBlockVisuals()
+
         blockTools.value.visible =
             false
+
         return
     }
 
@@ -1052,11 +1232,16 @@ function updateBlockToolsUI() {
         index >= doc.childCount
     ) {
         clearActiveBlockVisuals()
+
         blockTools.value.visible =
             false
+
         return
     }
 
+    /*
+     * Remove the previous active state first.
+     */
     clearActiveBlockVisuals()
 
     const blockDom =
@@ -1067,27 +1252,82 @@ function updateBlockToolsUI() {
     ) {
         blockTools.value.visible =
             false
+
         return
     }
-
-    blockDom.classList.add(
-        'is-editor-active-block'
-    )
 
     const rect =
         blockDom.getBoundingClientRect()
 
+    const toolbarGap = 2
+
     blockTools.value = {
         visible: true,
-        top: Math.max(
-            12,
-            rect.top + 6
-        ),
-        left: Math.max(
-            12,
-            rect.right - 168
-        ),
+
+        top:
+            rect.top +
+            toolbarGap,
+
+        // Anchored from the right edge so the toolbar width is irrelevant.
+        right:
+            (
+                window.innerWidth ||
+                document.documentElement.clientWidth
+            ) -
+            rect.right +
+            toolbarGap,
+
         index
+    }
+
+    updateTableToolsUI(
+        blockDom
+    )
+}
+
+
+function updateTableToolsUI(
+    blockDom
+) {
+    const instance =
+        editor.value
+
+    if (
+        !instance ||
+        !props.editable ||
+        !instance.isActive('table')
+    ) {
+        tableTools.value.visible =
+            false
+
+        return
+    }
+
+    const tableDom =
+        blockDom instanceof HTMLElement
+            ? (
+                blockDom.tagName === 'TABLE'
+                    ? blockDom
+                    : blockDom.querySelector('table')
+            )
+            : null
+
+    if (
+        !(tableDom instanceof HTMLElement)
+    ) {
+        tableTools.value.visible =
+            false
+
+        return
+    }
+
+    const tableRect =
+        tableDom.getBoundingClientRect()
+
+    tableTools.value = {
+        visible: true,
+        top: tableRect.bottom + 12,
+        left: tableRect.left
     }
 }
 
@@ -1824,36 +2064,6 @@ const commands = [
     },
 
     {
-        id: 'slider',
-        label: 'Slider',
-        description: 'Image slideshow',
-        keywords: [
-            'slider',
-            'slideshow',
-            'gallery',
-            'images'
-        ],
-
-        action(instance) {
-            instance
-                .chain()
-                .focus()
-                .insertContent({
-                    type: 'slider',
-                    attrs: {
-                        images: [],
-                        editable:
-                            props.editable,
-                        language:
-                            props.language ||
-                            'en'
-                    }
-                })
-                .run()
-        }
-    },
-
-    {
         id: 'info',
         label: 'Info',
         description: 'Expandable information section',
@@ -2050,42 +2260,41 @@ function runTableCommand(command) {
         chain
             .addRowAfter()
             .run()
-        markDirty()
-        return
-    }
-
-    if (
+    } else if (
         command ===
         'remove-row'
     ) {
         chain
             .deleteRow()
             .run()
-        markDirty()
-        return
-    }
-
-    if (
+    } else if (
         command ===
         'add-column'
     ) {
         chain
             .addColumnAfter()
             .run()
-        markDirty()
-        return
-    }
-
-    if (
+    } else if (
         command ===
         'remove-column'
     ) {
         chain
             .deleteColumn()
             .run()
+    } else if (
+        command ===
+        'delete-table'
+    ) {
+        chain
+            .deleteTable()
+            .run()
     }
 
     markDirty()
+
+    nextTick(() => {
+        updateBlockToolsUI()
+    })
 }
 
 
@@ -2199,8 +2408,6 @@ function openProjectFilesForImageNode(
                 context.replacePos
             )
             : null
-    sliderPickerContext.value =
-        null
     imagePickerCurrentFolderId.value =
         null
     showImagePickerModal.value =
@@ -2219,32 +2426,6 @@ function imagePickerFileName(
         file?.name ||
         'image'
     )
-}
-
-
-function isPngProjectFile(
-    file
-) {
-    const mime = String(
-        file?.mime_type ||
-        ''
-    ).toLowerCase()
-
-    if (
-        mime ===
-        'image/png'
-    ) {
-        return true
-    }
-
-    const name = String(
-        imagePickerFileName(
-            file
-        ) ||
-        ''
-    ).toLowerCase()
-
-    return name.endsWith('.png')
 }
 
 
@@ -2280,15 +2461,7 @@ function isImageProjectFile(
 function pickerAcceptsProjectFile(
     file
 ) {
-    if (
-        imageNodePickerContext.value
-    ) {
-        return isImageProjectFile(
-            file
-        )
-    }
-
-    return isPngProjectFile(
+    return isImageProjectFile(
         file
     )
 }
@@ -2724,8 +2897,6 @@ async function loadImagePickerItems() {
 function closeImagePickerModal() {
     showImagePickerModal.value =
         false
-    sliderPickerContext.value =
-        null
     imageNodePickerContext.value =
         false
     imageNodePickerPos.value =
@@ -2754,118 +2925,6 @@ function handleImagePickerStructureUpdate(
 }
 
 
-function openProjectFilesForSliderAdd(
-    context
-) {
-    if (
-        !props.projectId
-    ) {
-        return
-    }
-
-    sliderPickerContext.value = {
-        ...context,
-        mode: 'add',
-        index: null
-    }
-    imageNodePickerContext.value =
-        false
-
-    imagePickerCurrentFolderId.value =
-        null
-
-    showImagePickerModal.value =
-        true
-
-    void loadImagePickerItems()
-}
-
-
-function openProjectFilesForSliderReplace(payload) {
-    if (
-        !props.projectId
-    ) {
-        return
-    }
-
-    sliderPickerContext.value = {
-        ...payload,
-        mode: 'replace',
-        index: Number(
-            payload?.index
-        )
-    }
-    imageNodePickerContext.value =
-        false
-
-    imagePickerCurrentFolderId.value =
-        null
-
-    showImagePickerModal.value =
-        true
-
-    void loadImagePickerItems()
-}
-
-
-async function createSliderImageFromProjectFile(file) {
-    const openUrl =
-        String(
-            file?.open_url ||
-            ''
-        ).trim()
-
-    if (!openUrl) {
-        throw new Error(
-            'Selected file is missing an open URL.'
-        )
-    }
-
-    const response =
-        await fetch(openUrl)
-
-    if (!response.ok) {
-        throw new Error(
-            'Failed to read the selected image file.'
-        )
-    }
-
-    const blob =
-        await response.blob()
-
-    const fileName =
-        imagePickerFileName(file)
-
-    const imageFile =
-        new File(
-            [blob],
-            fileName,
-            {
-                type:
-                    blob.type ||
-                    file.mime_type ||
-                    'image/*'
-            }
-        )
-
-    const preview =
-        URL.createObjectURL(imageFile)
-
-    return {
-        path: '',
-        existing_path: '',
-        src: preview,
-        preview,
-        description: '',
-        description_sk: '',
-        alt: '',
-        alt_sk: '',
-        caption: '',
-        file: imageFile
-    }
-}
-
-
 async function handleImagePickerFileOpen(file) {
     if (!file?.open_url) {
         return
@@ -2875,9 +2934,7 @@ async function handleImagePickerFileOpen(file) {
         !pickerAcceptsProjectFile(file)
     ) {
         imagePickerError.value =
-            imageNodePickerContext.value
-                ? 'Please select an image file from Project Files.'
-                : 'Please select a PNG file from Project Files.'
+            'Please select an image file from Project Files.'
 
         return
     }
@@ -2984,66 +3041,6 @@ async function handleImagePickerFileOpen(file) {
 
         return
     }
-
-    const context =
-        sliderPickerContext.value
-
-    if (!context) {
-        return
-    }
-
-    try {
-        const sliderImage =
-            await createSliderImageFromProjectFile(file)
-
-        const currentImages =
-            context.getCurrentImages?.() ||
-            []
-
-        const nextImages =
-            Array.isArray(
-                currentImages
-            )
-                ? [...currentImages]
-                : []
-
-        if (
-            context.mode ===
-                'replace' &&
-            Number.isInteger(
-                context.index
-            ) &&
-            context.index >= 0 &&
-            context.index <
-                nextImages.length
-        ) {
-            nextImages[
-                context.index
-            ] = {
-                ...nextImages[
-                    context.index
-                ],
-                ...sliderImage
-            }
-        } else {
-            nextImages.push(
-                sliderImage
-            )
-        }
-
-        context.setImages?.(
-            nextImages
-        )
-
-        closeImagePickerModal()
-
-        markDirty()
-    } catch (exception) {
-        imagePickerError.value =
-            exception instanceof Error
-                ? exception.message
-                : 'Could not attach image from project files.'
-    }
 }
 
 
@@ -3065,9 +3062,7 @@ async function handleImagePickerUpload(
 
     if (!files.length) {
         imagePickerError.value =
-            imageNodePickerContext.value
-                ? 'Please upload at least one image file.'
-                : 'Please upload at least one PNG file.'
+            'Please upload at least one image file.'
         return
     }
 
@@ -3290,13 +3285,21 @@ function openLinkModal() {
     savedLinkSelection.value =
         instance.state.selection
 
+    const activeLink =
+        instance
+            .getAttributes(
+                'link'
+            ) || {}
+
     linkHref.value =
         String(
-            instance
-                .getAttributes(
-                    'link'
-                )
-                ?.href ||
+            activeLink.href ||
+                ''
+        )
+
+    linkDescription.value =
+        String(
+            activeLink.description ||
                 ''
         )
 
@@ -3314,6 +3317,71 @@ function closeLinkModal() {
 
     linkError.value =
         ''
+}
+
+
+function hideLinkPreview() {
+    linkPreview.value = {
+        visible: false,
+        href: '',
+        description: '',
+        top: 0,
+        left: 0
+    }
+}
+
+
+function showLinkPreviewForEvent(event) {
+    const target = event.target
+
+    const anchor =
+        target instanceof Element
+            ? target.closest('a[href]')
+            : null
+
+    if (!(anchor instanceof HTMLElement)) {
+        hideLinkPreview()
+        return
+    }
+
+    const href =
+        String(
+            anchor.getAttribute('href') || ''
+        )
+
+    if (!href) {
+        hideLinkPreview()
+        return
+    }
+
+    const description =
+        String(
+            anchor.dataset.linkDescription ||
+            anchor.getAttribute(
+                'data-link-description'
+            ) ||
+            ''
+        )
+
+    const rect =
+        anchor.getBoundingClientRect()
+
+    linkPreview.value = {
+        visible: true,
+        href,
+        description,
+
+        /*
+         * Position the popup at the TOP of the
+         * linked text. The CSS will then move the
+         * entire popup above this point.
+         */
+        top: rect.top - 8,
+
+        left:
+            rect.left +
+            rect.width / 2
+    }
 }
 
 
@@ -3354,7 +3422,10 @@ function applyLinkFromModal() {
             'link'
         )
         .setLink({
-            href
+            href,
+            description:
+                linkDescription.value
+                    .trim()
         })
         .run()
 
@@ -3424,7 +3495,7 @@ function shouldShowTextBubbleMenu({
     } = editor.state
 
     /*
-     * NodeSelection is used by images, sliders,
+     * NodeSelection is used by images, info blocks
      * info blocks and other building elements.
      * Never show the text BubbleMenu for those.
      */
@@ -3460,11 +3531,10 @@ function shouldShowTextBubbleMenu({
     /*
      * Do not show the text toolbar while the
      * selection belongs to a non-text building
-     * element such as an image, slider or info block.
+     * element such as an image or info block.
      */
     const nonTextNodeNames = new Set([
         'image',
-        'slider',
         'info',
         'horizontalRule'
     ])
@@ -3561,7 +3631,7 @@ const editor = useEditor({
 
         Underline,
 
-        Link.configure({
+        DocumentLink.configure({
             autolink: true,
             openOnClick: true,
             linkOnPaste: true
@@ -3584,14 +3654,9 @@ const editor = useEditor({
             resizable: true
         }),
 
-        Slider.configure({
-            onRequestProjectImageAdd:
-                openProjectFilesForSliderAdd,
-            onRequestProjectImageReplace:
-                openProjectFilesForSliderReplace
-        }),
-
         InfoBlock,
+
+        ActiveBlockHighlight,
 
         TableRow,
         TableHeader,
@@ -3602,6 +3667,27 @@ const editor = useEditor({
         attributes: {
             class:
                 'document-editor-content'
+        },
+
+        handleDOMEvents: {
+            mouseover(view, event) {
+                showLinkPreviewForEvent(
+                    event
+                )
+
+                return false
+            },
+
+            mouseleave(_view, event) {
+                if (
+                    event.target instanceof Element &&
+                    event.target.closest('a[href]')
+                ) {
+                    hideLinkPreview()
+                }
+
+                return false
+            }
         },
 
         handleClickOn(
@@ -3776,6 +3862,9 @@ const editor = useEditor({
             blockTools.value.visible =
                 false
 
+            tableTools.value.visible =
+                false
+
             clearActiveBlockVisuals()
         }, 0)
     }
@@ -3797,13 +3886,6 @@ watch(
             .chain()
             .focus()
             .updateAttributes(
-                'slider',
-                {
-                    editable:
-                        Boolean(value)
-                }
-            )
-            .updateAttributes(
                 'info',
                 {
                     editable:
@@ -3815,30 +3897,6 @@ watch(
         nextTick(() => {
             updateBlockToolsUI()
         })
-    }
-)
-
-
-watch(
-    () => props.language,
-    value => {
-        if (!editor.value) {
-            return
-        }
-
-        editor.value
-            .chain()
-            .focus()
-            .updateAttributes(
-                'slider',
-                {
-                    language: String(
-                        value ||
-                        'en'
-                    )
-                }
-            )
-            .run()
     }
 )
 
@@ -3995,131 +4053,6 @@ onUnmounted(() => {
                             "
                         >
                             <i class="bi bi-arrow-clockwise" />
-                        </button>
-                    </div>
-
-                    <div class="flex gap-4">
-                        <button
-                            type="button"
-                            class="
-                                p
-                                font-bold
-                                hover:text-dark
-                            "
-                            title="Bold"
-                            @click="
-                                editor
-                                    ?.chain()
-                                    .focus()
-                                    .toggleBold()
-                                    .run()
-                            "
-                        >
-                            B
-                        </button>
-
-
-                        <button
-                            type="button"
-                            class="
-                                p
-                                italic
-                                hover:text-dark
-                            "
-                            title="Italic"
-                            @click="
-                                editor
-                                    ?.chain()
-                                    .focus()
-                                    .toggleItalic()
-                                    .run()
-                            "
-                        >
-                            I
-                        </button>
-
-
-                        <button
-                            type="button"
-                            class="
-                                p
-                                underline
-                                hover:text-dark
-                            "
-                            title="Underline"
-                            @click="
-                                editor
-                                    ?.chain()
-                                    .focus()
-                                    .toggleUnderline()
-                                    .run()
-                            "
-                        >
-                            U
-                        </button>
-
-                        <button
-                            type="button"
-                            class="
-                                p
-                                hover:text-dark
-                            "
-                            title="Add table row"
-                            @click="
-                                runTableCommand(
-                                    'add-row'
-                                )
-                            "
-                        >
-                            <i class="bi bi-row-text" />
-                        </button>
-
-                        <button
-                            type="button"
-                            class="
-                                p
-                                hover:text-dark
-                            "
-                            title="Remove table row"
-                            @click="
-                                runTableCommand(
-                                    'remove-row'
-                                )
-                            "
-                        >
-                            <i class="bi bi-dash-square" />
-                        </button>
-
-                        <button
-                            type="button"
-                            class="
-                                p
-                                hover:text-dark
-                            "
-                            title="Add table column"
-                            @click="
-                                runTableCommand(
-                                    'add-column'
-                                )
-                            "
-                        >
-                            <i class="bi bi-layout-three-columns" />
-                        </button>
-
-                        <button
-                            type="button"
-                            class="
-                                p
-                                hover:text-dark
-                            "
-                            title="Remove table column"
-                            @click="
-                                runTableCommand(
-                                    'remove-column'
-                                )
-                            "
-                        >
-                            <i class="bi bi-layout-sidebar" />
                         </button>
                     </div>
                 </template>
@@ -4296,8 +4229,8 @@ onUnmounted(() => {
                         :style="{
                             top:
                                 `${blockTools.top}px`,
-                            left:
-                                `${blockTools.left}px`
+                            right:
+                                `${blockTools.right}px`
                         }"
                         @mousedown.prevent.stop
                     >
@@ -4387,6 +4320,59 @@ onUnmounted(() => {
                             "
                         >
                             <i class="bi bi-eraser" />
+                        </button>
+                    </div>
+
+                    <!-- Table controls -->
+                    <div
+                        v-if="
+                            editable &&
+                            tableTools?.visible
+                        "
+                        class="
+                            fixed
+                            z-40
+                            flex
+                            items-center
+                            gap-1
+                            border
+                            border-accent
+                            bg-light
+                            p-1
+                        "
+                        :style="{
+                            top:
+                                `${tableTools.top}px`,
+                            left:
+                                `${tableTools.left}px`
+                        }"
+                        @mousedown.prevent.stop
+                    >
+                        <button
+                            v-for="
+                                control in tableControls
+                            "
+                            :key="control.command"
+                            type="button"
+                            class="
+                                grid
+                                h-7
+                                w-7
+                                place-items-center
+                                text-dark
+                                transition-colors
+                                hover:bg-accent
+                                hover:text-light
+                            "
+                            :title="control.title"
+                            @mousedown.prevent
+                            @click="
+                                runTableCommand(
+                                    control.command
+                                )
+                            "
+                        >
+                            <i :class="control.icon" />
                         </button>
                     </div>
                 </div>
@@ -4711,12 +4697,63 @@ onUnmounted(() => {
                 </div>
             </div>
         </div>
+
+
+        <div
+            v-if="linkPreview.visible"
+            class="
+                fixed
+                z-50
+                w-72
+                max-w-[calc(100vw-2rem)]
+                -translate-x-1/2
+                -translate-y-full
+                border
+                border-accent
+                bg-light
+                p-3
+            "
+            :style="{
+                top: `${linkPreview.top}px`,
+                left: `${linkPreview.left}px`
+            }"
+        >
+            <div
+                class="
+                    mb-2
+                    max-w-full
+                    break-words
+                    p
+                    uppercase
+                "
+            >
+                {{
+                    linkPreview.description ||
+                        'Open link'
+                }}
+            </div>
+
+            <Button
+                type="button"
+                text="continue to site"
+                variant="accent"
+                align="left"
+                @click="
+                    window.open(
+                        linkPreview.href,
+                        '_blank',
+                        'noopener,noreferrer'
+                    )
+                "
+            />
+        </div>
+
         <AdminModal
             :open="
                 showLinkModal
             "
             title="Add link"
-            subtitle="Enter the URL for the selected text."
+            subtitle="Enter the URL and optional description for the selected text."
             max-width-class="max-w-xl"
             @close="
                 closeLinkModal
@@ -4733,6 +4770,22 @@ onUnmounted(() => {
                     @update:model-value="
                         value => {
                             linkHref = String(
+                                value ||
+                                ''
+                            )
+                        }
+                    "
+                />
+
+                <FormField
+                    id="document-link-description"
+                    type="text"
+                    label="Link description"
+                    placeholder="Open the project page"
+                    :model-value="linkDescription"
+                    @update:model-value="
+                        value => {
+                            linkDescription = String(
                                 value ||
                                 ''
                             )
@@ -4773,7 +4826,6 @@ onUnmounted(() => {
                 </div>
             </template>
         </AdminModal>
-
 
         <ProjectFilePickerModal
             v-model:open="
@@ -4870,42 +4922,23 @@ onUnmounted(() => {
 }
 
 /* =========================================================
-   TIGHTER CONTENT SPACING
-   ========================================================= */
-
-.article-editor :deep(.ProseMirror h1 + p),
-.article-editor :deep(.ProseMirror h2 + p),
-.article-editor :deep(.ProseMirror h3 + p),
-.article-editor :deep(.ProseMirror h1 + ul),
-.article-editor :deep(.ProseMirror h2 + ul),
-.article-editor :deep(.ProseMirror h3 + ul),
-.article-editor :deep(.ProseMirror h1 + ol),
-.article-editor :deep(.ProseMirror h2 + ol),
-.article-editor :deep(.ProseMirror h3 + ol),
-.article-editor :deep(.ProseMirror h1 + ul[data-type='taskList']),
-.article-editor :deep(.ProseMirror h2 + ul[data-type='taskList']),
-.article-editor :deep(.ProseMirror h3 + ul[data-type='taskList']),
-.article-editor :deep(.ProseMirror p + ul),
-.article-editor :deep(.ProseMirror p + ol),
-.article-editor :deep(.ProseMirror p + p),
-.article-editor :deep(.ProseMirror p + ul[data-type='taskList']),
-.article-editor :deep(.ProseMirror ul + p),
-.article-editor :deep(.ProseMirror ol + p),
-.article-editor :deep(.ProseMirror ul[data-type='taskList'] + p) {
-    margin-top: 0.55rem;
-}
-
-.article-editor :deep(.ProseMirror p) {
-    margin: 0;
-}
-
-/* =========================================================
    HEADINGS
    ========================================================= */
 
-.article-editor :deep(.ProseMirror h1),
-.article-editor :deep(.ProseMirror h2),
-.article-editor :deep(.ProseMirror h3) {
+/*
+ * `:not(.document-custom-block *)` keeps editor typography out of
+ * node views, so shared components keep their own styling.
+ */
+
+.article-editor :deep(
+    .ProseMirror h1:not(.document-custom-block *)
+),
+.article-editor :deep(
+    .ProseMirror h2:not(.document-custom-block *)
+),
+.article-editor :deep(
+    .ProseMirror h3:not(.document-custom-block *)
+) {
     margin: 2.2rem 0 0.9rem;
     color: var(--color-accent);
     font-family: 'Space Mono', monospace;
@@ -4914,15 +4947,21 @@ onUnmounted(() => {
     line-height: 1.12;
 }
 
-.article-editor :deep(.ProseMirror h1) {
+.article-editor :deep(
+    .ProseMirror h1:not(.document-custom-block *)
+) {
     font-size: clamp(2rem, 4vw, 3.1rem);
 }
 
-.article-editor :deep(.ProseMirror h2) {
+.article-editor :deep(
+    .ProseMirror h2:not(.document-custom-block *)
+) {
     font-size: clamp(1.55rem, 3vw, 2.2rem);
 }
 
-.article-editor :deep(.ProseMirror h3) {
+.article-editor :deep(
+    .ProseMirror h3:not(.document-custom-block *)
+) {
     font-size: 1.35rem;
 }
 
@@ -4947,7 +4986,7 @@ onUnmounted(() => {
 .article-editor :deep(.ProseMirror hr) {
     margin: 3rem 0;
     border: 0;
-    border-top: 1px solid var(--color-accent);
+    border-top: 1px solid rgb(19 62 180);
 }
 
 /* =========================================================
@@ -4987,47 +5026,67 @@ onUnmounted(() => {
    ========================================================= */
 
 /*
- * The image is rendered by ResizableImageNodeView as a
- * top-level NodeViewWrapper. Its width is controlled by the
- * node's width attribute.
+ * The image NodeView owns the resize handle.
  *
- * The initial width is 100%, matching the full-width slider
- * stage used by the document editor.
+ * It does NOT own the selection outline.
  *
- * Do not add an outline here. The generic top-level block
- * selection above supplies the one and only outline.
+ * The parent .ProseMirror > * selection system below
+ * supplies the same outline as every other building block.
  */
 
 .article-editor :deep(
     .ProseMirror .document-image-node
 ) {
+    position: relative;
+
     display: block;
+
     width: 100%;
     max-width: 100%;
+
     margin: 2rem auto;
+
+    border: 0 !important;
+    box-shadow: none !important;
 }
 
 .article-editor :deep(
     .ProseMirror .document-image-node img
 ) {
     display: block;
+
     width: 100%;
     max-width: 100%;
+
     height: auto;
-    max-height: 720px;
+
     margin: 0;
+    padding: 0;
+
+    border: 0 !important;
+    outline: none !important;
+    box-shadow: none !important;
+
     object-fit: contain;
+
+    user-select: none;
+    -webkit-user-drag: none;
 }
 
 /*
- * Pending image placeholder.
+ * Pending project image.
  */
 
 .article-editor :deep(
-    .ProseMirror .document-image-node
+    .ProseMirror
+        .document-image-node
         img[pendingprojectimage='true']
 ) {
     min-height: 140px;
+
+    border: 1px dashed
+        rgb(19 62 180 / 0.45) !important;
+
     background:
         repeating-linear-gradient(
             -45deg,
@@ -5036,6 +5095,7 @@ onUnmounted(() => {
             transparent 10px,
             transparent 20px
         );
+
     cursor: pointer;
 }
 
@@ -5065,14 +5125,14 @@ onUnmounted(() => {
 .article-editor :deep(.ProseMirror td),
 .article-editor :deep(.ProseMirror th) {
     width: 33.33%;
-    border: 1px solid rgb(23 23 23 / 0.12);
+    border: 1px solid rgb(19 62 180);
     padding: 0.75rem;
     vertical-align: top;
     text-align: left;
 }
 
 .article-editor :deep(.ProseMirror th) {
-    background: rgb(23 23 23 / 0.035);
+    background: rgb(19 62 180 / 0.05);
     font-weight: 700;
 }
 
@@ -5096,21 +5156,29 @@ onUnmounted(() => {
     .ProseMirror ul[data-type='taskList'] li
 ) {
     display: grid !important;
-    grid-template-columns: 1rem minmax(0, 1fr) !important;
+    grid-template-columns:
+        1rem
+        minmax(0, 1fr) !important;
+
     align-items: center !important;
-    column-gap: 0.32rem !important;
+
+    column-gap: 1rem !important;
     row-gap: 0 !important;
+
     list-style: none !important;
+
     width: 100% !important;
+
     margin: 0 !important;
     padding: 0 !important;
     padding-left: 0 !important;
 }
 
-/* Space between checklist items */
-
 .article-editor :deep(
-    .ProseMirror ul[data-type='taskList'] li + li
+    .ProseMirror
+        ul[data-type='taskList']
+        li
+        + li
 ) {
     margin-top: 0.16rem !important;
 }
@@ -5118,11 +5186,17 @@ onUnmounted(() => {
 /* Checkbox wrapper */
 
 .article-editor :deep(
-    .ProseMirror ul[data-type='taskList'] li > label
+    .ProseMirror
+        ul[data-type='taskList']
+        li
+        > label
 ) {
     display: inline-flex !important;
+
     grid-column: 1 !important;
+
     flex: 0 0 auto !important;
+
     width: 1rem !important;
     min-width: 1rem !important;
     height: auto !important;
@@ -5162,12 +5236,17 @@ onUnmounted(() => {
 /* Text wrapper */
 
 .article-editor :deep(
-    .ProseMirror ul[data-type='taskList'] li > div
+    .ProseMirror
+        ul[data-type='taskList']
+        li
+        > div
 ) {
     display: block !important;
+
     grid-column: 2 !important;
 
     flex: 1 1 auto !important;
+
     width: auto !important;
     min-width: 0 !important;
 
@@ -5199,12 +5278,17 @@ onUnmounted(() => {
    ========================================================= */
 
 .article-editor :deep(
-    .ProseMirror p.is-editor-empty:first-child::before
+    .ProseMirror
+        p.is-editor-empty:first-child::before
 ) {
     float: left;
+
     height: 0;
+
     color: rgb(23 23 23 / 0.25);
+
     content: attr(data-placeholder);
+
     pointer-events: none;
 }
 
@@ -5218,9 +5302,13 @@ onUnmounted(() => {
     .ProseMirror h3.is-empty::before
 ) {
     float: left;
+
     height: 0;
+
     color: rgb(23 23 23 / 0.2);
+
     content: attr(data-placeholder);
+
     pointer-events: none;
 }
 
@@ -5233,17 +5321,16 @@ onUnmounted(() => {
    ========================================================= */
 
 /*
- * Every top-level building element uses the same selection
- * system. There is exactly ONE visual outline:
+ * Every top-level editor block shares the same base behavior.
  *
- *     outline
- *
- * Do not add an inset box-shadow here. ProseMirror's
- * .ProseMirror-selectednode is also explicitly neutralized
- * below so NodeViews cannot create a second outline.
+ * Hovered inactive blocks get the subtle outline.
+ * Active blocks receive a single strong blue outline from the
+ * editor's actual active-block source of truth.
  */
 
-.article-editor--editable :deep(.ProseMirror > *) {
+.article-editor--editable :deep(
+    .ProseMirror > *
+) {
     outline: 1px solid transparent;
     outline-offset: 5px;
     transition:
@@ -5261,93 +5348,86 @@ onUnmounted(() => {
     .ProseMirror > *.is-editor-active-block
 ) {
     outline-color:
-        rgb(19 62 180 / 0.95);
+        rgb(19 62 180 / 0.95) !important;
+    box-shadow: none !important;
 }
-
-/*
- * The active block class is the only active outline.
- * Tiptap/ProseMirror adds this class to selected NodeViews.
- * It must not create another visual selection.
- */
 
 .article-editor :deep(
     .ProseMirror > .ProseMirror-selectednode
 ) {
-    outline-color: transparent !important;
-    box-shadow: none !important;
+    box-shadow:
+        none !important;
 }
-
-/*
- * The block-selection system still wins over the neutralized
- * ProseMirror node selection.
- */
-
-.article-editor--editable :deep(
-    .ProseMirror > .ProseMirror-selectednode.is-editor-active-block
-) {
-    outline-color:
-        rgb(19 62 180 / 0.95) !important;
-}
-
-/*
- * Drop targets use the same outline language instead of
- * another inset border.
- */
 
 .article-editor--editable :deep(
     .ProseMirror > *.is-editor-drop-target
 ) {
-    outline-color:
+    outline:
+        1px solid
         rgb(19 62 180 / 0.35);
+    outline-offset: 5px;
+    box-shadow:
+        none !important;
 }
 
-/*
- * ResizableImage owns the resize handle, but NOT the outline.
- * Its NodeViewWrapper participates in the same generic block
- * selection system as every other top-level element.
- */
-
-.article-editor :deep(
-    .ProseMirror .document-image-node
-) {
-    position: relative;
-}
 
 /* =========================================================
-   CUSTOM BLOCKS
+   IMAGE
    ========================================================= */
 
 .article-editor :deep(
-    .ProseMirror .document-custom-block
+    .ProseMirror
+        .document-image-node
+) {
+    position: relative;
+
+    display: block;
+
+    width: 100%;
+    max-width: 100%;
+}
+
+
+/*
+ * The image itself never creates a selection outline.
+ *
+ * The NodeViewWrapper is the editor block.
+ */
+
+.article-editor :deep(
+    .ProseMirror
+        .document-image-node
+        img
+) {
+    border: 0 !important;
+
+    outline: none !important;
+
+    box-shadow:
+        none !important;
+}
+
+
+/* =========================================================
+   CUSTOM BLOCK
+   ========================================================= */
+
+.article-editor :deep(
+    .ProseMirror
+        .document-custom-block
 ) {
     margin: 2rem 0;
 }
 
-.article-editor :deep(
-    .ProseMirror .document-custom-block-toolbar
-) {
-    display: flex;
-    justify-content: flex-end;
-    margin-bottom: 0.45rem;
-    transition: opacity 160ms ease;
-}
 
-.article-editor :deep(
-    .ProseMirror .document-custom-block-label
-) {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.35rem;
-    padding: 0.25rem 0.5rem;
-    border: 1px solid rgb(19 62 180 / 0.25);
-    background: rgb(19 62 180 / 0.06);
-    color: rgb(19 62 180);
-    font-family: monospace;
-    font-size: 0.67rem;
-    font-weight: 700;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-}
+/*
+ * IMPORTANT:
+ *
+ * Remove the old custom-block selection shadow.
+ *
+ * The custom block now uses the exact same active outline
+ * as paragraphs, headings, lists, images, etc.
+ */
 
 .article-editor :deep(
     .ProseMirror
@@ -5355,8 +5435,24 @@ onUnmounted(() => {
         .document-custom-block
 ) {
     box-shadow:
-        0 0 0 1px
-        rgb(19 62 180 / 0.35);
+        none !important;
+}
+/*
+ * IMPORTANT:
+ *
+ * Do not give custom blocks their own selection box.
+ *
+ * The generic .is-editor-active-block outline is the
+ * single outline.
+ */
+
+.article-editor :deep(
+    .ProseMirror
+        .ProseMirror-selectednode
+        .document-custom-block
+) {
+    box-shadow:
+        none !important;
 }
 
 /* =========================================================
@@ -5364,38 +5460,60 @@ onUnmounted(() => {
    ========================================================= */
 
 @media (max-width: 640px) {
-    .article-editor :deep(.ProseMirror) {
+    .article-editor :deep(
+        .ProseMirror
+    ) {
         min-height: 55vh;
+
         font-size: 1rem;
+
         line-height: 1.8;
     }
 
-    .article-editor :deep(.ProseMirror h1) {
+    .article-editor :deep(
+        .ProseMirror h1:not(.document-custom-block *)
+    ) {
         font-size: 2rem;
     }
 
-    .article-editor :deep(.ProseMirror h2) {
+    .article-editor :deep(
+        .ProseMirror h2:not(.document-custom-block *)
+    ) {
         font-size: 1.55rem;
     }
 
-    .article-editor :deep(.ProseMirror blockquote) {
+    .article-editor :deep(
+        .ProseMirror blockquote
+    ) {
         padding-left: 1rem;
+
         font-size: 1.05rem;
     }
 
-    .article-editor :deep(.ProseMirror td),
-    .article-editor :deep(.ProseMirror th) {
+    .article-editor :deep(
+        .ProseMirror td
+    ),
+    .article-editor :deep(
+        .ProseMirror th
+    ) {
         min-width: 100px;
+
         padding: 0.55rem;
     }
 
-    /*
-     * Images must still stay inside the editor on small screens.
-     */
-
-    .article-editor :deep(.ProseMirror > img) {
+    .article-editor :deep(
+        .ProseMirror
+            .document-image-node
+    ) {
         max-width: 100%;
-        height: auto;
+    }
+
+    .article-editor :deep(
+        .ProseMirror
+            .document-image-node
+            img
+    ) {
+        max-width: 100%;
     }
 }
 </style>

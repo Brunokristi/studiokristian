@@ -245,24 +245,7 @@ function focusNode() {
         @mouseleave="hover = false"
         @mousedown.prevent="focusNode"
     >
-        <div
-            v-if="editable"
-            class="document-custom-block-toolbar"
-            :class="[
-                selected || hover
-                    ? 'opacity-100'
-                    : 'opacity-0'
-            ]"
-        >
-            <span
-                class="document-custom-block-label"
-            >
-                <i class="bi bi-grip-vertical" />
-                Info
-            </span>
-        </div>
-
-        <div class="space-y-3">
+        <div class="">
             <Info
                 v-for="(
                     item,
@@ -295,6 +278,11 @@ function focusNode() {
             <button
                 v-if="editable"
                 type="button"
+                :class="[
+                selected || hover
+                        ? 'opacity-100'
+                        : 'opacity-0'
+                ]"
                 class="
                     inline-flex
                     items-center
@@ -303,6 +291,7 @@ function focusNode() {
                     border-accent
                     px-3
                     py-2
+                    mt-2
                     font-mono
                     text-xs
                     font-bold
