@@ -1,7 +1,6 @@
 <script setup>
 import {
-    importLibrary,
-    setOptions
+    importLibrary
 } from '@googlemaps/js-api-loader'
 import {
     onBeforeUnmount,
@@ -11,6 +10,7 @@ import {
 } from 'vue'
 
 import FormField from './FormField.vue'
+import { configureGoogleMaps } from '../googleMapsLoader'
 
 
 const props = defineProps({
@@ -113,12 +113,7 @@ onMounted(async () => {
 
 
     try {
-        setOptions({
-            key: apiKey,
-            v: 'weekly',
-            language: 'sk',
-            region: 'SK'
-        })
+        configureGoogleMaps(apiKey)
 
 
         const {

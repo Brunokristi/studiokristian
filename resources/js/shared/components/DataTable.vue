@@ -753,8 +753,8 @@ function clearFilters() {
                                         hover:bg-accent
                                         hover:text-light
                                     "
-                                    @click="
-                                        $emit(
+                                    @click.stop="
+                                        emit(
                                             'add'
                                         )
                                     "

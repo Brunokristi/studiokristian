@@ -43,7 +43,7 @@ const props = defineProps({
 
     overlayClass: {
         type: String,
-        default: 'fixed inset-0 z-50 flex items-center justify-center bg-dark/55 p-4 backdrop-blur-sm'
+        default: 'fixed inset-0 z-[110] flex items-center justify-center bg-dark/55 p-4 backdrop-blur-sm'
     },
 
     panelClass: {

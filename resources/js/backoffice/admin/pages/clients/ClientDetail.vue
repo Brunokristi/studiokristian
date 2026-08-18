@@ -11,8 +11,7 @@ import {
 
 
 import {
-    importLibrary,
-    setOptions
+    importLibrary
 } from '@googlemaps/js-api-loader'
 
 
@@ -35,6 +34,7 @@ import Toast from '@shared/components/Toast.vue'
 import useAutosavePolicy from '../../composables/useAutosavePolicy'
 import AdminConfirmDialog from '../../../../shared/components/ConfirmDialog.vue'
 import { useAdminPageHeader } from '../../composables/useAdminPageHeader'
+import { configureGoogleMaps } from '@shared/googleMapsLoader'
 
 
 const {
@@ -213,12 +213,7 @@ async function initializeAddressSearch() {
     }
 
 
-    setOptions({
-        key: apiKey,
-        v: 'weekly',
-        language: 'sk',
-        region: 'SK'
-    })
+    configureGoogleMaps(apiKey)
 
 
     const places =
@@ -686,7 +681,6 @@ async function submit() {
 
 function scheduleAutosave() {
     if (
-        !editing.value ||
         loading.value ||
         saving.value ||
         !form.name?.trim()
@@ -708,7 +702,6 @@ function scheduleAutosave() {
         setTimeout(() => {
             if (
                 !saving.value &&
-                editing.value &&
                 form.name?.trim()
             ) {
                 submit()

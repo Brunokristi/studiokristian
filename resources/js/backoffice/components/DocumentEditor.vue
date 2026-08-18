@@ -52,6 +52,131 @@ const DocumentLink = Link.extend({
     }
 })
 
+
+const TextAlign = Extension.create({
+    name: 'textAlign',
+
+    addGlobalAttributes() {
+        return [
+            {
+                types: [
+                    'paragraph',
+                    'heading'
+                ],
+                attributes: {
+                    textAlign: {
+                        default: null,
+                        parseHTML: element =>
+                            element.style.textAlign ||
+                            element.getAttribute(
+                                'data-text-align'
+                            ) ||
+                            null,
+                        renderHTML: attributes => {
+                            if (!attributes.textAlign) {
+                                return {}
+                            }
+
+                            return {
+                                style:
+                                    `text-align: ${attributes.textAlign}`,
+                                'data-text-align':
+                                    attributes.textAlign
+                            }
+                        }
+                    }
+                }
+            }
+        ]
+    },
+
+    addCommands() {
+        return {
+            setTextAlign: alignment => ({
+                state,
+                dispatch
+            }) => {
+                const {
+                    tr,
+                    selection,
+                    schema
+                } = state
+
+                const allowedTypes = [
+                    schema.nodes.paragraph,
+                    schema.nodes.heading
+                ].filter(Boolean)
+
+                const positions = []
+
+                if (selection.empty) {
+                    for (
+                        let depth = selection.$from.depth;
+                        depth > 0;
+                        depth -= 1
+                    ) {
+                        const node =
+                            selection.$from.node(depth)
+
+                        if (
+                            allowedTypes.includes(
+                                node.type
+                            )
+                        ) {
+                            positions.push({
+                                node,
+                                position:
+                                    selection.$from.before(
+                                        depth
+                                    )
+                            })
+
+                            break
+                        }
+                    }
+                } else {
+                    state.doc.nodesBetween(
+                        selection.from,
+                        selection.to,
+                        (node, position) => {
+                            if (
+                                allowedTypes.includes(
+                                    node.type
+                                )
+                            ) {
+                                positions.push({
+                                    node,
+                                    position
+                                })
+                            }
+                        }
+                    )
+                }
+
+                positions.forEach(
+                    ({ node, position }) => {
+                        tr.setNodeMarkup(
+                            position,
+                            undefined,
+                            {
+                                ...node.attrs,
+                                textAlign:
+                                    alignment
+                            }
+                        )
+                    }
+                )
+
+                if (dispatch) {
+                    dispatch(tr)
+                }
+
+                return true
+            }
+        }
+    }
+})
+
 import {
     Table,
     TableRow,
@@ -83,7 +208,7 @@ import InfoBlock from '../../backoffice/components/document-editor/extensions/In
 import ResizableImage from '../../backoffice/components/document-editor/extensions/ResizableImage.js'
 
 import Modal from '@shared/components/Modal.vue'
-import FilePickerModal from '../../backoffice/components/FilePickerModal.vue'
+import FilePickerModal from './FilePickerModal.vue'
 import Button from '@shared/components/Button.vue'
 import FormField from '@shared/components/FormField.vue'
 
@@ -1282,6 +1407,8 @@ function updateBlockToolsUI() {
         left:
             rect.right +
             toolbarGap,
+
+        index
     }
 
     updateTableToolsUI(
@@ -2140,20 +2267,6 @@ const commands = [
                 .run()
         }
     },
-
-    {
-        id: 'link',
-        label: 'Link',
-        description: 'Add a hyperlink',
-        keywords: [
-            'link',
-            'url'
-        ],
-
-        action() {
-            openLinkModal()
-        }
-    }
 ]
 
 
@@ -3681,6 +3794,8 @@ const editor = useEditor({
 
         Underline,
 
+        TextAlign,
+
         DocumentLink.configure({
             autolink: true,
             openOnClick: true,
@@ -4060,6 +4175,7 @@ onUnmounted(() => {
                     type="button"
                     class="
                         p
+                        @mousedown.prevent
                         hover:text-dark
                     "
                     @click="
@@ -4556,11 +4672,136 @@ onUnmounted(() => {
                         hover:text-light
                         hover:bg-accent
                     "
+                    @mousedown.prevent
                     @click="
                         handleLinkButton
                     "
                 >
                     Link
+                </button>
+
+                <button
+                    type="button"
+                    class="
+                        grid
+                        h-8
+                        w-8
+                        place-items-center
+                        text-dark
+                        transition-colors
+                        hover:bg-accent
+                        hover:text-light
+                    "
+                    title="Align left"
+                    aria-label="Align left"
+                    :class="{
+                        'bg-accent text-light': editor.isActive({
+                            textAlign: 'left'
+                        })
+                    }"
+                    @mousedown.prevent
+                    @click="
+                        editor
+                            .chain()
+                            .focus()
+                            .setTextAlign('left')
+                            .run()
+                    "
+                >
+                    <i class="bi bi-text-left" />
+                </button>
+
+                <button
+                    type="button"
+                    class="
+                        grid
+                        h-8
+                        w-8
+                        place-items-center
+                        text-dark
+                        transition-colors
+                        hover:bg-accent
+                        hover:text-light
+                    "
+                    title="Align center"
+                    aria-label="Align center"
+                    :class="{
+                        'bg-accent text-light': editor.isActive({
+                            textAlign: 'center'
+                        })
+                    }"
+                    @mousedown.prevent
+                    @click="
+                        editor
+                            .chain()
+                            .focus()
+                            .setTextAlign('center')
+                            .run()
+                    "
+                >
+                    <i class="bi bi-text-center" />
+                </button>
+
+                <button
+                    type="button"
+                    class="
+                        grid
+                        h-8
+                        w-8
+                        place-items-center
+                        text-dark
+                        transition-colors
+                        hover:bg-accent
+                        hover:text-light
+                    "
+                    title="Align right"
+                    aria-label="Align right"
+                    :class="{
+                        'bg-accent text-light': editor.isActive({
+                            textAlign: 'right'
+                        })
+                    }"
+                    @mousedown.prevent
+                    @click="
+                        editor
+                            .chain()
+                            .focus()
+                            .setTextAlign('right')
+                            .run()
+                    "
+                >
+                    <i class="bi bi-text-right" />
+                </button>
+
+                <button
+                    type="button"
+                    class="
+                        grid
+                        h-8
+                        w-8
+                        place-items-center
+                        text-dark
+                        transition-colors
+                        hover:bg-accent
+                        hover:text-light
+                    "
+                    title="Justify text"
+                    aria-label="Justify text"
+                    :class="{
+                        'bg-accent text-light': editor.isActive({
+                            textAlign: 'justify'
+                        })
+                    }"
+                    @mousedown.prevent
+                    @click="
+                        editor
+                            .chain()
+                            .focus()
+                            .setTextAlign('justify')
+                            .run()
+                    "
+                >
+                    <i class="bi bi-justify" />
                 </button>
 
                 <template
@@ -4856,10 +5097,9 @@ onUnmounted(() => {
             <template #footer>
                 <div
                     class="
-                        border-t
-                        border-accent
                         p-6
                         flex
+                        flex-col
                         justify-end
                         gap-3
                     "
@@ -5196,7 +5436,7 @@ onUnmounted(() => {
 }
 
 .article-editor :deep(.ProseMirror .selectedCell) {
-    background: rgb(23 23 23 / 0.06);
+    background: rgb(19 62 180 / 0.05);
 }
 
 /* =========================================================
