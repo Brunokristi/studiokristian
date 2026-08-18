@@ -5,8 +5,8 @@ import { useI18n } from 'vue-i18n';
 const { t, locale } = useI18n();
 
 import Button from '@shared/components/Button.vue';
-import GridLayout from '@shared/components/GridLayout.vue';
-import BusinessCard from '@shared/components/BusinessCard.vue';
+import GridLayout from '../components/GridLayout.vue';
+import BusinessCard from '../components/BusinessCard.vue';
 
 import { useGlobalActions } from '../composables/useGlobalActions';
 const { openContacts, openRecentProjects, openWorkflow, openVcard } = useGlobalActions();

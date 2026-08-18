@@ -3,7 +3,7 @@ import { useI18n } from 'vue-i18n';
 const { t } = useI18n();
 
 import Button from '@shared/components/Button.vue';
-import GridLayout from '@shared/components/GridLayout.vue';
+import GridLayout from '../components/GridLayout.vue';
 
 const kaq_image = '/assets/kaq_logo.svg';
 

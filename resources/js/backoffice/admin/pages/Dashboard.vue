@@ -17,8 +17,8 @@ import api, {
 } from '../composables/useAdminApi'
 
 
-import AdminPageHeader from '@admin/components/AdminPageHeader.vue'
-import AdminTable from '@admin/components/AdminDataTable.vue'
+import AdminTable from '@shared/components/DataTable.vue'
+import { useAdminPageHeader } from '../composables/useAdminPageHeader'
 
 import Tag from '@shared/components/Tag.vue'
 import Toast from '@shared/components/Toast.vue'
@@ -285,33 +285,26 @@ onMounted(
         }
     }
 )
+useAdminPageHeader({
+    title: 'Overview',
+    breadcrumbs: [
+        {
+            label: 'Dashboard'
+        }
+    ]
+})
 </script>
 
 
 <template>
     <div
-        class="
-            w-full
-            space-y-12
-            lg:space-y-14
-        "
+            class="w-full space-y-12 lg:space-y-14"
     >
         <Toast
             v-model="showErrorToast"
             heading="Something went wrong"
             :text="error"
             :duration="5000"
-        />
-
-
-        <!-- Page header -->
-        <AdminPageHeader
-            title="Overview"
-            :breadcrumbs="[
-                {
-                    label: 'Dashboard'
-                }
-            ]"
         />
 
 

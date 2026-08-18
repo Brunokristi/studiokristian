@@ -27,15 +27,14 @@ import api, {
 } from '../../composables/useAdminApi'
 
 
-import AdminPageHeader from '../../components/AdminPageHeader.vue'
-import AdminDataTable from '../../components/AdminDataTable.vue'
-import AdminPagination from '../../components/AdminPagination.vue'
+import AdminDataTable from '@shared/components/DataTable.vue'
 import Tag from '@shared/components/Tag.vue'
 import Button from '@shared/components/Button.vue'
 import FormField from '@shared/components/FormField.vue'
 import Toast from '@shared/components/Toast.vue'
 import useAutosavePolicy from '../../composables/useAutosavePolicy'
-import AdminConfirmDialog from '../../components/AdminConfirmDialog.vue'
+import AdminConfirmDialog from '../../../../shared/components/ConfirmDialog.vue'
+import { useAdminPageHeader } from '../../composables/useAdminPageHeader'
 
 
 const {
@@ -885,6 +884,15 @@ onBeforeUnmount(() => {
         )
     }
 })
+useAdminPageHeader({
+    title: pageTitle,
+    description: computed(() =>
+        editing.value
+            ? 'Manage the company information, activity and people connected to this client.'
+            : 'Create a client company and add its information.'
+    ),
+    breadcrumbs
+})
 </script>
 
 
@@ -902,21 +910,6 @@ onBeforeUnmount(() => {
             :text="requestError"
             :duration="5000"
         />
-
-
-        <AdminPageHeader
-            :title="pageTitle"
-            :description="
-                editing
-                    ? 'Manage the company information, activity and people connected to this client.'
-                    : 'Create a client company and add its information.'
-            "
-            :breadcrumbs="
-                breadcrumbs
-            "
-        >
-
-        </AdminPageHeader>
 
 
         <div

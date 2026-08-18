@@ -13,8 +13,8 @@ import {
 import Button from '@shared/components/Button.vue'
 import FormField from '@shared/components/FormField.vue'
 import Tag from '@shared/components/Tag.vue'
-import AdminModalShell from '@admin/components/AdminModalShell.vue'
-import AdminConfirmDialog from '@admin/components/AdminConfirmDialog.vue'
+import AdminConfirmDialog from '@shared/components/ConfirmDialog.vue'
+import Modal from '@shared/components/Modal.vue'
 
 
 const props =
@@ -1526,18 +1526,6 @@ async function createFolder() {
         ...props.modelValue,
         folder
     ])
-
-
-    selectedItem.value =
-        folder.id
-
-
-    await nextTick()
-
-
-    await startRename(
-        folder
-    )
 }
 
 
@@ -3277,7 +3265,7 @@ watch(
         </div>
 
 
-        <AdminModalShell
+        <Modal
             :open="
                 Boolean(
                     moveTarget
@@ -3289,19 +3277,21 @@ watch(
                 closeMoveDialog
             "
         >
-            <p
-                class="
-                    p
-                    uppercase
-                    text-dark/60
-                "
-            >
-                Move
-                <strong>
-                    {{ moveTarget?.name }}
-                </strong>
-                to:
-            </p>
+            <template #header>
+                <p
+                    class="
+                        p
+                        uppercase
+                        text-dark/60
+                    "
+                >
+                    Move
+                    <strong>
+                        {{ moveTarget?.name }}
+                    </strong>
+                    to:
+                </p>
+            </template>
 
             <div
                 class="
@@ -3546,10 +3536,10 @@ watch(
                     "
                 />
             </div>
-        </AdminModalShell>
+        </Modal>
 
 
-        <AdminModalShell
+        <Modal
             :open="
                 showFileCreator
             "
@@ -3809,10 +3799,10 @@ watch(
                     "
                 />
             </div>
-        </AdminModalShell>
+        </Modal>
 
 
-        <AdminModalShell
+        <Modal
             :open="
                 Boolean(
                     externalLinkTarget
@@ -3881,7 +3871,7 @@ watch(
                     />
                 </div>
             </div>
-        </AdminModalShell>
+        </Modal>
 
 
         <!-- Delete confirmation -->

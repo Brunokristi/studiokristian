@@ -224,6 +224,17 @@ class ClientPortalAdminFoundationTest extends TestCase
         $this->assertDatabaseHas('projects', ['id' => $project->id, 'service_product_id' => $product->id]);
     }
 
+    public function test_admin_can_delete_a_service_product(): void
+    {
+        $product = $this->product('Delete Me Service', true);
+
+        $this->actingAs($this->admin())
+            ->deleteJson("/admin/client-portal/api/service-products/{$product->id}")
+            ->assertNoContent();
+
+        $this->assertDatabaseMissing('service_products', ['id' => $product->id]);
+    }
+
     public function test_a_generated_product_slug_is_validated_for_uniqueness(): void
     {
         $this->product('Web Design', true);

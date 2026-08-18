@@ -25,16 +25,15 @@ import {
 } from '../../composables/useServerTable'
 
 
-import AdminPageHeader from '../../components/AdminPageHeader.vue'
-import AdminDataTable from '../../components/AdminDataTable.vue'
-import AdminPagination from '../../components/AdminPagination.vue'
-import AdminConfirmDialog from '../../components/AdminConfirmDialog.vue'
+import AdminDataTable from '@shared/components/DataTable.vue'
+import AdminConfirmDialog from '@shared/components/ConfirmDialog.vue'
 
 
 import Button from '@shared/components/Button.vue'
 import FormField from '@shared/components/FormField.vue'
 import Tag from '@shared/components/Tag.vue'
 import Toast from '@shared/components/Toast.vue'
+import { useAdminPageHeader } from '../../composables/useAdminPageHeader'
 
 
 const route =
@@ -456,6 +455,15 @@ watch(
         }
     }
 )
+useAdminPageHeader({
+    title: 'Services',
+    description: 'Reusable services assigned to client projects.',
+    breadcrumbs: [
+        {
+            label: 'Services'
+        }
+    ]
+})
 </script>
 
 
@@ -492,66 +500,34 @@ watch(
         />
 
 
-        <!-- Page header -->
-        <AdminPageHeader
-            title="Services"
-            description="Reusable services assigned to client projects."
-            :breadcrumbs="[
-                {
-                    label: 'Services'
-                }
-            ]"
-        />
-
-
         <!-- Service products table -->
         <AdminDataTable
-            v-model:search="
-                state.search
-            "
-            :filter-values="
-                filterValues
-            "
-            @update:filterValues="
-                values => filterValues = values
-            "
-            title="Provided services"
-            search-placeholder="Search service products"
-            :columns="
-                columns
-            "
-            :rows="
-                rows
-            "
-            :loading="
-                loading
-            "
-            :filters="[
-                {
-                    key: 'active',
-                    label: 'Status',
-                    type: 'select',
-                    options: statusOptions
-                }
-            ]"
-            :sort="
-                state.sort
-            "
-            :direction="
-                state.direction
-            "
-            empty-title="No service products yet."
-            empty-text="Add a reusable service before creating projects."
-            add-label=" "
-            @sort="
-                sortBy
-            "
-            @row-click="
-                open
-            "
-            @add="
-                createProduct
-            "
+            v-model:search="state.search"
+                :filter-values="filterValues"
+                @update:filterValues="values => filterValues = values"
+                title="Provided services"
+                search-placeholder="Search service products"
+                :columns="columns"
+                :rows="rows"
+                :loading="loading"
+                :meta="meta"
+                :filters="[
+                    {
+                        key: 'active',
+                        label: 'Status',
+                        type: 'select',
+                        options: statusOptions
+                    }
+                ]"
+                :sort="state.sort"
+                :direction="state.direction"
+                empty-title="No service products yet."
+                empty-text="Add a reusable service before creating projects."
+                add-label=" "
+                @sort="sortBy"
+                @row-click="open"
+                @add="createProduct"
+                @page-change="page => state.page = page"
         >
             <!-- Product -->
             <template
@@ -695,19 +671,6 @@ watch(
                 />
             </template>
         </AdminDataTable>
-
-
-        <!-- Pagination -->
-        <AdminPagination
-            :meta="
-                meta
-            "
-            @change="
-                page =>
-                    state.page =
-                        page
-            "
-        />
 
 
         <!-- Create / Edit panel -->

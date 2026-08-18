@@ -56,4 +56,11 @@ class ServiceProductController extends Controller
 
         return new ServiceProductResource($serviceProduct->fresh()->loadCount('projects'));
     }
+
+    public function destroy(ServiceProduct $serviceProduct): \Illuminate\Http\Response
+    {
+        $serviceProduct->delete();
+
+        return response()->noContent();
+    }
 }

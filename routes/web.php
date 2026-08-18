@@ -233,6 +233,7 @@ Route::prefix('admin/client-portal')->middleware(['auth', 'admin'])->name('admin
         Route::post('/service-products', [AdminServiceProductController::class, 'store'])->name('service-products.store');
         Route::get('/service-products/{serviceProduct}', [AdminServiceProductController::class, 'show'])->name('service-products.show');
         Route::put('/service-products/{serviceProduct}', [AdminServiceProductController::class, 'update'])->name('service-products.update');
+        Route::delete('/service-products/{serviceProduct}', [AdminServiceProductController::class, 'destroy'])->name('service-products.destroy');
         Route::post('/service-products/{serviceProduct}/deactivate', [AdminServiceProductController::class, 'deactivate'])->name('service-products.deactivate');
         Route::get('/service-products/{serviceProduct}/blueprint', [AdminServiceBlueprintController::class, 'show'])->name('service-products.blueprint.show');
         Route::post('/service-products/{serviceProduct}/blueprint', [AdminServiceBlueprintController::class, 'create'])->name('service-products.blueprint.create');

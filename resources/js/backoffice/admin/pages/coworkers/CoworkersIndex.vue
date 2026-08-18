@@ -14,9 +14,8 @@ import {
 } from '../../composables/useServerTable'
 
 
-import AdminPageHeader from '../../components/AdminPageHeader.vue'
-import AdminDataTable from '../../components/AdminDataTable.vue'
-import AdminPagination from '../../components/AdminPagination.vue'
+import AdminDataTable from '@shared/components/DataTable.vue'
+import { useAdminPageHeader } from '../../composables/useAdminPageHeader'
 
 
 const router =
@@ -103,6 +102,15 @@ function openCoworker(
         }
     })
 }
+useAdminPageHeader({
+    title: 'Coworkers',
+    description: 'Manage staff members and the client projects they can access.',
+    breadcrumbs: [
+        {
+            label: 'Coworkers'
+        }
+    ]
+})
 </script>
 
 
@@ -114,34 +122,15 @@ function openCoworker(
             lg:space-y-14
         "
     >
-        <!-- Page header -->
-        <AdminPageHeader
-            title="Coworkers"
-            description="Manage staff members and the client projects they can access."
-            :breadcrumbs="[
-                {
-                    label: 'Coworkers'
-                }
-            ]"
-        />
-
-
         <!-- Coworkers table -->
         <AdminDataTable
-            v-model:search="
-                search
-            "
-            title="All coworkers"
-            search-placeholder="Search by name, email or project"
-            :columns="
-                columns
-            "
-            :rows="
-                rows
-            "
-            :loading="
-                loading
-            "
+            v-model:search="search"
+                title="All coworkers"
+                search-placeholder="Search by name, email or project"
+                :columns="columns"
+                :rows="rows"
+                :loading="loading"
+                :meta="meta"
             :sort="
                 state.sort
             "
@@ -159,6 +148,9 @@ function openCoworker(
             "
             @add="
                 createCoworker
+            "
+            @page-change="
+                page => state.page = page
             "
         >
             <!-- Name -->
@@ -287,19 +279,6 @@ function openCoworker(
                 </button>
             </template>
         </AdminDataTable>
-
-
-        <!-- Pagination -->
-        <AdminPagination
-            :meta="
-                meta
-            "
-            @change="
-                page =>
-                    state.page =
-                        page
-            "
-        />
 
 
         <p

@@ -1,5 +1,5 @@
 <script setup>
-import Navbar from '@shared/components/Navbar.vue'
+import Navbar from '../../public/components/Navbar.vue'
 import LanguageToggle from '@shared/components/LanguageToggle.vue'
 
 defineProps({

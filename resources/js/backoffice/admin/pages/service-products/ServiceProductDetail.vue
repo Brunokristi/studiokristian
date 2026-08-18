@@ -19,20 +19,21 @@ import api, {
 } from '../../composables/useAdminApi'
 
 
-import AdminPageHeader from '../../components/AdminPageHeader.vue'
+import AdminConfirmDialog from '../../../../shared/components/ConfirmDialog.vue'
 
 
-import ServiceFileStructure
-    from '../../components/ServiceFileStructure.vue'
+import FileStructure
+    from '../../../components/FileStructure.vue'
 
 import DocumentEditor
-    from '../../components/DocumentEditor.vue'
+    from '../../../components/DocumentEditor.vue'
 
 
 import Button from '@shared/components/Button.vue'
 import FormField from '@shared/components/FormField.vue'
 import Tag from '@shared/components/Tag.vue'
 import useAutosavePolicy from '../../composables/useAutosavePolicy'
+import { useAdminPageHeader } from '../../composables/useAdminPageHeader'
 
 
 const {
@@ -74,6 +75,14 @@ const loading =
 
 
 const saving =
+    ref(false)
+
+
+const deleting =
+    ref(false)
+
+
+const showDeleteConfirm =
     ref(false)
 
 
@@ -1765,6 +1774,59 @@ function cancel() {
 }
 
 
+function deleteProduct() {
+    if (
+        isCreateMode.value ||
+        !props.id ||
+        deleting.value
+    ) {
+        return
+    }
+
+    showDeleteConfirm.value = true
+}
+
+
+async function confirmDeleteProduct() {
+    if (
+        isCreateMode.value ||
+        !props.id ||
+        deleting.value
+    ) {
+        return
+    }
+
+    deleting.value = true
+    requestError.value = ''
+
+    try {
+        await api.delete(
+            `/service-products/${props.id}`
+        )
+
+        showDeleteConfirm.value = false
+
+        router.push({
+            name: 'service-products.index'
+        })
+    } catch (exception) {
+        showDeleteConfirm.value = false
+        showError(errorMessage(exception))
+    } finally {
+        deleting.value = false
+    }
+}
+
+
+function closeDeleteConfirm() {
+    if (deleting.value) {
+        return
+    }
+
+    showDeleteConfirm.value = false
+}
+
+
 function formatStatus(
     value
 ) {
@@ -1810,6 +1872,15 @@ watch(
 onMounted(() => {
     load()
 })
+useAdminPageHeader({
+    title: pageTitle,
+    description: computed(() =>
+        isCreateMode.value
+            ? 'Create a reusable service for your client projects.'
+            : 'Define what this service includes and how its projects are structured.'
+    ),
+    breadcrumbs
+})
 </script>
 
 
@@ -1817,10 +1888,11 @@ onMounted(() => {
     <div
         v-if="data"
     >
-        <DocumentEditor
-            v-if="
-                documentEditorOpen
-            "
+        <Teleport
+            v-if="documentEditorOpen"
+            to="body"
+        >
+            <DocumentEditor
             :model-value="
                 documentBlocks
             "
@@ -1863,7 +1935,8 @@ onMounted(() => {
             @save="
                 saveDocumentTemplate
             "
-        />
+            />
+        </Teleport>
 
         <div
             v-else
@@ -1873,20 +1946,7 @@ onMounted(() => {
                 lg:space-y-20
             "
         >
-            <!-- Header -->
-            <AdminPageHeader
-                :title="
-                    pageTitle
-                "
-                :description="
-                    isCreateMode
-                        ? 'Create a reusable service for your client projects.'
-                        : 'Define what this service includes and how its projects are structured.'
-                "
-                :breadcrumbs="
-                    breadcrumbs
-                "
-            >
+            <Teleport to="#admin-page-header-actions">
                 <Button
                     v-if="
                         !isCreateMode &&
@@ -1928,7 +1988,7 @@ onMounted(() => {
                         createDraft
                     "
                 />
-            </AdminPageHeader>
+            </Teleport>
 
 
             <!-- Basic information -->
@@ -2085,7 +2145,7 @@ onMounted(() => {
                 </div>
 
 
-                <ServiceFileStructure
+                <FileStructure
                     :model-value="
                         folders
                     "
@@ -2118,6 +2178,44 @@ onMounted(() => {
                     "
                 />
             </section>
+
+            <section
+                v-if="!isCreateMode"
+                class="
+                    space-y-4
+                "
+            >
+                <h3
+                    class="
+                        h2
+                        text-accent
+                        text-left
+                    "
+                >
+                    Danger zone
+                </h3>
+
+                <Button
+                    type="button"
+                    :text="'Delete service'"
+                    :loading-text="'Deleting...'"
+                    :loading="deleting"
+                    :disabled="deleting"
+                    :lowercase="true"
+                    @click.prevent="deleteProduct"
+                    align="left"
+                />
+            </section>
+
+            <AdminConfirmDialog
+                :open="showDeleteConfirm"
+                title="Delete service?"
+                :text="`This will permanently delete ${pageTitle}. This action cannot be undone.`"
+                confirm-label="Delete service"
+                :busy="deleting"
+                @close="closeDeleteConfirm"
+                @confirm="confirmDeleteProduct"
+            />
         </div>
     </div>
 

@@ -8,10 +8,10 @@ import {
 } from 'vue'
 
 
-import ServiceFileStructure from '../../admin/components/ServiceFileStructure.vue'
-import DocumentEditor from '../../admin/components/DocumentEditor.vue'
+import FileStructure from '../../components/FileStructure.vue'
+import DocumentEditor from '../../components/DocumentEditor.vue'
 import Info from '@shared/components/Info.vue'
-import ClientPageHeader from '../components/ClientPageHeader.vue'
+import { useClientPageHeader } from '../composables/useClientPageHeader'
 import FormField from '@shared/components/FormField.vue'
 import Button from '@shared/components/Button.vue'
 import Tag from '@shared/components/Tag.vue'
@@ -1053,6 +1053,20 @@ async function submitTicket() {
             false
     }
 }
+useClientPageHeader({
+    title: computed(() => props.data.project?.name || ''),
+    eyebrow: computed(() => props.data.project?.service_name || ''),
+    homeUrl: computed(() => props.data.urls.dashboard),
+    breadcrumbs: computed(() => [
+        {
+            label: copy.value.allProjects,
+            href: props.data.urls.dashboard
+        },
+        {
+            label: props.data.project?.name || ''
+        }
+    ])
+})
 </script>
 
 
@@ -1064,10 +1078,11 @@ async function submitTicket() {
             lg:space-y-14
         "
     >
-        <DocumentEditor
-            v-if="
-                selectedDocument
-            "
+        <Teleport
+            v-if="selectedDocument"
+            to="body"
+        >
+            <DocumentEditor
             :model-value="
                 selectedDocument.content ||
                 ''
@@ -1146,46 +1161,13 @@ async function submitTicket() {
                     </button>
                 </form>
             </template>
-        </DocumentEditor>
+            </DocumentEditor>
+        </Teleport>
 
 
         <template
             v-else
         >
-        <!--
-        |--------------------------------------------------------------------------
-        | Page header
-        |--------------------------------------------------------------------------
-        -->
-
-        <ClientPageHeader
-            :title="
-                data.project.name
-            "
-            :eyebrow="
-                data.project.service_name
-            "
-            :home-url="
-                data.urls.dashboard
-            "
-            :breadcrumbs="[
-                {
-                    label:
-                        copy.allProjects,
-
-                    href:
-                        data.urls.dashboard
-                },
-
-                {
-                    label:
-                        data.project.name
-                }
-            ]"
-        >
-        </ClientPageHeader>
-
-
         <!--
         |--------------------------------------------------------------------------
         | Actions required
@@ -1364,7 +1346,7 @@ async function submitTicket() {
                     space-y-5
                 "
             >
-                <ServiceFileStructure
+                <FileStructure
                     :model-value="
                         documentItems
                     "

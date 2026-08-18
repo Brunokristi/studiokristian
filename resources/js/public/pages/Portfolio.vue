@@ -7,7 +7,7 @@ const { t, locale } = useI18n();
 import { useSeoMeta } from '../composables/useSeoMeta';
 
 import Button from '@shared/components/Button.vue';
-import GridLayout from '@shared/components/GridLayout.vue';
+import GridLayout from '../components/GridLayout.vue';
 
 useSeoMeta({
   title: () => t('seo.portfolio.title'),

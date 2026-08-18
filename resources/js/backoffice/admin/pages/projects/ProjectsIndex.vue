@@ -14,10 +14,9 @@ import {
 } from '../../composables/useServerTable'
 
 
-import AdminPageHeader from '../../components/AdminPageHeader.vue'
-import AdminDataTable from '../../components/AdminDataTable.vue'
-import AdminPagination from '../../components/AdminPagination.vue'
+import AdminDataTable from '@shared/components/DataTable.vue'
 import Tag from '@shared/components/Tag.vue'
+import { useAdminPageHeader } from '../../composables/useAdminPageHeader'
 
 
 const router =
@@ -211,6 +210,15 @@ function formatDate(value) {
         }
     )
 }
+useAdminPageHeader({
+    title: 'Projects',
+    description: 'Manage active and archived client projects.',
+    breadcrumbs: [
+        {
+            label: 'Projects'
+        }
+    ]
+})
 </script>
 
 
@@ -222,65 +230,32 @@ function formatDate(value) {
             lg:space-y-14
         "
     >
-        <AdminPageHeader
-            title="Projects"
-            description="Manage active and archived client projects."
-            :breadcrumbs="[
-                {
-                    label: 'Projects'
-                }
-            ]"
-        />
-
-
         <AdminDataTable
-            v-model:search="
-                state.search
-            "
-            v-model:filters="
-                state.filters
-            "
-            title="All projects"
-            search-placeholder="Search by project, code or client"
-            :columns="
-                columns
-            "
-            :rows="
-                rows
-            "
-            :loading="
-                loading
-            "
-            :filters="[
-                {
-                    key: 'status',
-                    label: 'Status',
-                    type: 'select',
-                    options: statusOptions
-                }
-            ]"
-            :sort="
-                state.sort
-            "
-            :direction="
-                state.direction
-            "
-            empty-title="No projects yet."
-            empty-text="Create your first project to start collaboration."
-            :add-label="
-                canCreateProject
-                    ? ' '
-                    : ''
-            "
-            @sort="
-                sortBy
-            "
-            @row-click="
-                openProject
-            "
-            @add="
-                createProject
-            "
+            v-model:search="state.search"
+                v-model:filters="state.filters"
+                title="All projects"
+                search-placeholder="Search by project, code or client"
+                :columns="columns"
+                :rows="rows"
+                :loading="loading"
+                :meta="meta"
+                :filters="[
+                    {
+                        key: 'status',
+                        label: 'Status',
+                        type: 'select',
+                        options: statusOptions
+                    }
+                ]"
+                :sort="state.sort"
+                :direction="state.direction"
+                empty-title="No projects yet."
+                empty-text="Create your first project to start collaboration."
+                :add-label="canCreateProject ? ' ' : ''"
+                @sort="sortBy"
+                @row-click="openProject"
+                @add="createProject"
+                @page-change="page => state.page = page"
         >
             <template
                 #cell-name="{
@@ -422,18 +397,6 @@ function formatDate(value) {
                 </button>
             </template>
         </AdminDataTable>
-
-
-        <AdminPagination
-            :meta="
-                meta
-            "
-            @change="
-                page =>
-                    state.page =
-                        page
-            "
-        />
 
 
         <p

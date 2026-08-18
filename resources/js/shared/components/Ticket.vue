@@ -5,8 +5,8 @@ import {
 } from 'vue'
 
 
-import AdminConfirmDialog from '@admin/components/AdminConfirmDialog.vue'
-import AdminModalShell from '@admin/components/AdminModalShell.vue'
+import AdminConfirmDialog from '@shared/components/ConfirmDialog.vue'
+import Modal from '@shared/components/Modal.vue'
 import Button from '@shared/components/Button.vue'
 import FormField from '@shared/components/FormField.vue'
 import Tag from '@shared/components/Tag.vue'
@@ -400,9 +400,8 @@ function getCreatorName() {
         </div>
     </article>
 
-
     <!-- Ticket dialog -->
-    <AdminModalShell
+    <Modal
         :open="open"
         title="Ticket"
         :subtitle="`Created by ${getCreatorName()}`"
@@ -553,7 +552,7 @@ function getCreatorName() {
                 />
             </div>
         </form>
-    </AdminModalShell>
+    </Modal>
 
 
     <AdminConfirmDialog

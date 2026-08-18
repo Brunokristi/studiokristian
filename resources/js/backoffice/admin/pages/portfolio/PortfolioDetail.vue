@@ -17,7 +17,8 @@ import api, {
     validationErrors
 } from '../../composables/useAdminApi'
 
-import AdminPageHeader from '../../components/AdminPageHeader.vue'
+import AdminConfirmDialog from '../../../../shared/components/ConfirmDialog.vue'
+import { useAdminPageHeader } from '../../composables/useAdminPageHeader'
 
 import Button from '@shared/components/Button.vue'
 import Tag from '@shared/components/Tag.vue'
@@ -25,7 +26,7 @@ import Toast from '@shared/components/Toast.vue'
 import Slideshow from '@shared/components/Slideshow.vue'
 import Info from '@shared/components/Info.vue'
 import LanguageToggle from '@shared/components/LanguageToggle.vue'
-import ProjectFilePickerModal from '../../components/ProjectFilePickerModal.vue'
+import FilePickerModal from '../../../components/FilePickerModal.vue'
 import FormField from '../../../../shared/components/FormField.vue'
 import useAutosavePolicy from '../../composables/useAutosavePolicy'
 
@@ -48,6 +49,8 @@ const {
 const project = ref(null)
 const loading = ref(true)
 const saving = ref(false)
+const deleting = ref(false)
+const showDeleteConfirm = ref(false)
 
 const error = ref('')
 const errors = ref({})
@@ -1672,6 +1675,15 @@ async function handleImagePickerFileOpen(
 
 
 async function load() {
+    if (
+        !props.id
+    ) {
+        await router.replace({
+            name: 'portfolio.index'
+        })
+        return
+    }
+
     loading.value =
         true
 
@@ -1722,6 +1734,18 @@ async function load() {
     } catch (
         exception
     ) {
+        if (
+            exception?.response?.status ===
+            404
+        ) {
+            project.value = null
+            clearAutosaveTimer()
+            await router.replace({
+                name: 'portfolio.index'
+            })
+            return
+        }
+
         error.value =
             errorMessage(
                 exception
@@ -2452,6 +2476,63 @@ async function togglePublishing() {
 }
 
 
+function requestDelete() {
+    if (
+        !project.value ||
+        deleting.value
+    ) {
+        return
+    }
+
+    showDeleteConfirm.value = true
+}
+
+
+async function confirmDeleteProject() {
+    if (
+        !project.value ||
+        deleting.value
+    ) {
+        return
+    }
+
+    deleting.value = true
+    error.value = ''
+
+    try {
+        clearAutosaveTimer()
+        suppressAutosave.value = true
+
+        await api.delete(
+            `/projects/${props.id}`
+        )
+
+        showDeleteConfirm.value = false
+        project.value = null
+
+        await router.replace({
+            name: 'portfolio.index'
+        })
+    } catch (
+        exception
+    ) {
+        showDeleteConfirm.value = false
+        showError(errorMessage(exception))
+    } finally {
+        deleting.value = false
+    }
+}
+
+
+function closeDeleteConfirm() {
+    if (deleting.value) {
+        return
+    }
+
+    showDeleteConfirm.value = false
+}
+
+
 function showError(
     message
 ) {
@@ -2536,6 +2617,18 @@ watch(
 onBeforeUnmount(() => {
     clearAutosaveTimer()
 })
+useAdminPageHeader({
+    title: pageTitle,
+    eyebrow: 'Portfolio',
+    breadcrumbs: [
+        {
+            label: 'Portfolio'
+        },
+        {
+            label: pageTitle
+        }
+    ]
+})
 </script>
 
 
@@ -2565,17 +2658,6 @@ onBeforeUnmount(() => {
             text="Your portfolio changes have been saved."
             :duration="4000"
         />
-
-
-        <AdminPageHeader
-            :title="pageTitle"
-            eyebrow="Portfolio"
-            :breadcrumbs="[
-                { label: 'Portfolio' },
-                { label: pageTitle }
-            ]"
-        >
-        </AdminPageHeader>
 
 
         <main
@@ -3154,10 +3236,31 @@ onBeforeUnmount(() => {
                             togglePublishing
                         "
                     />
+
+                    <Button
+                        type="button"
+                        :text="'Delete project'"
+                        :loading-text="'Deleting...'"
+                        :loading="deleting"
+                        :disabled="deleting"
+                        :lowercase="true"
+                        align="left"
+                        @click.prevent="requestDelete"
+                    />
                 </div>
             </div>
 
-            <ProjectFilePickerModal
+            <AdminConfirmDialog
+                :open="showDeleteConfirm"
+                title="Delete project?"
+                :text="`This will permanently delete ${pageTitle}. This action cannot be undone.`"
+                confirm-label="Delete project"
+                :busy="deleting"
+                @close="closeDeleteConfirm"
+                @confirm="confirmDeleteProject"
+            />
+
+            <FilePickerModal
                 v-model:open="
                     showImagePickerModal
                 "

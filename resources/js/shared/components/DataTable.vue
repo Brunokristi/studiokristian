@@ -6,8 +6,6 @@ import {
 
 import FormField from '@shared/components/FormField.vue'
 
-import AdminPagination from './AdminPagination.vue'
-
 
 const props =
     defineProps({
@@ -790,26 +788,86 @@ function clearFilters() {
             <!-- Pagination -->
             <div
                 v-if="
-                    meta
+                    meta && meta.last_page > 1
                 "
                 class="
+                    flex
+                    items-center
+                    justify-between
+                    gap-4
                     border-t
                     border-accent
                     px-4
                     py-4
                 "
             >
-                <AdminPagination
-                    :meta="
-                        meta
-                    "
-                    @change="
-                        $emit(
-                            'page-change',
-                            $event
-                        )
-                    "
-                />
+                <p class="text-xs text-dark/60">
+                    {{ meta.from }}–{{ meta.to }} of {{ meta.total }}
+                </p>
+
+                <div class="flex gap-2">
+                    <button
+                        type="button"
+                        class="
+                            border
+                            border-accent
+                            px-3
+                            py-1.5
+                            font-mono
+                            text-[10px]
+                            font-bold
+                            uppercase
+                            text-dark
+                            transition-colors
+                            duration-200
+                            enabled:hover:border-accent
+                            enabled:hover:text-accent
+                            disabled:cursor-not-allowed
+                            disabled:border-dark/20
+                            disabled:text-dark/30
+                        "
+                        :disabled="meta.current_page <= 1"
+                        @click="
+                            $emit(
+                                'page-change',
+                                meta.current_page - 1
+                            )
+                        "
+                    >
+                        Previous
+                    </button>
+
+                    <button
+                        type="button"
+                        class="
+                            border
+                            border-accent
+                            px-3
+                            py-1.5
+                            font-mono
+                            text-[10px]
+                            font-bold
+                            uppercase
+                            text-dark
+                            transition-colors
+                            duration-200
+                            enabled:hover:border-accent
+                            enabled:hover:text-accent
+                            disabled:cursor-not-allowed
+                            disabled:border-dark/20
+                            disabled:text-dark/30
+                        "
+                        :disabled="meta.current_page >= meta.last_page"
+                        @click="
+                            $emit(
+                                'page-change',
+                                meta.current_page + 1
+                            )
+                        "
+                    >
+                        Next
+                    </button>
+                </div>
             </div>
         </div>
     </section>

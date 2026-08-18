@@ -22,11 +22,11 @@ import api, {
 import useAutosavePolicy from '../../composables/useAutosavePolicy'
 
 
-import AdminPageHeader from '../../components/AdminPageHeader.vue'
-import AdminConfirmDialog from '../../components/AdminConfirmDialog.vue'
+import AdminConfirmDialog from '@shared/components/ConfirmDialog.vue'
 
 
 import Button from '@shared/components/Button.vue'
+import { useAdminPageHeader } from '../../composables/useAdminPageHeader'
 import FormField from '@shared/components/FormField.vue'
 import Toast from '@shared/components/Toast.vue'
 
@@ -629,6 +629,15 @@ onBeforeUnmount(
         }
     }
 )
+useAdminPageHeader({
+    title: pageTitle,
+    description: computed(() =>
+        editing.value
+            ? 'Update the coworker and manage their project access.'
+            : 'Create a coworker and assign the projects they can access. Changes save automatically.'
+    ),
+    breadcrumbs
+})
 </script>
 
 
@@ -645,22 +654,6 @@ onBeforeUnmount(
             heading="Something went wrong"
             :text="requestError"
             :duration="5000"
-        />
-
-
-        <!-- Header -->
-        <AdminPageHeader
-            :title="
-                pageTitle
-            "
-            :description="
-                editing
-                    ? 'Update the coworker and manage their project access.'
-                    : 'Create a coworker and assign the projects they can access. Changes save automatically.'
-            "
-            :breadcrumbs="
-                breadcrumbs
-            "
         />
 
 

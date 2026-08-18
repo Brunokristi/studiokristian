@@ -75,15 +75,15 @@ import TaskList from '@tiptap/extension-task-list'
 import TaskItem from '@tiptap/extension-task-item'
 import HorizontalRule from '@tiptap/extension-horizontal-rule'
 
-import useAutosavePolicy from '../composables/useAutosavePolicy'
+import useAutosavePolicy from '../../backoffice/admin/composables/useAutosavePolicy.js'
 import api, {
     errorMessage
-} from '../composables/useAdminApi'
-import InfoBlock from './document-editor/extensions/Info'
-import ResizableImage from './document-editor/extensions/ResizableImage'
+} from '../../backoffice/admin/composables/useAdminApi.js'
+import InfoBlock from '../../backoffice/components/document-editor/extensions/Info.js'
+import ResizableImage from '../../backoffice/components/document-editor/extensions/ResizableImage.js'
 
-import AdminModal from './AdminModal.vue'
-import ProjectFilePickerModal from './ProjectFilePickerModal.vue'
+import Modal from '@shared/components/Modal.vue'
+import FilePickerModal from '../../backoffice/components/FilePickerModal.vue'
 import Button from '@shared/components/Button.vue'
 import FormField from '@shared/components/FormField.vue'
 
@@ -230,8 +230,8 @@ const insertHandle = ref({
 
 const blockTools = ref({
     visible: false,
-    top: -5,
-    right: 0,
+    top: 0,
+    left: 0,
     index: -1
 })
 
@@ -557,11 +557,11 @@ function nodesFromText(
         ) {
             nodes.push({
                 type:
-                    'horizontalRule'
-            })
+                    rect.top -
+                    5,
 
-            continue
-        }
+                    rect.right +
+                    8,
 
         const imageMatch =
             chunk.match(
@@ -1259,25 +1259,19 @@ function updateBlockToolsUI() {
     const rect =
         blockDom.getBoundingClientRect()
 
-    const toolbarGap = 2
+    const toolbarGap = 8
 
     blockTools.value = {
         visible: true,
 
         top:
-            rect.top +
-            toolbarGap,
+            rect.top -
+            5,
 
-        // Anchored from the right edge so the toolbar width is irrelevant.
-        right:
-            (
-                window.innerWidth ||
-                document.documentElement.clientWidth
-            ) -
+        // Start the toolbar outside the element so it cannot cover its content.
+        left:
             rect.right +
             toolbarGap,
-
-        index
     }
 
     updateTableToolsUI(
@@ -1326,8 +1320,12 @@ function updateTableToolsUI(
 
     tableTools.value = {
         visible: true,
-        top: tableRect.bottom + 12,
-        left: tableRect.left
+        top:
+            tableRect.top +
+            40,
+        left:
+            tableRect.right +
+            8
     }
 }
 
@@ -1705,6 +1703,44 @@ function updateSelectionUI() {
         return
     }
 
+    const root =
+        instance.view
+            ?.dom
+
+    const index =
+        getActiveTopLevelIndex(
+            instance.state.selection,
+            instance.state.doc
+        )
+
+    const blockDom =
+        root instanceof HTMLElement &&
+        index >= 0
+            ? root.children[index]
+            : null
+
+    if (
+        blockDom instanceof HTMLElement
+    ) {
+        const rect =
+            blockDom.getBoundingClientRect()
+
+        insertHandle.value.visible =
+            true
+
+        insertHandle.value.coords = {
+            top:
+                rect.top -
+                5,
+
+            left:
+                rect.left -
+                46
+        }
+
+        return
+    }
+
     try {
         const coords =
             instance.view.coordsAtPos(
@@ -1716,7 +1752,9 @@ function updateSelectionUI() {
 
         insertHandle.value.coords = {
             top:
-                coords.top,
+                coords.top +
+                (coords.bottom - coords.top) / 2 -
+                16,
 
             left:
                 Math.max(
@@ -3970,10 +4008,14 @@ onUnmounted(() => {
 <template>
     <div
         class="
+            fixed
+            inset-0
+            z-[100]
             flex
-            min-h-screen
+            h-screen
             w-full
             flex-col
+            overflow-hidden
             bg-light
             text-dark
         "
@@ -3981,8 +4023,6 @@ onUnmounted(() => {
         <!-- Top bar -->
         <header
             class="
-                sticky
-                -top-10
                 z-30
                 flex
                 h-16
@@ -3991,8 +4031,6 @@ onUnmounted(() => {
                 justify-between
                 bg-accent
                 px-5
-                -mx-10
-                -mt-10
                 text-light
             "
         >
@@ -4224,13 +4262,13 @@ onUnmounted(() => {
                             border
                             border-accent
                             bg-light
-                            p-1
+                            p-0
                         "
                         :style="{
                             top:
                                 `${blockTools.top}px`,
-                            right:
-                                `${blockTools.right}px`
+                            left:
+                                `${blockTools.left}px`
                         }"
                         @mousedown.prevent.stop
                     >
@@ -4238,8 +4276,8 @@ onUnmounted(() => {
                             type="button"
                             class="
                                 grid
-                                h-7
-                                w-7
+                                h-8
+                                w-8
                                 place-items-center
                                 text-dark
                                 transition-colors
@@ -4261,8 +4299,8 @@ onUnmounted(() => {
                             type="button"
                             class="
                                 grid
-                                h-7
-                                w-7
+                                h-8
+                                w-8
                                 place-items-center
                                 text-dark
                                 transition-colors
@@ -4284,8 +4322,8 @@ onUnmounted(() => {
                             type="button"
                             class="
                                 grid
-                                h-7
-                                w-7
+                                h-8
+                                w-8
                                 place-items-center
                                 text-dark
                                 transition-colors
@@ -4305,8 +4343,8 @@ onUnmounted(() => {
                             type="button"
                             class="
                                 grid
-                                h-7
-                                w-7
+                                h-8
+                                w-8
                                 place-items-center
                                 text-dark
                                 transition-colors
@@ -4748,7 +4786,7 @@ onUnmounted(() => {
             />
         </div>
 
-        <AdminModal
+        <Modal
             :open="
                 showLinkModal
             "
@@ -4825,9 +4863,9 @@ onUnmounted(() => {
                     />
                 </div>
             </template>
-        </AdminModal>
+        </Modal>
 
-        <ProjectFilePickerModal
+        <FilePickerModal
             v-model:open="
                 showImagePickerModal
             "

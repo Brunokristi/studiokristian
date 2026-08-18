@@ -16,6 +16,13 @@ import {
 import Tag from '@shared/components/Tag.vue'
 import Toast from '@shared/components/Toast.vue'
 import useAutosavePolicy from '../composables/useAutosavePolicy'
+import { useAdminPageHeader } from '../composables/useAdminPageHeader'
+
+
+const {
+    header: pageHeader
+} =
+    useAdminPageHeader()
 
 
 const {
@@ -565,6 +572,65 @@ watch(
                         lg:px-10
                     "
                 >
+                    <header
+                        v-if="pageHeader.title"
+                        class="pb-10"
+                    >
+                        <nav
+                            v-if="pageHeader.breadcrumbs.length || pageHeader.eyebrow"
+                            aria-label="Breadcrumb"
+                            class="mb-2 flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 p uppercase"
+                        >
+                            <RouterLink
+                                :to="{ name: 'dashboard' }"
+                                class="text-dark transition-colors hover:text-accent"
+                            >
+                                Admin
+                            </RouterLink>
+
+                            <template
+                                v-for="(breadcrumb, index) in pageHeader.breadcrumbs"
+                                :key="`${breadcrumb.label}-${index}`"
+                            >
+                                <span class="text-dark" aria-hidden="true">/</span>
+
+                                <RouterLink
+                                    v-if="breadcrumb.to"
+                                    :to="breadcrumb.to"
+                                    class="min-w-0 max-w-[12rem] truncate text-dark transition-colors hover:text-accent sm:max-w-none"
+                                >
+                                    {{ breadcrumb.label }}
+                                </RouterLink>
+
+                                <span
+                                    v-else
+                                    class="min-w-0 max-w-[12rem] truncate text-accent sm:max-w-none"
+                                    aria-current="page"
+                                >
+                                    {{ breadcrumb.label }}
+                                </span>
+                            </template>
+
+                            <template v-if="!pageHeader.breadcrumbs.length && pageHeader.eyebrow">
+                                <span class="text-dark" aria-hidden="true">/</span>
+                                <span class="text-accent">{{ pageHeader.eyebrow }}</span>
+                            </template>
+                        </nav>
+
+                        <div class="flex flex-col gap-6 md:flex-row md:items-end md:justify-between">
+                            <div>
+                                <h1 class="h2 text-left">
+                                    {{ pageHeader.title }}
+                                </h1>
+                            </div>
+
+                            <div
+                                id="admin-page-header-actions"
+                                class="flex flex-wrap gap-x-7 gap-y-4 md:justify-end"
+                            />
+                        </div>
+                    </header>
+
                     <RouterView />
                 </main>
             </div>

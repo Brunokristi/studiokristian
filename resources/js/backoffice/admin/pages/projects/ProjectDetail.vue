@@ -25,17 +25,17 @@ import api, {
 import useAutosavePolicy from '../../composables/useAutosavePolicy'
 
 
-import AdminPageHeader from '../../components/AdminPageHeader.vue'
-import AdminConfirmDialog from '../../components/AdminConfirmDialog.vue'
-import DocumentEditor from '../../components/DocumentEditor.vue'
-import ServiceFileStructure from '../../components/ServiceFileStructure.vue'
-import ProjectTicket from '../../components/ProjectTicket.vue'
+import AdminConfirmDialog from '../../../../shared/components/ConfirmDialog.vue'
+import DocumentEditor from '../../../components/DocumentEditor.vue'
+import FileStructure from '../../../components/FileStructure.vue'
+import ProjectTicket from '@shared/components/Ticket.vue'
 
 
 
 import Button from '@shared/components/Button.vue'
 import FormField from '@shared/components/FormField.vue'
 import Toast from '@shared/components/Toast.vue'
+import { useAdminPageHeader } from '../../composables/useAdminPageHeader'
 
 
 const props =
@@ -3748,6 +3748,28 @@ onBeforeUnmount(
         }
     }
 )
+useAdminPageHeader({
+    title: pageTitle,
+    description: computed(() =>
+        projectReady.value
+            ? project.value?.summary || 'Project workspace and delivery.'
+            : 'Create the project here. Changes save automatically.'
+    ),
+    eyebrow: computed(() =>
+        project.value?.project_code || 'Project'
+    ),
+    breadcrumbs: computed(() => [
+        {
+            label: 'Projects',
+            to: {
+                name: 'projects.index'
+            }
+        },
+        {
+            label: pageTitle.value
+        }
+    ])
+})
 </script>
 
 
@@ -3760,10 +3782,13 @@ onBeforeUnmount(
         "
     >
         <!-- Document editor -->
-        <DocumentEditor
+        <Teleport
             v-if="
                 documentEditorOpen
             "
+            to="body"
+        >
+            <DocumentEditor
             :model-value="
                 documentBlocks
             "
@@ -3828,7 +3853,8 @@ onBeforeUnmount(
             @save="
                 saveProjectDocument
             "
-        />
+            />
+        </Teleport>
 
 
         <template
@@ -3845,41 +3871,6 @@ onBeforeUnmount(
                 :duration="
                     5000
                 "
-            />
-
-
-            <!-- Header -->
-            <AdminPageHeader
-                :title="
-                    pageTitle
-                "
-                :description="
-                    projectReady
-                        ? (
-                            project?.summary ||
-                            'Project workspace and delivery.'
-                        )
-                        : 'Create the project here. Changes save automatically.'
-                "
-                :eyebrow="
-                    project?.project_code ||
-                    'Project'
-                "
-                :breadcrumbs="[
-                    {
-                        label: 'Projects',
-
-                        to: {
-                            name:
-                                'projects.index'
-                        }
-                    },
-
-                    {
-                        label:
-                            pageTitle
-                    }
-                ]"
             />
 
 
@@ -4453,7 +4444,7 @@ onBeforeUnmount(
                         </div>
 
 
-                        <ServiceFileStructure
+                        <FileStructure
                             :model-value="
                                 projectFolders
                             "

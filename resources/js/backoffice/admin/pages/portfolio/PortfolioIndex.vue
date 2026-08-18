@@ -17,9 +17,9 @@ import api, {
 } from '../../composables/useAdminApi'
 
 
-import AdminPageHeader from '../../components/AdminPageHeader.vue'
-import AdminDataTable from '../../components/AdminDataTable.vue'
+import AdminDataTable from '@shared/components/DataTable.vue'
 import Tag from '@shared/components/Tag.vue'
+import { useAdminPageHeader } from '../../composables/useAdminPageHeader'
 
 
 const router =
@@ -230,6 +230,15 @@ function createPortfolioEntry() {
 onMounted(
     loadPortfolio
 )
+useAdminPageHeader({
+    title: 'Portfolio',
+    description: 'Choose which projects appear publicly and manage their website content.',
+    breadcrumbs: [
+        {
+            label: 'Portfolio'
+        }
+    ]
+})
 </script>
 
 
@@ -241,59 +250,29 @@ onMounted(
             lg:space-y-14
         "
     >
-        <!-- Page header -->
-        <AdminPageHeader
-            title="Portfolio"
-            description="Choose which projects appear publicly and manage their website content."
-            :breadcrumbs="[
-                {
-                    label: 'Portfolio'
-                }
-            ]"
-        />
-
-
         <!-- Portfolio table -->
         <AdminDataTable
-            v-model:search="
-                search
-            "
-            title="Projects"
-            search-placeholder="Search projects, clients or URLs"
-            :columns="
-                columns
-            "
-            :rows="
-                filteredProjects
-            "
-            :loading="
-                loading
-            "
-            :filters="[
-                {
-                    key: 'status',
-                    label: 'Status',
-                    type: 'select',
-                    options: statusOptions
-                }
-            ]"
-            :filter-values="{
-                status
-            }"
-            :sort="
-                null
-            "
-            :direction="
-                'asc'
-            "
-            empty-title="No portfolio projects found."
-            empty-text="Create a project first, then add it to your portfolio."
-            @row-click="
-                openProject
-            "
-            @add="
-                createPortfolioEntry
-            "
+            v-model:search="search"
+                title="Projects"
+                search-placeholder="Search projects, clients or URLs"
+                :columns="columns"
+                :rows="filteredProjects"
+                :loading="loading"
+                :filters="[
+                    {
+                        key: 'status',
+                        label: 'Status',
+                        type: 'select',
+                        options: statusOptions
+                    }
+                ]"
+                :filter-values="{ status }"
+                :sort="null"
+                :direction="'asc'"
+                empty-title="No portfolio projects found."
+                empty-text="Create a project first, then add it to your portfolio."
+                @row-click="openProject"
+                @add="createPortfolioEntry"
         >
             <!-- Project -->
             <template

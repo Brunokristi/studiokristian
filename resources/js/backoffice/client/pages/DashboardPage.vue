@@ -5,8 +5,8 @@ import {
 } from 'vue'
 
 
-import AdminDataTable from '../../admin/components/AdminDataTable.vue'
-import ClientPageHeader from '../components/ClientPageHeader.vue'
+import AdminDataTable from '@shared/components/DataTable.vue'
+import { useClientPageHeader } from '../composables/useClientPageHeader'
 
 
 const props = defineProps({
@@ -242,6 +242,11 @@ function openProject(
         url
     )
 }
+useClientPageHeader({
+    title: computed(() => copy.value.heading),
+    eyebrow: computed(() => props.data.company_name),
+    homeUrl: computed(() => props.data.urls.dashboard)
+})
 </script>
 
 
@@ -253,25 +258,6 @@ function openProject(
             lg:space-y-14
         "
     >
-        <!--
-        |--------------------------------------------------------------------------
-        | Page header
-        |--------------------------------------------------------------------------
-        -->
-
-        <ClientPageHeader
-            :title="
-                copy.heading
-            "
-            :eyebrow="
-                data.company_name
-            "
-            :home-url="
-                data.urls.dashboard
-            "
-        />
-
-
         <!--
         |--------------------------------------------------------------------------
         | Projects table

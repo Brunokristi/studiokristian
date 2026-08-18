@@ -1,10 +1,10 @@
 <script setup>
 import { computed, onMounted, onBeforeUnmount, ref } from 'vue';
 import { RouterView, useRoute } from 'vue-router';
-import Navbar from '@shared/components/Navbar.vue';
-import Footer from '@shared/components/Footer.vue';
-import BottomNav from '@shared/components/BottomNav.vue';
-import CookieConsent from '@shared/components/CookieConsent.vue';
+import Navbar from '../components/Navbar.vue';
+import Footer from '../components/Footer.vue';
+import BottomNav from '../components/BottomNav.vue';
+import CookieConsent from '../components/CookieConsent.vue';
 
 const route = useRoute();
 const theme = computed(() => route.meta.theme ?? 'dark');

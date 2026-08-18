@@ -14,10 +14,9 @@ import {
 } from '../../composables/useServerTable'
 
 
-import AdminPageHeader from '../../components/AdminPageHeader.vue'
-import AdminDataTable from '../../components/AdminDataTable.vue'
-import AdminPagination from '../../components/AdminPagination.vue'
+import AdminDataTable from '@shared/components/DataTable.vue'
 import Tag from '@shared/components/Tag.vue'
+import { useAdminPageHeader } from '../../composables/useAdminPageHeader'
 
 
 const router =
@@ -206,6 +205,15 @@ function statusLabel(
         .replaceAll('_', ' ')
         .replace(/\b\w/g, letter => letter.toUpperCase())
 }
+useAdminPageHeader({
+    title: 'Clients',
+    description: 'All companies in the client portal.',
+    breadcrumbs: [
+        {
+            label: 'Clients'
+        }
+    ]
+})
 </script>
 
 
@@ -217,25 +225,9 @@ function statusLabel(
             lg:space-y-14
         "
     >
-        <AdminPageHeader
-            title="Clients"
-            description="All companies in the client portal."
-            :breadcrumbs="[
-                {
-                    label: 'Clients'
-                }
-            ]"
-        />
-
-
         <p
-            v-if="
-                error
-            "
-            class="
-                p
-                text-red-600
-            "
+            v-if="error"
+            class="p text-red-600"
         >
             {{ error }}
         </p>
@@ -264,6 +256,9 @@ function statusLabel(
             :loading="
                 loading
             "
+            :meta="
+                meta
+            "
             :filters="[
                 {
                     key: 'status',
@@ -289,6 +284,9 @@ function statusLabel(
             "
             @add="
                 createClient
+            "
+            @page-change="
+                page => state.page = page
             "
         >
             <template
@@ -382,15 +380,5 @@ function statusLabel(
         </AdminDataTable>
 
 
-        <AdminPagination
-            :meta="
-                meta
-            "
-            @change="
-                value => {
-                    state.page = value
-                }
-            "
-        />
     </div>
 </template>

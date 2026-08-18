@@ -2,9 +2,9 @@
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import api, { errorMessage } from '../../composables/useAdminApi'
-import AdminPageHeader from '../../components/AdminPageHeader.vue'
-import DocumentEditor from '../../components/DocumentEditor.vue'
-import ServiceFileStructure from '../../components/ServiceFileStructure.vue'
+import DocumentEditor from '../../../components/DocumentEditor.vue'
+import { useAdminPageHeader } from '../../composables/useAdminPageHeader'
+import FileStructure from '../../../components/FileStructure.vue'
 
 const storageFolders = ref([])
 const loading = ref(true)
@@ -518,12 +518,19 @@ watch(
         immediate: true,
     }
 )
+useAdminPageHeader({
+    title: 'Internal storage',
+    eyebrow: 'Private cloud drive'
+})
 </script>
 
 <template>
     <div class="space-y-6">
-        <DocumentEditor
+        <Teleport
             v-if="documentEditorOpen"
+            to="body"
+        >
+            <DocumentEditor
             :model-value="documentBlocks"
             :template="documentTemplate"
             :title="documentTemplate?.name || ''"
@@ -538,19 +545,15 @@ watch(
             @update:model-value="updateDocumentBlocks"
             @back="handleDocumentBack"
             @save="saveStorageDocument"
-        />
+            />
+        </Teleport>
 
         <template v-else>
-            <AdminPageHeader
-                title="Internal storage"
-                eyebrow="Private cloud drive"
-            />
-
-            <p v-if="error" class="border border-red-700 bg-red-50 p-4 text-sm text-red-800">{{ error }}</p>
+        <p v-if="error" class="border border-red-700 bg-red-50 p-4 text-sm text-red-800">{{ error }}</p>
             <p v-if="loading" class="py-20 text-center">Loading...</p>
 
             <div v-else>
-                <ServiceFileStructure
+                <FileStructure
                     :model-value="storageFolders"
                     :initial-folder-id="storageInitialFolderId"
                     :allow-upload-control="true"

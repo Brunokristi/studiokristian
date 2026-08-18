@@ -1,6 +1,6 @@
 <script setup>
-import AdminModalShell from './AdminModalShell.vue'
-import ServiceFileStructure from './ServiceFileStructure.vue'
+import Modal from '@/shared/components/Modal.vue'
+import FileStructure from './FileStructure.vue'
 
 
 const props = defineProps({
@@ -93,7 +93,7 @@ function updateItems(value) {
 
 
 <template>
-    <AdminModalShell
+    <Modal
         :open="open"
         :title="title"
         :subtitle="subtitle"
@@ -147,7 +147,7 @@ function updateItems(value) {
                 overflow-hidden
             "
         >
-            <ServiceFileStructure
+            <FileStructure
                 :model-value="
                     modelValue
                 "
@@ -189,5 +189,5 @@ function updateItems(value) {
                 "
             />
         </div>
-    </AdminModalShell>
+    </Modal>
 </template>

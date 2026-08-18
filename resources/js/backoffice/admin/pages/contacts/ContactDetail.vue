@@ -20,8 +20,8 @@ import api, {
 } from '../../composables/useAdminApi'
 
 
-import AdminPageHeader from '../../components/AdminPageHeader.vue'
-import AdminConfirmDialog from '../../components/AdminConfirmDialog.vue'
+import AdminConfirmDialog from '@shared/components/ConfirmDialog.vue'
+import { useAdminPageHeader } from '../../composables/useAdminPageHeader'
 import Button from '@shared/components/Button.vue'
 import FormField from '@shared/components/FormField.vue'
 import useAutosavePolicy from '../../composables/useAutosavePolicy'
@@ -765,6 +765,15 @@ onMounted(
         await loadContact()
     }
 )
+useAdminPageHeader({
+    title: pageTitle,
+    description: computed(() =>
+        editing.value
+            ? 'Update the contact details and access permissions.'
+            : 'Create a contact for this client company.'
+    ),
+    breadcrumbs
+})
 </script>
 
 
@@ -776,19 +785,6 @@ onMounted(
             lg:space-y-14
         "
     >
-        <!-- Header -->
-        <AdminPageHeader
-            :title="pageTitle"
-            :description="
-                editing
-                    ? 'Update the contact details and access permissions.'
-                    : 'Create a contact for this client company.'
-            "
-            :breadcrumbs="
-                breadcrumbs
-            "
-        />
-
         <!-- Loading -->
         <div
             v-if="loading"

@@ -5,6 +5,13 @@ import {
 } from 'vue'
 
 import LanguageToggle from '@shared/components/LanguageToggle.vue'
+import { useClientPageHeader } from '../composables/useClientPageHeader'
+
+
+const {
+    header: pageHeader
+} =
+    useClientPageHeader()
 
 
 const props = defineProps({
@@ -597,6 +604,65 @@ function toggleMenu() {
 
 
                     <!-- Page -->
+
+                    <header
+                        v-if="pageHeader.title"
+                        class="pb-4"
+                    >
+                        <nav
+                            v-if="pageHeader.breadcrumbs.length || pageHeader.eyebrow"
+                            aria-label="Breadcrumb"
+                            class="mb-2 flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 p uppercase"
+                        >
+                            <a
+                                :href="pageHeader.homeUrl"
+                                class="text-dark transition-colors hover:text-accent"
+                            >
+                                Client
+                            </a>
+
+                            <template
+                                v-for="(breadcrumb, index) in pageHeader.breadcrumbs"
+                                :key="`${breadcrumb.label}-${index}`"
+                            >
+                                <span class="text-dark" aria-hidden="true">/</span>
+
+                                <a
+                                    v-if="breadcrumb.href"
+                                    :href="breadcrumb.href"
+                                    class="min-w-0 max-w-[12rem] truncate text-dark transition-colors hover:text-accent sm:max-w-none"
+                                >
+                                    {{ breadcrumb.label }}
+                                </a>
+
+                                <span
+                                    v-else
+                                    class="min-w-0 max-w-[12rem] truncate text-accent sm:max-w-none"
+                                    aria-current="page"
+                                >
+                                    {{ breadcrumb.label }}
+                                </span>
+                            </template>
+
+                            <template v-if="!pageHeader.breadcrumbs.length && pageHeader.eyebrow">
+                                <span class="text-dark" aria-hidden="true">/</span>
+                                <span class="text-accent">{{ pageHeader.eyebrow }}</span>
+                            </template>
+                        </nav>
+
+                        <div class="flex flex-col gap-6 md:flex-row md:items-end md:justify-between">
+                            <div>
+                                <h1 class="h2 text-left">
+                                    {{ pageHeader.title }}
+                                </h1>
+                            </div>
+
+                            <div
+                                id="client-page-header-actions"
+                                class="flex flex-wrap gap-x-4 gap-y-3 md:justify-end"
+                            />
+                        </div>
+                    </header>
 
                     <slot />
                 </main>

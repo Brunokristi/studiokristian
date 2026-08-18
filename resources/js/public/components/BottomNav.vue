@@ -2,7 +2,7 @@
 import { ref, onMounted, onUnmounted, nextTick, computed, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRoute } from 'vue-router'
-import Toast from './Toast.vue'
+import Toast from '@shared/components/Toast.vue'
 import router from '@public/router'
 
 const isDarkBackground = ref(false)
