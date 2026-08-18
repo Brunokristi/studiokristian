@@ -84,6 +84,15 @@ const form =
             props.ticket.assigned_to ??
             '',
 
+        assignees:
+            Array.isArray(props.ticket.assignees)
+                ? props.ticket.assignees.map(
+                    item => `${item.type}:${item.id}`
+                )
+                : props.ticket.assigned_to
+                    ? [`user:${props.ticket.assigned_to}`]
+                    : [],
+
         status:
             props.ticket.status ||
             'new'
@@ -113,6 +122,15 @@ function openTicket() {
         assigned_to:
             props.ticket.assigned_to ??
             '',
+
+        assignees:
+            Array.isArray(props.ticket.assignees)
+                ? props.ticket.assignees.map(
+                    item => `${item.type}:${item.id}`
+                )
+                : props.ticket.assigned_to
+                    ? [`user:${props.ticket.assigned_to}`]
+                    : [],
 
         status:
             props.ticket.status ||
@@ -195,7 +213,13 @@ function saveTicket() {
                 props.ticket,
 
             data: {
-                ...form.value
+                ...form.value,
+                assignees: form.value.assignees
+                    .map(value => {
+                        const [type, id] = String(value).split(':')
+                        return { type, id: Number(id) }
+                    })
+                    .filter(item => item.type && item.id)
             },
 
             done: () => {
@@ -271,6 +295,24 @@ function changeStatus(
 
 
 function getAssigneeName() {
+    if (
+        Array.isArray(props.ticket.assignees) &&
+        props.ticket.assignees.length
+    ) {
+        return props.ticket.assignees
+            .map(assignee => {
+                const option =
+                    props.assigneeOptions.find(
+                        item =>
+                            item.value ===
+                            `${assignee.type}:${assignee.id}`
+                    )
+
+                return option?.label || 'Assignee'
+            })
+            .join(', ')
+    }
+
     if (
         props.ticket.assignee?.name
     ) {
@@ -400,6 +442,27 @@ function getCreatorName() {
         </div>
     </article>
 
+    <AdminConfirmDialog
+        :open="
+            showDeleteConfirm
+        "
+        title="Delete ticket"
+        :text="
+            deleteConfirmText
+        "
+        confirm-label="Delete ticket"
+        :busy="
+            deleting
+        "
+        @close="
+            showDeleteConfirm =
+                false
+        "
+        @confirm="
+            confirmDeleteTicket
+        "
+    />
+
     <!-- Ticket dialog -->
     <Modal
         :open="open"
@@ -484,11 +547,12 @@ function getCreatorName() {
                         `ticket-assignee-${ticket.id}`
                     "
                     v-model="
-                        form.assigned_to
+                        form.assignees
                     "
-                    name="assigned_to"
+                    name="assignees"
                     type="select"
                     label="Assignee"
+                    multiple
                     :options="
                         assigneeOptions
                     "
@@ -555,24 +619,5 @@ function getCreatorName() {
     </Modal>
 
 
-    <AdminConfirmDialog
-        :open="
-            showDeleteConfirm
-        "
-        title="Delete ticket"
-        :text="
-            deleteConfirmText
-        "
-        confirm-label="Delete ticket"
-        :busy="
-            deleting
-        "
-        @close="
-            showDeleteConfirm =
-                false
-        "
-        @confirm="
-            confirmDeleteTicket
-        "
-    />
+
 </template>

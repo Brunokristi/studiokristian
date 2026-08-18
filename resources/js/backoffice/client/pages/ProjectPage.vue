@@ -94,7 +94,7 @@ const copy =
                     'Detaily projektu',
 
                 signatureRequired:
-                    'Vyžaduje podpis',
+                    'Podpísať',
 
                 company:
                     'Spoločnosť',
@@ -218,7 +218,7 @@ const copy =
                 'Project details',
 
             signatureRequired:
-                'Signature required',
+                'Sign',
 
             company:
                 'Company',
@@ -1138,20 +1138,17 @@ useClientPageHeader({
 
                     <button
                         class="
-                            border
-                            border-light
-                            bg-light
-                            px-4
-                            py-2
+                            px-3
+                            py-1
                             font-mono
-                            text-xs
+                            text-[10px]
                             font-bold
                             uppercase
-                            tracking-[0.1em]
+                            tracking-[0.12em]
+                            bg-light
                             text-accent
-                            transition-colors
-                            hover:border-dark
-                            hover:text-dark
+                            hover:bg-accent
+                            hover:text-light
                         "
                         type="submit"
                     >
@@ -1217,7 +1214,7 @@ useClientPageHeader({
                     :key="
                         `todo-${document.id}`
                     "
-                    class="border border-dark/20 bg-white"
+                    class="border border-accent bg-accent"
                 >
                     <a
                         :href="
@@ -1231,158 +1228,50 @@ useClientPageHeader({
                             gap-4
                             px-4
                             py-4
-                            transition-colors
-                            hover:bg-accent
-                            hover:text-light
+                            text-light
                         "
                         @click.prevent="
                             openDocumentById(
                                 document.id
                             )
                         "
-                    >
-                        <span
-                            class="
-                                p
-                            "
-                        >
-                            {{
-                                document.name
-                            }}
-                        </span>
+                    >   
+                        <div class="flex items-center gap-2">
+                            <i class="bi bi-file-earmark p" />
+                            <span
+                                class="
+                                    p
+                                    uppercase
+        
+                                "
+                            >
+                                {{
+                                    document.name
+                                }}
+                            </span>
+                        </div>
 
-                        <span
+                        <Button
+                            variant="light"
+                            hover-variant="dark"
+                            :text="
+                                copy.signatureRequired
+                            "
+                            align="right"
                             class="
-                                shrink-0
-                                font-mono
-                                text-xs
-                                font-bold
-                                uppercase
-                                text-accent
+                                max-w-[200px]
                             "
                         >
                             {{
                                 copy.signatureRequired
                             }}
-                        </span>
+                        </Button>
                     </a>
                 </li>
             </ul>
         </section>
 
-
-        <!--
-        |--------------------------------------------------------------------------
-        | Project details
-        |--------------------------------------------------------------------------
-        -->
-
-        <section>
-            <h2
-                class="
-                    h2
-                    text-accent
-                    text-left
-                "
-            >
-                {{
-                    copy.projectDetails
-                }}
-            </h2>
-
-            <div
-                class="
-                    mt-6
-                    grid
-                    gap-0
-                "
-            >
-                <Info
-                    v-for="
-                        (
-                            detail,
-                            index
-                        ) in projectDetails
-                    "
-                    :key="
-                        `project-detail-${index}`
-                    "
-                    :heading="
-                        detail.heading
-                    "
-                    :text="
-                        detail.text
-                    "
-                    :opened="
-                        False
-                    "
-                />
-            </div>
-        </section>
-
-
-        <!--
-        |--------------------------------------------------------------------------
-        | Documents
-        |--------------------------------------------------------------------------
-        -->
-
-        <section id="client-project-documents">
-            <h2
-                class="
-                    h2
-                    text-accent
-                    text-left
-                "
-            >
-                {{
-                    copy.documents
-                }}
-            </h2>
-
-            <div
-                class="
-                    mt-6
-                    space-y-5
-                "
-            >
-                <FileStructure
-                    :model-value="
-                        documentItems
-                    "
-                    :language="
-                        locale
-                    "
-                    :initial-folder-id="
-                        activeStructureFolderId
-                    "
-                    :allow-upload-control="
-                        false
-                    "
-                    :allow-metadata-editing="
-                        false
-                    "
-                    :disabled="
-                        true
-                    "
-                    @open-document="
-                        openProjectDocument
-                    "
-                    @open-folder="
-                        handleStructureFolderOpen
-                    "
-                    @open-file="
-                        openProjectFile
-                    "
-                    @download-file="
-                        openProjectFile
-                    "
-                />
-            </div>
-        </section>
-
-
-        <!--
+                <!--
         |--------------------------------------------------------------------------
         | Support
         |--------------------------------------------------------------------------
@@ -1592,6 +1481,120 @@ useClientPageHeader({
             </div>
 
         </section>
+
+
+        <!--
+        |--------------------------------------------------------------------------
+        | Project details
+        |--------------------------------------------------------------------------
+        -->
+
+        <section>
+            <h2
+                class="
+                    h2
+                    text-accent
+                    text-left
+                "
+            >
+                {{
+                    copy.projectDetails
+                }}
+            </h2>
+
+            <div
+                class="
+                    mt-6
+                    grid
+                    gap-0
+                "
+            >
+                <Info
+                    v-for="
+                        (
+                            detail,
+                            index
+                        ) in projectDetails
+                    "
+                    :key="
+                        `project-detail-${index}`
+                    "
+                    :heading="
+                        detail.heading
+                    "
+                    :text="
+                        detail.text
+                    "
+                    :opened="
+                        False
+                    "
+                />
+            </div>
+        </section>
+
+
+        <!--
+        |--------------------------------------------------------------------------
+        | Documents
+        |--------------------------------------------------------------------------
+        -->
+
+        <section id="client-project-documents">
+            <h2
+                class="
+                    h2
+                    text-accent
+                    text-left
+                "
+            >
+                {{
+                    copy.documents
+                }}
+            </h2>
+
+            <div
+                class="
+                    mt-6
+                    space-y-5
+                "
+            >
+                <FileStructure
+                    :model-value="
+                        documentItems
+                    "
+                    :language="
+                        locale
+                    "
+                    :initial-folder-id="
+                        activeStructureFolderId
+                    "
+                    :allow-upload-control="
+                        false
+                    "
+                    :allow-metadata-editing="
+                        false
+                    "
+                    :disabled="
+                        true
+                    "
+                    @open-document="
+                        openProjectDocument
+                    "
+                    @open-folder="
+                        handleStructureFolderOpen
+                    "
+                    @open-file="
+                        openProjectFile
+                    "
+                    @download-file="
+                        openProjectFile
+                    "
+                />
+            </div>
+        </section>
+
+
+
         </template>
     </div>
 </template>

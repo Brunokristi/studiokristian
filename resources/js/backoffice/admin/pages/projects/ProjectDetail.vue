@@ -156,7 +156,7 @@ const ticketForm =
         title: '',
         description: '',
         priority: 'normal',
-        assigned_to: null
+        assignees: []
     })
 
 
@@ -488,7 +488,19 @@ const ticketAssigneeOptions =
                     `${user.name}${user.is_admin ? ' (admin)' : ''}`,
 
                 value:
-                    user.id
+                    `user:${user.id}`
+            })
+        ),
+
+        ...contactOptions.value.map(
+            contact => ({
+                label:
+                    `${contact.first_name || ''} ${contact.last_name || ''}`.trim() ||
+                    contact.email ||
+                    'Contact',
+
+                value:
+                    `contact:${contact.id}`
             })
         )
     ])
@@ -2359,6 +2371,55 @@ async function resendContactInvitation(
 |--------------------------------------------------------------------------
 */
 
+function normalizeTicketAssignees(
+    values = []
+) {
+    return (
+        Array.isArray(values)
+            ? values
+            : []
+    )
+        .map(value => {
+            if (
+                typeof value ===
+                'object'
+            ) {
+                return {
+                    type:
+                        value.type,
+                    id:
+                        Number(
+                            value.id
+                        )
+                }
+            }
+
+            const [type, id] =
+                String(
+                    value ||
+                    ''
+                ).split(':')
+
+            return {
+                type,
+                id: Number(id)
+            }
+        })
+        .filter(
+            item =>
+                (
+                    item.type ===
+                    'user' ||
+                    item.type ===
+                    'contact'
+                ) &&
+                Number.isInteger(
+                    item.id
+                ) &&
+                item.id > 0
+        )
+}
+
 async function createTicket() {
     if (
         !ticketForm.title ||
@@ -2371,7 +2432,13 @@ async function createTicket() {
         const response =
             await api.post(
             `/projects/${projectId.value}/tickets`,
-            ticketForm
+            {
+                ...ticketForm,
+                assignees:
+                    normalizeTicketAssignees(
+                        ticketForm.assignees
+                    )
+            }
         )
 
         const createdTicket =
@@ -2402,7 +2469,7 @@ async function createTicket() {
                 title: '',
                 description: '',
                 priority: 'normal',
-                assigned_to: null
+                assignees: []
             }
         )
 
@@ -2462,8 +2529,8 @@ async function saveTicket({
                     priority:
                         data.priority,
 
-                    assigned_to:
-                        data.assigned_to,
+                    assignees:
+                        data.assignees,
 
                     status:
                         data.status
@@ -2580,8 +2647,13 @@ async function moveTicket(
                     priority:
                         ticket.priority,
 
-                    assigned_to:
-                        ticket.assigned_to
+                    assignees:
+                        normalizeTicketAssignees(
+                            ticket.assignees ||
+                            (ticket.assigned_to
+                                ? [`user:${ticket.assigned_to}`]
+                                : [])
+                        )
                 }
             )
 
@@ -3880,16 +3952,13 @@ useAdminPageHeader({
                     loading
                 "
                 class="
-                    border-t
-                    border-accent
-                    pt-6
                 "
             >
                 <p
                     class="
                         p
                         uppercase
-                        text-dark/40
+                        text-dark
                     "
                 >
                     Loading project...
@@ -4079,6 +4148,94 @@ useAdminPageHeader({
                 </section>
 
 
+                <!-- Actions required -->
+                <section
+                    v-if="
+                        canManageProjectSettings &&
+                        project?.todo_signatures?.length
+                    "
+                    class="
+                        space-y-6
+                    "
+                >
+                    <div>
+                        <h2
+                            class="
+                                h2
+                                text-accent
+                                text-left
+                            "
+                        >
+                            Actions required
+                        </h2>
+
+                        <p
+                            class="
+                                p
+                                uppercase
+                            "
+                        >
+                            These documents are waiting for a client signature.
+                        </p>
+                    </div>
+
+                    <ul
+                        class="
+                            grid
+                            gap-2
+                        "
+                    >
+                        <li
+                            v-for="document in project.todo_signatures"
+                            :key="`todo-${document.id}`"
+                            class="
+                                border
+                                border-accent
+                                bg-accent
+                            "
+                        >
+                            <button
+                                type="button"
+                                class="
+                                    flex
+                                    w-full
+                                    items-center
+                                    justify-between
+                                    gap-4
+                                    px-4
+                                    py-4
+                                    text-left
+                                    text-light
+                                "
+                                @click="
+                                    openProjectDocument(document)
+                                "
+                            >
+                                <span class="flex items-center gap-2">
+                                    <i class="bi bi-file-earmark p" />
+                                    <span class="p uppercase">
+                                        {{ document.name }}
+                                    </span>
+                                </span>
+
+                                <Button
+                                    type="button"
+                                    text="review"
+                                    variant="light"
+                                    hover-variant="dark"
+                                    align="right"
+                                    class="
+                                        max-w-[120px]
+                                    "
+                                >
+                                    review
+                                </Button>
+                            </button>
+                        </li>
+                    </ul>
+                </section>
+
+
                 <template
                     v-if="
                         projectReady
@@ -4243,11 +4400,12 @@ useAdminPageHeader({
                             <FormField
                                 id="ticket-assignee"
                                 v-model="
-                                    ticketForm.assigned_to
+                                    ticketForm.assignees
                                 "
-                                name="assigned_to"
+                                name="assignees"
                                 type="select"
                                 label="Assignee"
+                                multiple
                                 :options="
                                     ticketAssigneeOptions
                                 "

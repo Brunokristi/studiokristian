@@ -607,7 +607,7 @@ function toggleMenu() {
 
                     <header
                         v-if="pageHeader.title"
-                        class="pb-4"
+                        class="pb-10"
                     >
                         <nav
                             v-if="pageHeader.breadcrumbs.length || pageHeader.eyebrow"

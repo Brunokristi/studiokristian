@@ -5,7 +5,9 @@ namespace App\Http\Controllers\Admin\ClientPortal;
 use App\Http\Controllers\Controller;
 use App\Models\Project;
 use App\Models\ProjectTicket;
+use App\Models\ClientContact;
 use App\Models\User;
+use App\Notifications\NewCoworkerTicketNotification;
 use App\Notifications\TicketAssignedNotification;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -20,17 +22,27 @@ class ProjectTicketController extends Controller
     public function store(Project $project, Request $request): JsonResponse
     {
         $this->authorizeProject($project, $request);
-        $data = $request->validate(['title' => ['required', 'string', 'max:255'], 'description' => ['required', 'string', 'max:10000'], 'priority' => ['required', 'in:low,normal,high,urgent'], 'assigned_to' => ['nullable', 'integer']]);
-        $this->assertAssignable($project, $data['assigned_to'] ?? null);
+        $data = $request->validate(['title' => ['required', 'string', 'max:255'], 'description' => ['required', 'string', 'max:10000'], 'priority' => ['required', 'in:low,normal,high,urgent'], 'assignees' => ['nullable', 'array'], 'assignees.*.type' => ['required', 'in:user,contact'], 'assignees.*.id' => ['required', 'integer']]);
+        $data['assignees'] = $this->normalizeAssignees($project, $data['assignees'] ?? []);
+        $data['assigned_to'] = collect($data['assignees'])->firstWhere('type', 'user')['id'] ?? null;
         $ticket = $project->tickets()->create($data + ['created_by_user_id' => $request->user()->id]);
+        if (! $request->user()->is_admin) {
+            User::query()
+                ->where('is_admin', true)
+                ->get()
+                ->each(fn (User $admin) => $admin->notify(new NewCoworkerTicketNotification($ticket->load('project'))));
+        }
         $this->notifyAssigneeIfCoworker($project, $ticket, null);
         return response()->json($ticket, 201);
     }
     public function update(Project $project, ProjectTicket $ticket, Request $request): JsonResponse
     {
         $this->authorizeProject($project, $request); abort_unless($ticket->project_id === $project->id, 404);
-        $data = $request->validate(['status' => ['required', 'in:new,in_progress,finished'], 'priority' => ['sometimes', 'in:low,normal,high,urgent'], 'assigned_to' => ['nullable', 'integer']]);
-        $this->assertAssignable($project, $data['assigned_to'] ?? null);
+        $data = $request->validate(['status' => ['required', 'in:new,in_progress,finished'], 'priority' => ['sometimes', 'in:low,normal,high,urgent'], 'assignees' => ['sometimes', 'array'], 'assignees.*.type' => ['required', 'in:user,contact'], 'assignees.*.id' => ['required', 'integer']]);
+        if (array_key_exists('assignees', $data)) {
+            $data['assignees'] = $this->normalizeAssignees($project, $data['assignees']);
+            $data['assigned_to'] = collect($data['assignees'])->firstWhere('type', 'user')['id'] ?? null;
+        }
         $previousAssignedTo = $ticket->assigned_to ? (int) $ticket->assigned_to : null;
         $ticket->update($data + ['finished_at' => $data['status'] === 'finished' ? now() : null]);
         $this->notifyAssigneeIfCoworker($project, $ticket, $previousAssignedTo);
@@ -63,6 +75,29 @@ class ProjectTicketController extends Controller
         $isAdmin = User::query()->whereKey($userId)->where('is_admin', true)->exists();
 
         abort_unless($isCoworker || $isAdmin, 422, 'Assignee must belong to this project or be an admin.');
+    }
+
+    private function normalizeAssignees(Project $project, array $assignees): array
+    {
+        return collect($assignees)
+            ->map(fn (array $assignee): array => [
+                'type' => $assignee['type'],
+                'id' => (int) $assignee['id'],
+            ])
+            ->unique(fn (array $assignee): string => $assignee['type'].':'.$assignee['id'])
+            ->filter(function (array $assignee) use ($project): bool {
+                if ($assignee['type'] === 'user') {
+                    $isCoworker = $project->coworkers()->whereKey($assignee['id'])->exists();
+                    $isAdmin = User::query()->whereKey($assignee['id'])->where('is_admin', true)->exists();
+                    abort_unless($isCoworker || $isAdmin, 422, 'Assignee must belong to this project or be an admin.');
+                } else {
+                    abort_unless(ClientContact::query()->whereKey($assignee['id'])->where('company_id', $project->company_id)->exists(), 422, 'Contact must belong to this project client.');
+                }
+
+                return true;
+            })
+            ->values()
+            ->all();
     }
 
     private function notifyAssigneeIfCoworker(Project $project, ProjectTicket $ticket, ?int $previousAssignedTo): void

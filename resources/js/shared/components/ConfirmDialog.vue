@@ -111,7 +111,7 @@ onBeforeUnmount(() => {
             class="
                 fixed
                 inset-0
-                z-50
+                z-[120]
                 flex
                 items-center
                 justify-center

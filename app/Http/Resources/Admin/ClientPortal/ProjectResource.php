@@ -75,6 +75,32 @@ class ProjectResource extends JsonResource
                     })
                     ->values();
             }),
+            'todo_signatures' => $this->whenLoaded('folders', function () {
+                return $this->folders
+                    ->filter(function ($folder): bool {
+                        if (
+                            $folder->type !== 'file' ||
+                            $folder->resource_type !== 'document' ||
+                            ! $folder->requires_client_signature
+                        ) {
+                            return false;
+                        }
+
+                        $hasSignature = $folder->relationLoaded('signatures') &&
+                            $folder->signatures->isNotEmpty();
+
+                        return ! $hasSignature;
+                    })
+                    ->map(fn ($folder) => [
+                        'id' => $folder->id,
+                        'name' => $folder->name,
+                        'type' => $folder->type,
+                        'resource_type' => $folder->resource_type,
+                        'requires_signature' => true,
+                        'signed' => false,
+                    ])
+                    ->values();
+            }),
             'contracts' => $this->whenLoaded('contracts'),
             'updated_at' => $this->updated_at?->toIso8601String(),
         ];
