@@ -32,12 +32,12 @@ import DocumentEditor
 import Button from '@shared/components/Button.vue'
 import FormField from '@shared/components/FormField.vue'
 import Tag from '@shared/components/Tag.vue'
+import Toast from '@shared/components/Toast.vue'
 import useAutosavePolicy from '../../composables/useAutosavePolicy'
 import { useAdminPageHeader } from '../../composables/useAdminPageHeader'
 
 
 const {
-    enabled: autosaveEnabled,
     setStatus,
     setLastSavedAt
 } =
@@ -94,6 +94,10 @@ const requestError =
     ref('')
 
 
+const showErrorToast =
+    ref(false)
+
+
 const autosaveTimer =
     ref(null)
 
@@ -108,6 +112,10 @@ const inputHasFocus =
 
 const lastSavedSnapshot =
     ref('')
+
+
+const blueprintBackfillAttempted =
+    ref(false)
 
 
 const documentEditorOpen =
@@ -167,10 +175,7 @@ const productForm =
 
 const isCreateMode =
     computed(() =>
-        Boolean(
-            props.create
-        ) ||
-        (!props.id && !createdProductId.value)
+        !props.id && !createdProductId.value
     )
 
 
@@ -503,6 +508,14 @@ function showError(
 ) {
     requestError.value =
         message
+
+    showErrorToast.value =
+        false
+
+    requestAnimationFrame(() => {
+        showErrorToast.value =
+            true
+    })
 }
 
 
@@ -523,7 +536,14 @@ function getAutosaveSnapshot() {
 }
 
 
-async function load() {
+async function load(
+    explicitId = null
+) {
+    const productId =
+        explicitId ||
+        props.id ||
+        createdProductId.value
+
     loading.value =
         true
 
@@ -532,7 +552,7 @@ async function load() {
 
     try {
         if (
-            isCreateMode.value
+            !productId
         ) {
             data.value = {
                 product:
@@ -560,7 +580,7 @@ async function load() {
 
         const response =
             await api.get(
-                `/service-products/${props.id}/blueprint`
+                `/service-products/${productId}/blueprint`
             )
 
 
@@ -581,6 +601,17 @@ async function load() {
                     data.value.version.folders || [],
                     data.value.version.folders || []
                 )
+        } else if (
+            data.value.product?.id &&
+            !blueprintBackfillAttempted.value
+        ) {
+            // Existing product created before structure was persisted — backfill it now.
+            blueprintBackfillAttempted.value =
+                true
+
+            void createBlueprint(
+                data.value.product.id
+            )
         }
 
 
@@ -657,7 +688,7 @@ async function saveProduct() {
 
 
             const createdId =
-                productResponse.data?.id
+                productResponse.data?.data?.id
 
 
             if (
@@ -688,6 +719,34 @@ async function saveProduct() {
                 lastSavedSnapshot.value =
                     getAutosaveSnapshot()
 
+                // Auto-generate the project structure before navigating so it always exists.
+                await createBlueprint(
+                    createdId
+                )
+
+                if (
+                    String(
+                        props.id ||
+                        ''
+                    ) !==
+                    String(
+                        createdId
+                    )
+                ) {
+                    await router.replace({
+                        name:
+                            'service-products.show',
+                        params: {
+                            id:
+                                String(
+                                    createdId
+                                )
+                        }
+                    }).catch(
+                        () => {}
+                    )
+                }
+
                 return
             }
 
@@ -708,26 +767,26 @@ async function saveProduct() {
         ) {
             data.value.product = {
                 ...(data.value.product || {}),
-                ...productResponse.data
+                ...(productResponse.data?.data || {})
             }
         }
 
 
         if (
             !productForm.name &&
-            productResponse.data?.name
+            productResponse.data?.data?.name
         ) {
             productForm.name =
-                productResponse.data.name
+                productResponse.data.data.name
         }
 
 
         if (
             !productForm.description &&
-            productResponse.data?.description
+            productResponse.data?.data?.description
         ) {
             productForm.description =
-                productResponse.data.description
+                productResponse.data.data.description
         }
 
 
@@ -786,7 +845,13 @@ async function saveProduct() {
             )
 
 
+        const fieldError =
+            Object.values(
+                errors.value
+            ).flat()[0]
+
         showError(
+            fieldError ||
             errorMessage(
                 exception
             )
@@ -804,10 +869,16 @@ async function saveProduct() {
 }
 
 
-async function createBlueprint() {
+async function createBlueprint(
+    explicitId = null
+) {
+    const productId =
+        explicitId ||
+        props.id ||
+        createdProductId.value
+
     if (
-        !props.id ||
-        saving.value
+        !productId
     ) {
         return
     }
@@ -819,7 +890,7 @@ async function createBlueprint() {
 
     try {
         await api.post(
-            `/service-products/${props.id}/blueprint`,
+            `/service-products/${productId}/blueprint`,
             {
                 name:
                     `${productForm.name} Blueprint`,
@@ -830,7 +901,9 @@ async function createBlueprint() {
         )
 
 
-        await load()
+        await load(
+            productId
+        )
     } catch (
         exception
     ) {
@@ -1728,8 +1801,17 @@ function scheduleAutosave() {
     if (
         suppressAutosave.value ||
         documentEditorOpen.value ||
-        inputHasFocus.value ||
-        !autosaveEnabled.value
+        inputHasFocus.value
+    ) {
+        return
+    }
+
+    if (
+        isCreateMode.value &&
+        !String(
+            productForm.name ||
+            ''
+        ).trim()
     ) {
         return
     }
@@ -1946,28 +2028,21 @@ useAdminPageHeader({
                 lg:space-y-20
             "
         >
+            <Toast
+                v-model="
+                    showErrorToast
+                "
+                heading="Something went wrong"
+                :text="
+                    requestError
+                "
+                :duration="
+                    5000
+                "
+            />
+
+
             <Teleport to="#admin-page-header-actions">
-                <Button
-                    v-if="
-                        !isCreateMode &&
-                        !data.version
-                    "
-                    type="button"
-                    text="create structure"
-                    variant="accent"
-                    align="left"
-                    :loading="
-                        saving
-                    "
-                    :disabled="
-                        saving
-                    "
-                    @click="
-                        createBlueprint
-                    "
-                />
-
-
                 <Button
                     v-if="
                         !isCreateMode &&
@@ -2040,6 +2115,7 @@ useAdminPageHeader({
                             "
                             :error="
                                 errors.name?.[0] ||
+                                errors.slug?.[0] ||
                                 ''
                             "
                             @focus="handleFieldFocus"

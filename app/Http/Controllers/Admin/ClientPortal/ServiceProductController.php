@@ -31,7 +31,7 @@ class ServiceProductController extends Controller
     public function store(StoreServiceProductRequest $request): ServiceProductResource
     {
         $data = $request->validated();
-        $data['slug'] = $data['slug'] ?: Str::slug($data['name']);
+        $data['slug'] = $data['slug'] ?? '' ?: Str::slug($data['name'] ?? '');
 
         return ServiceProductResource::make(ServiceProduct::query()->create($data)->loadCount('projects'));
     }
@@ -44,7 +44,7 @@ class ServiceProductController extends Controller
     public function update(StoreServiceProductRequest $request, ServiceProduct $serviceProduct): ServiceProductResource
     {
         $data = $request->validated();
-        $data['slug'] = $data['slug'] ?: Str::slug($data['name']);
+        $data['slug'] = $data['slug'] ?? '' ?: Str::slug($data['name'] ?? $serviceProduct->name);
         $serviceProduct->update($data);
 
         return ServiceProductResource::make($serviceProduct->fresh()->loadCount('projects'));

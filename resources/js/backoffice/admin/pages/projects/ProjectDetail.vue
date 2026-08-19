@@ -474,14 +474,6 @@ const ticketAssignees =
 
 const ticketAssigneeOptions =
     computed(() => [
-        {
-            label:
-                'Unassigned',
-
-            value:
-                null
-        },
-
         ...ticketAssignees.value.map(
             user => ({
                 label:
@@ -2381,6 +2373,7 @@ function normalizeTicketAssignees(
     )
         .map(value => {
             if (
+                value &&
                 typeof value ===
                 'object'
             ) {
@@ -4530,7 +4523,10 @@ useAdminPageHeader({
                                 <div
                                     class="
                                         min-h-32
+                                        max-h-[32rem]
                                         space-y-2
+                                        overflow-y-auto
+                                        pr-1
                                     "
                                 >
                                     <ProjectTicket

@@ -360,6 +360,12 @@ const blockTools = ref({
     index: -1
 })
 
+const blockToolsRoot = ref(null)
+
+const turnIntoMenu = ref({
+    visible: false
+})
+
 const tableTools = ref({
     visible: false,
     top: 0,
@@ -1364,6 +1370,13 @@ function updateBlockToolsUI() {
         return
     }
 
+    if (
+        turnIntoMenu.value.visible &&
+        blockTools.value.index !== index
+    ) {
+        closeTurnIntoMenu()
+    }
+
     /*
      * Remove the previous active state first.
      */
@@ -1764,6 +1777,261 @@ function duplicateActiveBlock() {
         .run()
 
     markDirty()
+
+    nextTick(() => {
+        updateBlockToolsUI()
+    })
+}
+
+
+function extractPlainText(
+    node
+) {
+    if (!node) {
+        return ''
+    }
+
+    if (node.type === 'text') {
+        return node.text || ''
+    }
+
+    if (
+        !Array.isArray(
+            node.content
+        )
+    ) {
+        return ''
+    }
+
+    return node.content
+        .map(
+            extractPlainText
+        )
+        .join('')
+}
+
+
+function getBlockItemTexts(
+    node
+) {
+    if (
+        node?.type === 'bulletList' ||
+        node?.type === 'orderedList' ||
+        node?.type === 'taskList'
+    ) {
+        const items =
+            (node.content || []).map(
+                item =>
+                    extractPlainText(
+                        item
+                    )
+            )
+
+        return items.length
+            ? items
+            : ['']
+    }
+
+    return [
+        extractPlainText(node)
+    ]
+}
+
+
+function buildListNode(
+    kind,
+    items
+) {
+    if (kind === 'taskList') {
+        return {
+            type: 'taskList',
+            content: items.map(
+                text => ({
+                    type: 'taskItem',
+                    attrs: {
+                        checked: false
+                    },
+                    content:
+                        createTextNode(
+                            text
+                        )
+                })
+            )
+        }
+    }
+
+    return listNodes(
+        kind,
+        items
+    )
+}
+
+
+function buildTextNodes(
+    builder,
+    items
+) {
+    return items.map(
+        text => builder(text)
+    )
+}
+
+
+const turnIntoOptions = [
+    {
+        id: 'paragraph',
+        label: 'Text',
+        build: items =>
+            buildTextNodes(
+                paragraphNode,
+                items
+            )
+    },
+    {
+        id: 'heading1',
+        label: 'Heading',
+        build: items =>
+            buildTextNodes(
+                text =>
+                    headingNode(
+                        1,
+                        text
+                    ),
+                items
+            )
+    },
+    {
+        id: 'heading2',
+        label: 'Subheading',
+        build: items =>
+            buildTextNodes(
+                text =>
+                    headingNode(
+                        2,
+                        text
+                    ),
+                items
+            )
+    },
+    {
+        id: 'quote',
+        label: 'Quote',
+        build: items =>
+            buildTextNodes(
+                blockquoteNode,
+                items
+            )
+    },
+    {
+        id: 'bulletList',
+        label: 'Bullet list',
+        build: items => [
+            buildListNode(
+                'bulletList',
+                items
+            )
+        ]
+    },
+    {
+        id: 'orderedList',
+        label: 'Numbered list',
+        build: items => [
+            buildListNode(
+                'orderedList',
+                items
+            )
+        ]
+    },
+    {
+        id: 'taskList',
+        label: 'Checklist',
+        build: items => [
+            buildListNode(
+                'taskList',
+                items
+            )
+        ]
+    }
+]
+
+
+function toggleTurnIntoMenu() {
+    turnIntoMenu.value.visible =
+        !turnIntoMenu.value.visible
+}
+
+
+function closeTurnIntoMenu() {
+    turnIntoMenu.value.visible =
+        false
+}
+
+
+function turnActiveBlockInto(
+    option
+) {
+    const instance =
+        editor.value
+
+    if (!instance) {
+        return
+    }
+
+    const index =
+        blockTools.value.index
+
+    if (index < 0) {
+        return
+    }
+
+    const docJson =
+        instance.getJSON()
+
+    const content =
+        Array.isArray(
+            docJson?.content
+        )
+            ? [...docJson.content]
+            : []
+
+    if (
+        index >= content.length
+    ) {
+        return
+    }
+
+    const items =
+        getBlockItemTexts(
+            content[index]
+        )
+
+    const newNodes =
+        option.build(items)
+
+    content.splice(
+        index,
+        1,
+        ...(
+            newNodes.length
+                ? newNodes
+                : [paragraphNode('')]
+        )
+    )
+
+    instance
+        .chain()
+        .focus()
+        .setContent(
+            {
+                ...docJson,
+                content
+            },
+            false
+        )
+        .run()
+
+    markDirty()
+    closeTurnIntoMenu()
 
     nextTick(() => {
         updateBlockToolsUI()
@@ -3597,6 +3865,17 @@ function applyLinkFromModal() {
 
 function handleCommandMenuOutsideClick(event) {
     if (
+        turnIntoMenu.value.visible &&
+        blockToolsRoot.value &&
+        event.target instanceof Node &&
+        !blockToolsRoot.value.contains(
+            event.target
+        )
+    ) {
+        closeTurnIntoMenu()
+    }
+
+    if (
         !commandMenu.value.open ||
         !commandMenuRoot.value ||
         !event.target ||
@@ -4389,6 +4668,7 @@ onUnmounted(() => {
                             editable &&
                             blockTools?.visible
                         "
+                        ref="blockToolsRoot"
                         class="
                             fixed
                             z-40
@@ -4466,6 +4746,27 @@ onUnmounted(() => {
                                 hover:bg-accent
                                 hover:text-light
                             "
+                            title="Turn into"
+                            @mousedown.prevent
+                            @click="
+                                toggleTurnIntoMenu
+                            "
+                        >
+                            <i class="bi bi-arrow-repeat" />
+                        </button>
+
+                        <button
+                            type="button"
+                            class="
+                                grid
+                                h-8
+                                w-8
+                                place-items-center
+                                text-dark
+                                transition-colors
+                                hover:bg-accent
+                                hover:text-light
+                            "
                             title="Duplicate block"
                             @mousedown.prevent
                             @click="
@@ -4495,6 +4796,53 @@ onUnmounted(() => {
                         >
                             <i class="bi bi-eraser" />
                         </button>
+
+                        <div
+                            v-if="
+                                turnIntoMenu.visible
+                            "
+                            class="
+                                absolute
+                                left-0
+                                top-full
+                                z-50
+                                mt-1
+                                w-44
+                                border
+                                border-accent
+                                bg-light
+                            "
+                            @mousedown.prevent.stop
+                        >
+                            <button
+                                v-for="
+                                    option in turnIntoOptions
+                                "
+                                :key="option.id"
+                                type="button"
+                                class="
+                                    block
+                                    w-full
+                                    px-3
+                                    py-2
+                                    text-left
+                                    text-sm
+                                    transition-colors
+                                    hover:bg-accent
+                                    hover:text-light
+                                "
+                                @mousedown.prevent
+                                @click="
+                                    turnActiveBlockInto(
+                                        option
+                                    )
+                                "
+                            >
+                                {{
+                                    option.label
+                                }}
+                            </button>
+                        </div>
                     </div>
 
                     <!-- Table controls -->
@@ -5432,7 +5780,7 @@ onUnmounted(() => {
 
 .article-editor :deep(.ProseMirror th) {
     background: rgb(19 62 180 / 0.05);
-    font-weight: 700;
+    font-weight: 400;
 }
 
 .article-editor :deep(.ProseMirror .selectedCell) {

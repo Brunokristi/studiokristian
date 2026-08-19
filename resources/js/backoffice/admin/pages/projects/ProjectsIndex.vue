@@ -93,6 +93,28 @@ const canCreateProject =
     })
 
 
+const filterValues =
+    computed({
+        get() {
+            return {
+                status:
+                    state.status ||
+                    ''
+            }
+        },
+
+
+        set(value) {
+            state.status =
+                value?.status ||
+                ''
+
+            state.page =
+                1
+        }
+    })
+
+
 const statusOptions =
     computed(() => [
         {
@@ -232,7 +254,12 @@ useAdminPageHeader({
     >
         <AdminDataTable
             v-model:search="state.search"
-                v-model:filters="state.filters"
+                :filter-values="filterValues"
+                @update:filterValues="
+                    values => {
+                        filterValues = values
+                    }
+                "
                 title="All projects"
                 search-placeholder="Search by project, code or client"
                 :columns="columns"

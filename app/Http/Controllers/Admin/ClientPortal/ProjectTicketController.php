@@ -37,13 +37,15 @@ class ProjectTicketController extends Controller
     }
     public function update(Project $project, ProjectTicket $ticket, Request $request): JsonResponse
     {
-        $this->authorizeProject($project, $request); abort_unless($ticket->project_id === $project->id, 404);
-        $data = $request->validate(['status' => ['required', 'in:new,in_progress,finished'], 'priority' => ['sometimes', 'in:low,normal,high,urgent'], 'assignees' => ['sometimes', 'array'], 'assignees.*.type' => ['required', 'in:user,contact'], 'assignees.*.id' => ['required', 'integer']]);
+        $this->authorizeProject($project, $request);
+        abort_unless((int) $ticket->getAttribute('project_id') === (int) $project->getKey(), 404);
+        $data = $request->validate(['title' => ['sometimes', 'string', 'max:255'], 'description' => ['sometimes', 'string', 'max:10000'], 'status' => ['required', 'in:new,in_progress,finished'], 'priority' => ['sometimes', 'in:low,normal,high,urgent'], 'assignees' => ['sometimes', 'array'], 'assignees.*.type' => ['required', 'in:user,contact'], 'assignees.*.id' => ['required', 'integer']]);
         if (array_key_exists('assignees', $data)) {
             $data['assignees'] = $this->normalizeAssignees($project, $data['assignees']);
             $data['assigned_to'] = collect($data['assignees'])->firstWhere('type', 'user')['id'] ?? null;
         }
-        $previousAssignedTo = $ticket->assigned_to ? (int) $ticket->assigned_to : null;
+        $previousAssignedToValue = $ticket->getAttribute('assigned_to');
+        $previousAssignedTo = $previousAssignedToValue !== null ? (int) $previousAssignedToValue : null;
         $ticket->update($data + ['finished_at' => $data['status'] === 'finished' ? now() : null]);
         $this->notifyAssigneeIfCoworker($project, $ticket, $previousAssignedTo);
         return response()->json($ticket->fresh(['creator:id,name', 'clientCreator:id,first_name,last_name', 'assignee:id,name']));
@@ -52,7 +54,7 @@ class ProjectTicketController extends Controller
     public function destroy(Project $project, ProjectTicket $ticket, Request $request): JsonResponse
     {
         $this->authorizeProject($project, $request);
-        abort_unless($ticket->project_id === $project->id, 404);
+        abort_unless((int) $ticket->getAttribute('project_id') === (int) $project->getKey(), 404);
 
         $ticket->delete();
 
@@ -91,7 +93,7 @@ class ProjectTicketController extends Controller
                     $isAdmin = User::query()->whereKey($assignee['id'])->where('is_admin', true)->exists();
                     abort_unless($isCoworker || $isAdmin, 422, 'Assignee must belong to this project or be an admin.');
                 } else {
-                    abort_unless(ClientContact::query()->whereKey($assignee['id'])->where('company_id', $project->company_id)->exists(), 422, 'Contact must belong to this project client.');
+                    abort_unless(ClientContact::query()->whereKey($assignee['id'])->where('company_id', $project->getAttribute('company_id'))->exists(), 422, 'Contact must belong to this project client.');
                 }
 
                 return true;
@@ -102,7 +104,8 @@ class ProjectTicketController extends Controller
 
     private function notifyAssigneeIfCoworker(Project $project, ProjectTicket $ticket, ?int $previousAssignedTo): void
     {
-        $assignedTo = $ticket->assigned_to ? (int) $ticket->assigned_to : null;
+        $assignedToValue = $ticket->getAttribute('assigned_to');
+        $assignedTo = $assignedToValue !== null ? (int) $assignedToValue : null;
 
         if (! $assignedTo || $assignedTo === $previousAssignedTo) {
             return;

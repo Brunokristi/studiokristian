@@ -108,6 +108,24 @@ const status =
     ref('')
 
 
+const filterValues =
+    computed({
+        get() {
+            return {
+                status:
+                    status.value
+            }
+        },
+
+
+        set(value) {
+            status.value =
+                value?.status ??
+                ''
+        }
+    })
+
+
 const filteredProjects =
     computed(() => {
         const query =
@@ -266,7 +284,12 @@ useAdminPageHeader({
                         options: statusOptions
                     }
                 ]"
-                :filter-values="{ status }"
+                :filter-values="filterValues"
+                @update:filterValues="
+                    value => {
+                        filterValues = value
+                    }
+                "
                 :sort="null"
                 :direction="'asc'"
                 empty-title="No portfolio projects found."

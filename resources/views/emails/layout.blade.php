@@ -253,14 +253,7 @@
                 align="center"
                 style="
                     padding: 0;
-                    background-color: #133EB4;
-                    background-image:
-                        linear-gradient(
-                            180deg,
-                            #ffffff 0%,
-                            #133EB4 55%,
-                            #000000 100%
-                        );
+                    background: #133EB4;
                 "
             >
                 <table
@@ -279,9 +272,9 @@
                         <td
                             style="
                                 padding:
-                                    110px
-                                    20px
                                     28px
+                                    20px
+                                    24px
                                     20px;
                             "
                         >
@@ -304,7 +297,7 @@
                                         style="
                                             color: #ffffff;
                                             font-family: 'Inter', Arial, Helvetica, sans-serif;
-                                            font-size: 11px;
+                                            font-size: 10px;
                                             font-weight: 300;
                                             line-height: 1.5;
                                             text-transform: uppercase;
@@ -313,7 +306,6 @@
                                         © {{ now()->year }} STUDIO KRISTIAN.
                                         VŠETKY PRÁVA VYHRADENÉ.
                                     </td>
-
 
                                     <!-- Website -->
                                     <td
@@ -325,7 +317,7 @@
                                             style="
                                                 color: #ffffff;
                                                 font-family: 'Inter', Arial, Helvetica, sans-serif;
-                                                font-size: 11px;
+                                                font-size: 10px;
                                                 font-weight: 300;
                                                 line-height: 1.5;
                                                 text-decoration: underline;

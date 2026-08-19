@@ -3260,6 +3260,53 @@ watch(
                             </div>
                         </div>
                     </div>
+
+                    <div
+                        v-if="
+                            !currentFolderItems.length
+                        "
+                        class="
+                            flex
+                            flex-col
+                            items-center
+                            gap-2
+                            px-5
+                            py-16
+                            text-center
+                        "
+                    >
+                        <i
+                            class="
+                                bi
+                                bi-folder2-open
+                                text-3xl
+                                text-accent/40
+                            "
+                            aria-hidden="true"
+                        />
+
+                        <p
+                            class="
+                                p
+                                uppercase
+                                text-dark/40
+                            "
+                        >
+                            No files or folders yet.
+                        </p>
+
+                        <p
+                            v-if="
+                                !disabled
+                            "
+                            class="
+                                p
+                                text-dark/30
+                            "
+                        >
+                            Use the buttons above to add a folder or document.
+                        </p>
+                    </div>
                 </div>
             </main>
         </div>
