@@ -33,12 +33,12 @@ class ServiceProductController extends Controller
         $data = $request->validated();
         $data['slug'] = $data['slug'] ?: Str::slug($data['name']);
 
-        return new ServiceProductResource(ServiceProduct::query()->create($data)->loadCount('projects'));
+        return ServiceProductResource::make(ServiceProduct::query()->create($data)->loadCount('projects'));
     }
 
     public function show(ServiceProduct $serviceProduct): ServiceProductResource
     {
-        return new ServiceProductResource($serviceProduct->loadCount('projects'));
+        return ServiceProductResource::make($serviceProduct->loadCount('projects'));
     }
 
     public function update(StoreServiceProductRequest $request, ServiceProduct $serviceProduct): ServiceProductResource
@@ -47,14 +47,14 @@ class ServiceProductController extends Controller
         $data['slug'] = $data['slug'] ?: Str::slug($data['name']);
         $serviceProduct->update($data);
 
-        return new ServiceProductResource($serviceProduct->fresh()->loadCount('projects'));
+        return ServiceProductResource::make($serviceProduct->fresh()->loadCount('projects'));
     }
 
     public function deactivate(ServiceProduct $serviceProduct): ServiceProductResource
     {
         $serviceProduct->update(['active' => false]);
 
-        return new ServiceProductResource($serviceProduct->fresh()->loadCount('projects'));
+        return ServiceProductResource::make($serviceProduct->fresh()->loadCount('projects'));
     }
 
     public function destroy(ServiceProduct $serviceProduct): \Illuminate\Http\Response

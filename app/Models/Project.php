@@ -9,6 +9,10 @@ use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Facades\Schema;
 
+/**
+ * @property int $id
+ * @property int|null $company_id
+ */
 class Project extends Model
 {
     use HasFactory;

@@ -5,6 +5,14 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
+/**
+ * @property int $id
+ * @property int $project_id
+ * @property string $title
+ * @property string $description
+ * @property int|null $assigned_to
+ * @property array<int, array{type: string, id: int}>|null $assignees
+ */
 class ProjectTicket extends Model
 {
     protected $fillable = ['project_id', 'title', 'description', 'status', 'priority', 'created_by_user_id', 'created_by_client_contact_id', 'assigned_to', 'assignees', 'finished_at'];
