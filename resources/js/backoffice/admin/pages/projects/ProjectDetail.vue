@@ -203,6 +203,20 @@ const projectFolders =
     ref([])
 
 
+const projectFiles =
+    ref([])
+
+
+const projectFilesLoading =
+    ref(false)
+
+
+const projectFilesLoadedFolders =
+    reactive(
+        new Set()
+    )
+
+
 const projectFilesFolderKey =
     ref(null)
 
@@ -592,6 +606,27 @@ const statusOptions = [
             'archived'
     }
 ]
+
+async function handleProjectFilesOpenFolder(
+    folder
+) {
+    projectFilesFolderKey.value =
+        folder?.client_key ??
+        folder?.id ??
+        null
+
+    if (
+        isPersistedFolderId(
+            folder?.id
+        )
+    ) {
+        await loadProjectFilesFolder(
+            Number(
+                folder.id
+            )
+        )
+    }
+}
 
 
 const serviceOptions =
@@ -1462,7 +1497,7 @@ function mapUploadedFileToStructureItem(
             ).find(
                 item =>
                     String(
-                        item.id
+                        item?.id
                     ) ===
                     String(
                         folderId
@@ -1470,59 +1505,99 @@ function mapUploadedFileToStructureItem(
             )
 
     return {
-        id: `project-file-${file.id}`,
-        client_key: `project-file-${file.id}`,
-        type: 'file',
-        resource_type: 'file',
+        id:
+            `project-file-${file.id}`,
+
+        client_key:
+            `project-file-${file.id}`,
+
+        type:
+            'file',
+
+        resource_type:
+            'file',
+
         name:
             file?.display_name ||
             file?.original_filename ||
             'file',
-        parent_id: folderId,
+
+        parent_id:
+            folderId,
+
         parent_client_key:
             parentFolder
                 ? String(
                     parentFolder.client_key ||
                     parentFolder.id
                 )
-                : null,
+                : (
+                    folderId !== null
+                        ? String(
+                            folderId
+                        )
+                        : null
+                ),
+
         mime_type:
             file?.mime_type ||
-            '',
+            'application/octet-stream',
+
         extension:
             file?.extension ||
             '',
-        size: Number(
-            file?.size ||
-            0
-        ),
+
+        size:
+            Number(
+                file?.size ||
+                0
+            ),
+
         open_url:
             file?.open_url ||
             '',
+
         download_url:
             file?.download_url ||
             '',
-        __uploaded_file: true
+
+        __uploaded_file:
+            true
     }
 }
 
 
-async function fetchProjectUploadedFileItems(
-    id,
-    structureItems
+async function loadProjectFilesFolder(
+    folderId = null,
+    force = false
 ) {
-    const collected = []
-    const queue = [null]
-    const visited =
-        new Set()
+    if (
+        !projectId.value
+    ) {
+        return
+    }
 
-    while (queue.length) {
-        const folderId =
-            queue.shift()
+    const cacheKey =
+        folderId === null
+            ? 'root'
+            : String(folderId)
 
+    if (
+        !force &&
+        projectFilesLoadedFolders.has(
+            cacheKey
+        )
+    ) {
+        return
+    }
+
+    projectFilesLoading.value =
+        true
+
+    try {
         const response =
             await api.get(
-                `/projects/${id}/files`,
+                `/projects/${projectId.value}/files`,
                 {
                     params:
                         folderId === null
@@ -1534,13 +1609,6 @@ async function fetchProjectUploadedFileItems(
                 }
             )
 
-        const folders =
-            Array.isArray(
-                response.data?.folders
-            )
-                ? response.data.folders
-                : []
-
         const files =
             Array.isArray(
                 response.data?.files
@@ -1548,42 +1616,105 @@ async function fetchProjectUploadedFileItems(
                 ? response.data.files
                 : []
 
-        folders.forEach(
-            folder => {
-                const key =
-                    String(
-                        folder.id
-                    )
+        const structureItems =
+            structureItemsOnly(
+                projectFolders.value
+            )
 
-                if (
-                    visited.has(key)
-                ) {
-                    return
-                }
-
-                visited.add(
-                    key
-                )
-
-                queue.push(
-                    folder.id
-                )
-            }
-        )
-
-        files.forEach(
-            file => {
-                collected.push(
+        const mappedFiles =
+            files.map(
+                file =>
                     mapUploadedFileToStructureItem(
                         file,
                         structureItems
                     )
-                )
-            }
+            )
+
+        const parentKey =
+            String(
+                folderId ??
+                ''
+            )
+
+        projectFiles.value = [
+            ...projectFiles.value.filter(
+                item =>
+                    String(
+                        item?.parent_id ??
+                        ''
+                    ) !==
+                    parentKey
+            ),
+            ...mappedFiles
+        ]
+
+        projectFilesLoadedFolders.add(
+            cacheKey
         )
+    } catch (
+        exception
+    ) {
+        showError(
+            errorMessage(
+                exception
+            )
+        )
+    } finally {
+        projectFilesLoading.value =
+            false
+    }
+}
+
+
+function resetProjectFilesCache() {
+    projectFiles.value =
+        []
+
+    projectFilesLoadedFolders.clear()
+}
+
+
+async function refreshProjectFilesFolder(
+    folderId = null
+) {
+    const cacheKey =
+        folderId === null
+            ? 'root'
+            : String(folderId)
+
+    projectFilesLoadedFolders.delete(
+        cacheKey
+    )
+
+    await loadProjectFilesFolder(
+        folderId
+    )
+}
+
+
+async function refreshProjectStructure() {
+    if (
+        !projectId.value
+    ) {
+        return
     }
 
-    return collected
+    const response =
+        await api.get(
+            `/projects/${projectId.value}`
+        )
+
+    const projectData =
+        response.data?.data ||
+        {}
+
+    projectFolders.value =
+        normalizeProjectFolders(
+            projectData?.folders ||
+            [],
+            projectFolders.value ||
+            []
+        )
 }
 
 
@@ -1595,36 +1726,22 @@ async function loadProjectDetails(
             `/projects/${id}`
         )
 
-
     const projectData =
         response.data.data
-
 
     applyProjectToForm(
         projectData
     )
 
-
-    const normalizedStructure =
+    projectFolders.value =
         normalizeProjectFolders(
             projectData?.folders ||
             [],
-
             projectFolders.value ||
             []
         )
 
-    const uploadedItems =
-        await fetchProjectUploadedFileItems(
-            id,
-            normalizedStructure
-        )
-
-    projectFolders.value = [
-        ...normalizedStructure,
-        ...uploadedItems
-    ]
-
+    resetProjectFilesCache()
 
     tickets.value =
         (
@@ -1633,11 +1750,14 @@ async function loadProjectDetails(
             )
         ).data
 
-
     await loadContacts(
         projectData.company_id,
         true
     )
+
+    // Only root uploaded-file metadata is loaded here.
+    // Child folders are loaded when the user opens them.
+    void loadProjectFilesFolder()
 }
 
 
@@ -1701,6 +1821,8 @@ async function load() {
 
             projectFolders.value =
                 []
+
+            resetProjectFilesCache()
 
 
             tickets.value =
@@ -2060,6 +2182,8 @@ watch(
             projectId.value =
                 nextId
 
+            resetProjectFilesCache()
+
 
             void load()
         }
@@ -2086,6 +2210,29 @@ watch(
 
 onMounted(
     load
+)
+
+
+onBeforeUnmount(
+    () => {
+        if (
+            structureSaveTimer.value
+        ) {
+            clearTimeout(
+                structureSaveTimer.value
+            )
+        }
+
+        if (
+            projectAutosaveTimer.value
+        ) {
+            clearTimeout(
+                projectAutosaveTimer.value
+            )
+        }
+
+        resetProjectFilesCache()
+    }
 )
 
 
@@ -2741,9 +2888,22 @@ function createProjectTicket() {
 function queueStructureSave(
     value
 ) {
-    projectFolders.value =
-        value
+    const items =
+        Array.isArray(
+            value
+        )
+            ? value
+            : []
 
+    projectFolders.value =
+        structureItemsOnly(
+            items
+        )
+
+    projectFiles.value =
+        uploadedItemsOnly(
+            items
+        )
 
     if (
         structureSaveTimer.value
@@ -2753,13 +2913,11 @@ function queueStructureSave(
         )
     }
 
-
     structureSaveTimer.value =
         setTimeout(
             () => {
                 structureSaveTimer.value =
                     null
-
 
                 void saveProjectStructure()
             },
@@ -2779,13 +2937,11 @@ async function saveProjectStructure() {
         return
     }
 
-
     structureSaving.value =
         true
 
     structureSaveQueued.value =
         false
-
 
     try {
         const response =
@@ -2797,23 +2953,13 @@ async function saveProjectStructure() {
                 }
             )
 
-
-        const uploadedItems =
-            uploadedItemsOnly(
-                projectFolders.value
-            )
-
         projectFolders.value =
-            [
-                ...normalizeProjectFolders(
+            normalizeProjectFolders(
                 response.data?.folders ||
                 [],
-
                 projectFolders.value ||
                 []
-                ),
-                ...uploadedItems
-            ]
+            )
     } catch (
         exception
     ) {
@@ -3004,8 +3150,10 @@ async function handleProjectFileUpload(
             )
         }
 
-        await loadProjectDetails(
-            projectId.value
+        await refreshProjectStructure()
+
+        await refreshProjectFilesFolder(
+            folderId
         )
     } catch (exception) {
         showError(
@@ -3439,16 +3587,107 @@ async function openProjectDocument(
     })
 }
 
-
-function handleProjectFilesOpenFolder(
-    folder
+async function reviewProjectDocument(
+    document
 ) {
-    projectFilesFolderKey.value =
-        folder?.client_key ??
-        folder?.id ??
-        null
-}
+    if (
+        !document?.id
+    ) {
+        return
+    }
 
+    const existing =
+        (
+            projectFolders.value ||
+            []
+        ).find(
+            item =>
+                item?.type ===
+                    'file' &&
+                item?.resource_type ===
+                    'document' &&
+                String(
+                    item.id
+                ) ===
+                    String(
+                        document.id
+                    )
+        )
+
+    if (
+        existing
+    ) {
+        await openProjectDocument(
+            existing
+        )
+
+        return
+    }
+
+    /*
+     * The todo_signatures payload may contain only
+     * document metadata. Reload the project so we get
+     * the complete document content.
+     */
+    try {
+        const response =
+            await api.get(
+                `/projects/${projectId.value}`
+            )
+
+        const projectData =
+            response.data?.data ||
+            {}
+
+        const normalized =
+            normalizeProjectFolders(
+                projectData?.folders ||
+                [],
+                projectFolders.value ||
+                []
+            )
+
+        projectFolders.value =
+            normalized
+
+        const resolved =
+            normalized.find(
+                item =>
+                    item?.type ===
+                        'file' &&
+                    item?.resource_type ===
+                        'document' &&
+                    String(
+                        item.id
+                    ) ===
+                        String(
+                            document.id
+                        )
+            )
+
+        if (
+            resolved
+        ) {
+            await openProjectDocument(
+                resolved
+            )
+
+            return
+        }
+
+        showError(
+            'The document could not be found in the project structure.'
+        )
+    } catch (
+        exception
+    ) {
+        showError(
+            errorMessage(
+                exception
+            )
+        )
+    }
+}
 
 function syncProjectDocumentFromRoute() {
     if (
@@ -4201,7 +4440,7 @@ useAdminPageHeader({
                                     text-light
                                 "
                                 @click="
-                                    openProjectDocument(document)
+                                    reviewProjectDocument(document)
                                 "
                             >
                                 <span class="flex items-center gap-2">
@@ -4600,7 +4839,10 @@ useAdminPageHeader({
 
                         <FileStructure
                             :model-value="
-                                projectFolders
+                                [
+                                ...projectFolders,
+                                ...projectFiles
+                            ]
                             "
                             :initial-folder-id="
                                 projectFilesInitialFolderId

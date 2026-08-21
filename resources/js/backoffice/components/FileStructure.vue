@@ -1195,12 +1195,30 @@ function browseMoveFolder(
         return
     }
 
+    // Clicking a folder immediately selects it as
+    // the destination. No second confirmation is needed.
+    moveDestination.value =
+        String(
+            folder.id
+        )
+
+    moveError.value =
+        ''
+
+    // Continue browsing inside the selected folder.
     moveBrowserFolderId.value =
         folder.id
 }
 
 
 function browseMoveRoot() {
+    // Clicking Project immediately selects the root.
+    moveDestination.value =
+        '__root__'
+
+    moveError.value =
+        ''
+
     moveBrowserFolderId.value =
         null
 }
@@ -1222,19 +1240,6 @@ function browseMoveUp() {
     moveBrowserFolderId.value =
         current?.parent_id ??
         null
-}
-
-
-function selectCurrentMoveDestination() {
-    moveDestination.value =
-        moveBrowserFolderId.value === null
-            ? '__root__'
-            : String(
-                moveBrowserFolderId.value
-            )
-
-    moveError.value =
-        ''
 }
 
 
@@ -2252,6 +2257,41 @@ async function confirmDelete() {
     }
 }
 
+function menuPosition(item) {
+    const element = document.querySelector(
+        `[data-file-item-id="${item.id}"]`
+    )
+
+    if (!element) {
+        return 'top-full'
+    }
+
+    const rect = element.getBoundingClientRect()
+    const menuHeight = 240
+    const spaceBelow = window.innerHeight - rect.bottom
+
+    return spaceBelow < menuHeight
+        ? 'bottom-full'
+        : 'top-full'
+}
+
+function shouldOpenMenuUp(item) {
+    const element = document.querySelector(
+        `[data-file-item-id="${item.id}"]`
+    )
+
+    if (!element) {
+        return false
+    }
+
+    const rect = element.getBoundingClientRect()
+
+    return (
+        window.innerHeight -
+        rect.bottom
+    ) < 260
+}
+
 
 /*
 |--------------------------------------------------------------------------
@@ -2465,6 +2505,10 @@ watch(
 <template>
     <div
         class="
+            flex
+            max-h-[60vh]
+            min-h-0
+            flex-col
             overflow-hidden
             border
             border-accent
@@ -2475,6 +2519,7 @@ watch(
         <div
             class="
                 flex
+                shrink-0
                 flex-col
                 gap-5
                 border-b
@@ -2794,522 +2839,521 @@ watch(
         </div>
 
 
-        <!-- Layout -->
-        <div
+        <!-- Layout --->
+        <main
             class="
-                flex
-                min-h-[520px]
-                flex-col
+                min-h-0
+                flex-1
+                overflow-y-auto
+                overscroll-contain
             "
         >
-            <!-- File area -->
-            <main
+            <!-- Items -->
+            <div
                 class="
-                    min-w-0
-                    flex-1
+                    divide-y
+                    divide-accent/20
                 "
             >
-                <!-- Items -->
                 <div
+                    v-for="
+                        item
+                        in currentFolderItems
+                    "
+                    :key="
+                        item.id
+                    "
+                    :data-file-item-id="
+                        item.id
+                "
                     class="
-                        divide-y
-                        divide-accent/20
+                        group
+                        flex
+                        w-full
+                        min-h-16
+                        items-center
+                        justify-between
+                        gap-4
+                        px-5
+                        py-3
+                        transition-colors
+                    "
+                    :class="
+                        selectedItem ===
+                        item.id
+                            ? 'bg-accent/10'
+                            : 'hover:bg-accent/[0.04]'
+                    "
+                    tabindex="0"
+                    @click.stop="
+                        selectItem(item)
+                    "
+                    @dblclick.stop="
+                        openResource(item)
+                    "
+                    @keydown="
+                        handleItemKeydown(
+                            $event,
+                            item
+                        )
                     "
                 >
+                    <!-- Name -->
                     <div
-                        v-for="
-                            item
-                            in currentFolderItems
-                        "
-                        :key="
-                            item.id
-                        "
                         class="
-                            group
+                            col-span-2
                             flex
-                            w-full
-                            min-h-16
+                            min-w-0
                             items-center
-                            justify-between
-                            gap-4
-                            px-5
-                            py-3
-                            transition-colors
-                        "
-                        :class="
-                            selectedItem ===
-                            item.id
-                                ? 'bg-accent/10'
-                                : 'hover:bg-accent/[0.04]'
-                        "
-                        tabindex="0"
-                        @click.stop="
-                            selectItem(item)
-                        "
-                        @dblclick.stop="
-                            openResource(item)
-                        "
-                        @keydown="
-                            handleItemKeydown(
-                                $event,
-                                item
-                            )
-                        "
-                    >
-                        <!-- Name -->
-                        <div
-                            class="
-                                col-span-2
-                                flex
-                                min-w-0
-                                items-center
-                                gap-3
-                                sm:col-span-1
-                            "
-                        >
-                            <i
-                                class="
-                                    bi
-                                    shrink-0
-                                    text-xl
-                                "
-                                :class="
-                                    item.type === 'folder'
-                                        ? 'bi-folder-fill text-accent'
-                                        : item.resource_type === 'link'
-                                            ? 'bi-link-45deg text-accent'
-                                            : 'bi-file-earmark text-accent'
-                                "
-                                aria-hidden="true"
-                            />
-
-
-                            <div
-                                class="
-                                    min-w-0
-                                    flex-1
-                                "
-                            >
-                                <input
-                                    v-if="
-                                        renamingItem ===
-                                        item.id
-                                    "
-                                    ref="
-                                        renameInput
-                                    "
-                                    v-model="
-                                        renameValue
-                                    "
-                                    type="text"
-                                    class="
-                                        w-full
-                                        max-w-lg
-                                        border-0
-                                        border-b
-                                        border-accent
-                                        bg-transparent
-                                        p-0
-                                        font-mono
-                                        text-xs
-                                        font-bold
-                                        uppercase
-                                        outline-none
-                                        focus:outline-none
-                                        focus:ring-0
-                                        focus:border-accent
-                                    "
-                                    @click.stop
-                                    @keydown.enter.stop="
-                                        finishRename
-                                    "
-                                    @keydown.esc.stop="
-                                        cancelRename
-                                    "
-                                    @blur="
-                                        finishRename
-                                    "
-                                />
-
-
-                                <span
-                                    v-else
-                                    class="
-                                        block
-                                        truncate
-                                        font-mono
-                                        text-xs
-                                        font-bold
-                                        uppercase
-                                    "
-                                >
-                                    {{
-                                        item.name
-                                    }}
-                                </span>
-
-
-                                <span
-                                    class="
-                                        mt-1
-                                        block
-                                        truncate
-                                        font-mono
-                                        text-[10px]
-                                        uppercase
-                                        text-dark/30
-                                        sm:hidden
-                                    "
-                                >
-                                    {{
-                                        item.type === 'folder'
-                                            ? 'Folder'
-                                            : item.resource_type === 'link'
-                                                ? 'Link'
-                                                : item.resource_type === 'document'
-                                                    ? 'Document'
-                                                    : humanFileType(item)
-                                    }}
-                                </span>
-                            </div>
-                        </div>
-
-                        <div class="flex gap-4">
-                            <!-- Details -->
-                            <div
-                                class="
-                                    hidden
-                                    min-w-0
-                                    flex-wrap
-                                    items-center
-                                    gap-2
-                                    sm:flex
-                                "
-                            >
-                                <template
-                                    v-if="
-                                        item.type === 'file'
-                                    "
-                                >
-                                    <Tag
-                                        v-if="
-                                            item.requirement_level
-                                        "
-                                        :text="
-                                            item.requirement_level
-                                        "
-                                    />
-
-
-                                    <Tag
-                                        v-if="
-                                            item.resource_type === 'document' &&
-                                            item.requires_client_signature
-                                        "
-                                        text="signature"
-                                    />
-                                </template>
-                            </div>
-
-
-                            <!-- Actions -->
-                            <div
-                                class="
-                                    relative
-                                    flex
-                                    shrink-0
-                                    items-center
-                                    justify-end
-                                "
-                            >
-                                <button
-                                    v-if="
-                                        !disabled
-                                    "
-                                    type="button"
-                                    class="
-                                        flex
-                                        h-8
-                                        w-8
-                                        items-center
-                                        justify-center
-                                        text-dark
-                                        transition-colors
-                                        hover:text-accent
-                                    "
-                                    :aria-label="
-                                        `Actions for ${item.name}`
-                                    "
-                                    :aria-expanded="
-                                        openMenu ===
-                                        item.id
-                                            ? 'true'
-                                            : 'false'
-                                    "
-                                    @click.stop="
-                                        toggleMenu(
-                                            item.id
-                                        )
-                                    "
-                                >
-                                    <i
-                                        class="
-                                            bi
-                                            bi-three-dots
-                                            text-lg
-                                        "
-                                        aria-hidden="true"
-                                    />
-                                </button>
-
-
-                                <!-- Context menu -->
-                                <div
-                                    v-if="
-                                        openMenu ===
-                                        item.id
-                                    "
-                                    class="
-                                        absolute
-                                        right-0
-                                        top-full
-                                        z-30
-                                        mt-1
-                                        min-w-36
-                                        border
-                                        border-dark
-                                        bg-light
-                                    "
-                                    @click.stop
-                                >
-                                    <button
-                                        type="button"
-                                        class="
-                                            flex
-                                            w-full
-                                            items-center
-                                            gap-3
-                                            px-3
-                                            py-2.5
-                                            text-left
-                                            p
-                                            text-dark
-                                            transition-colors
-                                            hover:bg-dark
-                                            hover:text-light
-                                        "
-                                        @click="
-                                            openMenu = null;
-                                            openResource(item)
-                                        "
-                                    >
-                                        <span>
-                                            Open
-                                        </span>
-                                    </button>
-
-
-                                    <button
-                                        v-if="
-                                            canDownloadResource(item)
-                                        "
-                                        type="button"
-                                        class="
-                                            flex
-                                            w-full
-                                            items-center
-                                            gap-3
-                                            px-3
-                                            py-2.5
-                                            text-left
-                                            p
-                                            text-dark
-                                            transition-colors
-                                            hover:bg-dark
-                                            hover:text-light
-                                        "
-                                        @click="
-                                            openMenu = null;
-                                            downloadFile(item)
-                                        "
-                                    >
-                                        <span>
-                                            Download
-                                        </span>
-                                    </button>
-
-
-                                    <button
-                                        v-if="
-                                            item.type === 'file'
-                                        "
-                                        type="button"
-                                        class="
-                                            flex
-                                            w-full
-                                            items-center
-                                            gap-3
-                                            px-3
-                                            py-2.5
-                                            text-left
-                                            p
-                                            text-dark
-                                            transition-colors
-                                            hover:bg-dark
-                                            hover:text-light
-                                        "
-                                        @click="
-                                            openMenu = null;
-                                            openFileEditor(item)
-                                        "
-                                    >
-                                        <span>
-                                            Edit
-                                        </span>
-                                    </button>
-
-
-                                    <button
-                                        type="button"
-                                        class="
-                                            flex
-                                            w-full
-                                            items-center
-                                            gap-3
-                                            px-3
-                                            py-2.5
-                                            text-left
-                                            p
-                                            text-dark
-                                            transition-colors
-                                            hover:bg-dark
-                                            hover:text-light
-                                        "
-                                        @click="
-                                            openMenu = null;
-                                            openMoveDialog(item)
-                                        "
-                                    >
-                                        <span>
-                                            Move
-                                        </span>
-                                    </button>
-
-
-                                    <button
-                                        type="button"
-                                        class="
-                                            flex
-                                            w-full
-                                            items-center
-                                            gap-3
-                                            px-3
-                                            py-2.5
-                                            text-left
-                                            p
-                                            text-dark
-                                            transition-colors
-                                            hover:bg-dark
-                                            hover:text-light
-                                        "
-                                        @click="
-                                            openMenu = null;
-                                            startRename(item)
-                                        "
-                                    >
-
-                                        <span>
-                                            Rename
-                                        </span>
-                                    </button>
-
-
-                                    <button
-                                        type="button"
-                                        class="
-                                            flex
-                                            w-full
-                                            items-center
-                                            gap-3
-                                            px-3
-                                            py-2.5
-                                            text-left
-                                            p
-                                            text-dark
-                                            transition-colors
-                                            hover:bg-dark
-                                            hover:text-light
-                                        "
-                                        @click="
-                                            openMenu = null;
-                                            requestDelete(item)
-                                        "
-                                        :disabled="
-                                            !canDeleteItem(item)
-                                        "
-                                    >
-                                        <span>
-                                            {{
-                                                !canDeleteItem(item)
-                                                    ? 'Required'
-                                                    : 'Delete'
-                                            }}
-                                        </span>
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div
-                        v-if="
-                            !currentFolderItems.length
-                        "
-                        class="
-                            flex
-                            flex-col
-                            items-center
-                            gap-2
-                            px-5
-                            py-16
-                            text-center
+                            gap-3
+                            sm:col-span-1
                         "
                     >
                         <i
                             class="
                                 bi
-                                bi-folder2-open
-                                text-3xl
-                                text-accent/40
+                                shrink-0
+                                text-xl
+                            "
+                            :class="
+                                item.type === 'folder'
+                                    ? 'bi-folder-fill text-accent'
+                                    : item.resource_type === 'link'
+                                        ? 'bi-link-45deg text-accent'
+                                        : 'bi-file-earmark text-accent'
                             "
                             aria-hidden="true"
                         />
 
-                        <p
-                            class="
-                                p
-                                uppercase
-                                text-dark/40
-                            "
-                        >
-                            No files or folders yet.
-                        </p>
 
-                        <p
-                            v-if="
-                                !disabled
-                            "
+                        <div
                             class="
-                                p
-                                text-dark/30
+                                min-w-0
+                                flex-1
                             "
                         >
-                            Use the buttons above to add a folder or document.
-                        </p>
+                            <input
+                                v-if="
+                                    renamingItem ===
+                                    item.id
+                                "
+                                ref="
+                                    renameInput
+                                "
+                                v-model="
+                                    renameValue
+                                "
+                                type="text"
+                                class="
+                                    w-full
+                                    max-w-lg
+                                    border-0
+                                    border-b
+                                    border-accent
+                                    bg-transparent
+                                    p-0
+                                    font-mono
+                                    text-xs
+                                    font-bold
+                                    uppercase
+                                    outline-none
+                                    focus:outline-none
+                                    focus:ring-0
+                                    focus:border-accent
+                                "
+                                @click.stop
+                                @keydown.enter.stop="
+                                    finishRename
+                                "
+                                @keydown.esc.stop="
+                                    cancelRename
+                                "
+                                @blur="
+                                    finishRename
+                                "
+                            />
+
+
+                            <span
+                                v-else
+                                class="
+                                    block
+                                    truncate
+                                    font-mono
+                                    text-xs
+                                    font-bold
+                                    uppercase
+                                "
+                            >
+                                {{
+                                    item.name
+                                }}
+                            </span>
+
+
+                            <span
+                                class="
+                                    mt-1
+                                    block
+                                    truncate
+                                    font-mono
+                                    text-[10px]
+                                    uppercase
+                                    text-dark/30
+                                    sm:hidden
+                                "
+                            >
+                                {{
+                                    item.type === 'folder'
+                                        ? 'Folder'
+                                        : item.resource_type === 'link'
+                                            ? 'Link'
+                                            : item.resource_type === 'document'
+                                                ? 'Document'
+                                                : humanFileType(item)
+                                }}
+                            </span>
+                        </div>
+                    </div>
+
+                    <div class="flex gap-4">
+                        <!-- Details -->
+                        <div
+                            class="
+                                hidden
+                                min-w-0
+                                flex-wrap
+                                items-center
+                                gap-2
+                                sm:flex
+                            "
+                        >
+                            <template
+                                v-if="
+                                    item.type === 'file'
+                                "
+                            >
+                                <Tag
+                                    v-if="
+                                        item.requirement_level
+                                    "
+                                    :text="
+                                        item.requirement_level
+                                    "
+                                />
+
+
+                                <Tag
+                                    v-if="
+                                        item.resource_type === 'document' &&
+                                        item.requires_client_signature
+                                    "
+                                    text="signature"
+                                />
+                            </template>
+                        </div>
+
+
+                        <!-- Actions -->
+                        <div
+                            class="
+                                relative
+                                flex
+                                shrink-0
+                                items-center
+                                justify-end
+                            "
+                        >
+                            <button
+                                v-if="
+                                    !disabled
+                                "
+                                type="button"
+                                class="
+                                    flex
+                                    h-8
+                                    w-8
+                                    items-center
+                                    justify-center
+                                    text-dark
+                                    transition-colors
+                                    hover:text-accent
+                                "
+                                :aria-label="
+                                    `Actions for ${item.name}`
+                                "
+                                :aria-expanded="
+                                    openMenu ===
+                                    item.id
+                                        ? 'true'
+                                        : 'false'
+                                "
+                                @click.stop="
+                                    toggleMenu(
+                                        item.id
+                                    )
+                                "
+                            >
+                                <i
+                                    class="
+                                        bi
+                                        bi-three-dots
+                                        text-lg
+                                    "
+                                    aria-hidden="true"
+                                />
+                            </button>
+
+
+                            <!-- Context menu -->
+                            <div
+                                v-if="
+                                    openMenu ===
+                                    item.id
+                                "
+                                class="
+                                    absolute
+                                    right-0
+                                    z-[20000]
+                                    min-w-36
+                                    border
+                                    border-dark
+                                    bg-light
+                                "
+                                :class="
+                                    shouldOpenMenuUp(item)
+                                        ? 'bottom-full mb-1'
+                                        : 'top-full mt-1'
+                                "
+                                @click.stop
+                            >
+                                <button
+                                    type="button"
+                                    class="
+                                        flex
+                                        w-full
+                                        items-center
+                                        gap-3
+                                        px-3
+                                        py-2.5
+                                        text-left
+                                        p
+                                        text-dark
+                                        transition-colors
+                                        hover:bg-dark
+                                        hover:text-light
+                                    "
+                                    @click="
+                                        openMenu = null;
+                                        openResource(item)
+                                    "
+                                >
+                                    <span>
+                                        Open
+                                    </span>
+                                </button>
+
+
+                                <button
+                                    v-if="
+                                        canDownloadResource(item)
+                                    "
+                                    type="button"
+                                    class="
+                                        flex
+                                        w-full
+                                        items-center
+                                        gap-3
+                                        px-3
+                                        py-2.5
+                                        text-left
+                                        p
+                                        text-dark
+                                        transition-colors
+                                        hover:bg-dark
+                                        hover:text-light
+                                    "
+                                    @click="
+                                        openMenu = null;
+                                        downloadFile(item)
+                                    "
+                                >
+                                    <span>
+                                        Download
+                                    </span>
+                                </button>
+
+
+                                <button
+                                    v-if="
+                                        item.type === 'file'
+                                    "
+                                    type="button"
+                                    class="
+                                        flex
+                                        w-full
+                                        items-center
+                                        gap-3
+                                        px-3
+                                        py-2.5
+                                        text-left
+                                        p
+                                        text-dark
+                                        transition-colors
+                                        hover:bg-dark
+                                        hover:text-light
+                                    "
+                                    @click="
+                                        openMenu = null;
+                                        openFileEditor(item)
+                                    "
+                                >
+                                    <span>
+                                        Edit
+                                    </span>
+                                </button>
+
+
+                                <button
+                                    type="button"
+                                    class="
+                                        flex
+                                        w-full
+                                        items-center
+                                        gap-3
+                                        px-3
+                                        py-2.5
+                                        text-left
+                                        p
+                                        text-dark
+                                        transition-colors
+                                        hover:bg-dark
+                                        hover:text-light
+                                    "
+                                    @click="
+                                        openMenu = null;
+                                        openMoveDialog(item)
+                                    "
+                                >
+                                    <span>
+                                        Move
+                                    </span>
+                                </button>
+
+
+                                <button
+                                    type="button"
+                                    class="
+                                        flex
+                                        w-full
+                                        items-center
+                                        gap-3
+                                        px-3
+                                        py-2.5
+                                        text-left
+                                        p
+                                        text-dark
+                                        transition-colors
+                                        hover:bg-dark
+                                        hover:text-light
+                                    "
+                                    @click="
+                                        openMenu = null;
+                                        startRename(item)
+                                    "
+                                >
+
+                                    <span>
+                                        Rename
+                                    </span>
+                                </button>
+
+
+                                <button
+                                    type="button"
+                                    class="
+                                        flex
+                                        w-full
+                                        items-center
+                                        gap-3
+                                        px-3
+                                        py-2.5
+                                        text-left
+                                        p
+                                        text-dark
+                                        transition-colors
+                                        hover:bg-dark
+                                        hover:text-light
+                                    "
+                                    @click="
+                                        openMenu = null;
+                                        requestDelete(item)
+                                    "
+                                    :disabled="
+                                        !canDeleteItem(item)
+                                    "
+                                >
+                                    <span>
+                                        {{
+                                            !canDeleteItem(item)
+                                                ? 'Required'
+                                                : 'Delete'
+                                        }}
+                                    </span>
+                                </button>
+                            </div>
+                        </div>
                     </div>
                 </div>
-            </main>
-        </div>
+
+                <div
+                    v-if="
+                        !currentFolderItems.length
+                    "
+                    class="
+                        flex
+                        flex-col
+                        items-center
+                        gap-2
+                        px-5
+                        py-16
+                        text-center
+                    "
+                >
+                    <i
+                        class="
+                            bi
+                            bi-folder2-open
+                            text-3xl
+                            text-accent/40
+                        "
+                        aria-hidden="true"
+                    />
+
+                    <p
+                        class="
+                            p
+                            uppercase
+                            text-dark/40
+                        "
+                    >
+                        No files or folders yet.
+                    </p>
+
+                    <p
+                        v-if="
+                            !disabled
+                        "
+                        class="
+                            p
+                            text-dark/30
+                        "
+                    >
+                        Use the buttons above to add a folder or document.
+                    </p>
+                </div>
+            </div>
+        </main>
 
 
         <Modal
@@ -3514,30 +3558,20 @@ watch(
                         border-accent/20
                         px-4
                         py-3
-                        flex
-                        items-center
-                        justify-between
-                        gap-3
                     "
                 >
-                    <span
+                    <p
                         class="
                             p
                             uppercase
                             text-dark/60
                         "
                     >
-                        Selected: {{ selectedMoveDestinationLabel }}
-                    </span>
-
-                    <Button
-                        type="button"
-                        text="select this location"
-                        align="right"
-                        @click="
-                            selectCurrentMoveDestination
-                        "
-                    />
+                        Destination:
+                        <strong>
+                            {{ selectedMoveDestinationLabel }}
+                        </strong>
+                    </p>
                 </div>
             </div>
 
