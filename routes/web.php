@@ -218,6 +218,7 @@ Route::prefix('admin/client-portal')->middleware(['auth', 'admin'])->name('admin
         Route::patch('/projects/{project}/files/{file}', [AdminProjectFileController::class, 'rename'])->name('projects.files.rename');
         Route::get('/projects/{project}/files/{file}/download', [AdminProjectFileController::class, 'download'])->name('projects.files.download');
         Route::get('/projects/{project}/files/{file}/open', [AdminProjectFileController::class, 'open'])->name('projects.files.open');
+        Route::put('/projects/{project}/files/{file}/move',[AdminProjectFileController::class, 'move'])->name('projects.files.move');
         Route::post('/projects/{project}/coworkers', [AdminProjectCoworkerController::class, 'store'])->name('projects.coworkers.store');
         Route::post('/projects/{project}/coworkers/{user}/resend-invitation', [AdminProjectCoworkerController::class, 'resendCoworkerInvitation'])->name('projects.coworkers.resend-invitation');
         Route::post('/projects/{project}/contacts/invite', [AdminProjectCoworkerController::class, 'inviteContact'])->name('projects.contacts.invite');

@@ -17,11 +17,21 @@ import AdminConfirmDialog from '@shared/components/ConfirmDialog.vue'
 import Modal from '@shared/components/Modal.vue'
 
 
+import api, {
+    errorMessage
+} from '../admin/composables/useAdminApi'
+
+
 const props =
     defineProps({
         modelValue: {
             type: Array,
             default: () => []
+        },
+
+        projectId: {
+            type: [String, Number, null],
+            default: null
         },
 
         initialFolderId: {
@@ -83,6 +93,18 @@ const selectedItem =
 
 const openMenu =
     ref(null)
+
+
+const contextMenuCoords =
+    ref(null)
+
+
+const contextMenuRef =
+    ref(null)
+
+
+const menuButtonRefs =
+    {}
 
 
 const renamingItem =
@@ -195,21 +217,76 @@ const files =
     )
 
 
-const currentFolderItems =
-    computed(() =>
-        props.modelValue.filter(
-            item =>
-                item.parent_id ===
-                currentFolder.value
-        )
+function compareFileStructureNames(
+    first,
+    second
+) {
+    return String(
+        first?.name ||
+        ''
+    ).localeCompare(
+        String(
+            second?.name ||
+            ''
+        ),
+        undefined,
+        {
+            numeric: true,
+            sensitivity: 'base'
+        }
     )
+}
+
+
+function sortFileStructureItems(
+    items
+) {
+    const folders =
+        items.filter(
+            item =>
+                item.type ===
+                'folder'
+        )
+
+    const files =
+        items.filter(
+            item =>
+                item.type ===
+                'file'
+        )
+
+    return [
+        ...folders.sort(
+            compareFileStructureNames
+        ),
+        ...files.sort(
+            compareFileStructureNames
+        )
+    ]
+}
+
+
+const currentFolderItems =
+    computed(() => {
+        const items =
+            props.modelValue.filter(
+                item =>
+                    item.parent_id ===
+                    currentFolder.value
+            )
+
+        return sortFileStructureItems(
+            items
+        )
+    })
 
 
 const currentFolders =
     computed(() =>
         currentFolderItems.value.filter(
             item =>
-                item.type === 'folder'
+                item.type ===
+                'folder'
         )
     )
 
@@ -218,7 +295,8 @@ const currentFiles =
     computed(() =>
         currentFolderItems.value.filter(
             item =>
-                item.type === 'file'
+                item.type ===
+                'file'
         )
     )
 
@@ -318,16 +396,7 @@ const folderTreeRows =
                         }
                     )
                     .sort(
-                        (a, b) =>
-                            String(
-                                a.name ||
-                                ''
-                            ).localeCompare(
-                                String(
-                                    b.name ||
-                                    ''
-                                )
-                            )
+                        compareFileStructureNames
                     )
 
             children.forEach(
@@ -447,6 +516,37 @@ function getItem(
             String(item.id) ===
             String(id)
     )
+}
+
+
+function resolvedProjectIdForItem(
+    item
+) {
+    if (props.projectId) {
+        return props.projectId
+    }
+
+    if (item?.project_id) {
+        return item.project_id
+    }
+
+    const urls = [
+        item?.open_url,
+        item?.download_url
+    ]
+
+    for (const value of urls) {
+        const match =
+            String(value || '').match(
+                /\/projects\/(\d+)\/files\//
+            )
+
+        if (match?.[1]) {
+            return match[1]
+        }
+    }
+
+    return null
 }
 
 
@@ -968,35 +1068,181 @@ function selectItem(
 |--------------------------------------------------------------------------
 */
 
-function toggleMenu(
+function setMenuButtonRef(
+    itemId,
+    element
+) {
+    if (element) {
+        menuButtonRefs[
+            String(itemId)
+        ] = element
+    } else {
+        delete menuButtonRefs[
+            String(itemId)
+        ]
+    }
+}
+
+
+function setContextMenuRef(
+    element
+) {
+    contextMenuRef.value =
+        element
+}
+
+
+async function positionContextMenu() {
+    await nextTick()
+
+    const itemId =
+        openMenu.value
+
+    if (
+        itemId === null ||
+        itemId === undefined
+    ) {
+        return
+    }
+
+    const button =
+        menuButtonRefs[
+            String(itemId)
+        ]
+
+    const menu =
+        Array.isArray(
+            contextMenuRef.value
+        )
+            ? contextMenuRef.value[0]
+            : contextMenuRef.value
+
+    if (
+        !button ||
+        !menu
+    ) {
+        return
+    }
+
+    const buttonRect =
+        button.getBoundingClientRect()
+
+    const menuRect =
+        menu.getBoundingClientRect()
+
+    const padding =
+        8
+
+    const gap =
+        4
+
+    let left =
+        buttonRect.right -
+        menuRect.width
+
+    left =
+        Math.max(
+            padding,
+            Math.min(
+                left,
+                window.innerWidth -
+                    menuRect.width -
+                    padding
+            )
+        )
+
+    let top =
+        buttonRect.bottom +
+        gap
+
+    if (
+        top +
+            menuRect.height >
+        window.innerHeight -
+            padding
+    ) {
+        top =
+            buttonRect.top -
+            menuRect.height -
+            gap
+    }
+
+    top =
+        Math.max(
+            padding,
+            Math.min(
+                top,
+                window.innerHeight -
+                    menuRect.height -
+                    padding
+            )
+        )
+
+    contextMenuCoords.value = {
+        top,
+        left
+    }
+}
+
+
+async function toggleMenu(
     itemId
 ) {
     if (
         openMenu.value ===
         itemId
     ) {
-        openMenu.value =
-            null
+        closeMenu()
 
         return
     }
 
+    /*
+     * The menu itself is rendered only when
+     * contextMenuCoords exists. Therefore we must
+     * give it an initial position first; otherwise
+     * positionContextMenu() can never measure the
+     * menu because the menu has not been rendered.
+     */
+    contextMenuCoords.value = {
+        top: 0,
+        left: 0
+    }
 
     openMenu.value =
         itemId
+
+    await nextTick()
+
+    await positionContextMenu()
 }
 
 
 function closeMenu() {
     openMenu.value =
         null
+
+    contextMenuCoords.value =
+        null
 }
 
 
-function handleDocumentClick() {
+function handleDocumentClick(
+    event
+) {
+    const target =
+        event?.target
+
+    if (
+        target?.closest?.(
+            '[data-file-structure-menu]'
+        )
+    ) {
+        return
+    }
+
     uploadMenuOpen.value =
         false
-
 
     closeMenu()
 }
@@ -1195,8 +1441,9 @@ function browseMoveFolder(
         return
     }
 
-    // Clicking a folder immediately selects it as
-    // the destination. No second confirmation is needed.
+    moveBrowserFolderId.value =
+        folder.id
+
     moveDestination.value =
         String(
             folder.id
@@ -1204,23 +1451,18 @@ function browseMoveFolder(
 
     moveError.value =
         ''
-
-    // Continue browsing inside the selected folder.
-    moveBrowserFolderId.value =
-        folder.id
 }
 
 
 function browseMoveRoot() {
-    // Clicking Project immediately selects the root.
+    moveBrowserFolderId.value =
+        null
+
     moveDestination.value =
         '__root__'
 
     moveError.value =
         ''
-
-    moveBrowserFolderId.value =
-        null
 }
 
 
@@ -1241,6 +1483,7 @@ function browseMoveUp() {
         current?.parent_id ??
         null
 }
+
 
 
 function openMoveDialog(
@@ -1287,23 +1530,42 @@ function closeMoveDialog() {
 }
 
 
-function confirmMove() {
+async function confirmMove() {
     if (!moveTarget.value) {
         return
     }
+
+    const target =
+        moveTarget.value
 
     const destinationId =
         moveDestination.value ===
         '__root__'
             ? null
-            : moveDestination.value
+            : Number(
+                moveDestination.value
+            )
+
+    if (
+        destinationId !== null &&
+        !Number.isInteger(
+            destinationId
+        )
+    ) {
+        moveError.value =
+            'Please select a valid destination folder.'
+
+        return
+    }
 
     if (
         String(
-            moveTarget.value.parent_id ?? '__root__'
+            target.parent_id ??
+            '__root__'
         ) ===
         String(
-            destinationId ?? '__root__'
+            destinationId ??
+            '__root__'
         )
     ) {
         closeMoveDialog()
@@ -1312,12 +1574,9 @@ function confirmMove() {
 
     const destinationFolder =
         destinationId !== null
-            ? getItem(destinationId)
-            : null
-
-    const normalizedDestinationId =
-        destinationFolder
-            ? destinationFolder.id
+            ? getItem(
+                destinationId
+            )
             : null
 
     if (
@@ -1329,31 +1588,93 @@ function confirmMove() {
             'Please select a valid destination folder.'
         return
     }
-            normalizedDestinationId ?? '__root__'
-    update(
-        props.modelValue.map(
-            item =>
-                String(item.id) ===
-                String(
-                    moveTarget.value.id
-                )
-                    ? {
-                        ...item,
-                        parent_id:
-                            normalizedDestinationId,
-                        parent_client_key:
-                            destinationFolder
-                                ? String(
-                                    destinationFolder.client_key ||
-                                    destinationFolder.id
-                                )
-                                : null
-                    }
-                    : item
-        )
-    )
 
-    closeMoveDialog()
+    try {
+        if (target.__uploaded_file) {
+            const fileId =
+                String(
+                    target.id
+                ).replace(
+                    'project-file-',
+                    ''
+                )
+
+            const resolvedProjectId =
+                resolvedProjectIdForItem(
+                    target
+                )
+
+            if (!resolvedProjectId) {
+                throw new Error(
+                    'Project ID is required to move an uploaded file.'
+                )
+            }
+
+            const response =
+                await api.put(
+                    `/projects/${resolvedProjectId}/files/${fileId}/move`,
+                    {
+                        folder_id:
+                            destinationId
+                    }
+                )
+
+            const updated =
+                response.data?.data ||
+                response.data ||
+                {}
+
+            update(
+                props.modelValue.map(
+                    item =>
+                        String(item.id) ===
+                        String(target.id)
+                            ? {
+                                ...item,
+                                parent_id:
+                                    updated.folder_id ??
+                                    destinationId,
+                                parent_client_key:
+                                    updated.folder_id !== null &&
+                                    updated.folder_id !== undefined
+                                        ? String(
+                                            updated.folder_id
+                                        )
+                                        : null
+                            }
+                            : item
+                )
+            )
+        } else {
+            update(
+                props.modelValue.map(
+                    item =>
+                        String(item.id) ===
+                        String(target.id)
+                            ? {
+                                ...item,
+                                parent_id:
+                                    destinationId,
+                                parent_client_key:
+                                    destinationFolder
+                                        ? String(
+                                            destinationFolder.client_key ||
+                                            destinationFolder.id
+                                        )
+                                        : null
+                            }
+                            : item
+                )
+            )
+        }
+
+        closeMoveDialog()
+    } catch (exception) {
+        moveError.value =
+            errorMessage(
+                exception
+            )
+    }
 }
 
 
@@ -1398,65 +1719,125 @@ async function startRename(
 }
 
 
-function finishRename() {
-    if (
-        !renamingItem.value
-    ) {
+async function finishRename() {
+    if (!renamingItem.value) {
         return
     }
-
 
     const item =
         getItem(
             renamingItem.value
         )
 
-
     if (!item) {
         cancelRename()
-
         return
     }
 
-
     const name =
         renameValue.value.trim()
-
 
     if (!name) {
         renameValue.value =
             item.name
 
-
         renamingItem.value =
             null
-
         return
     }
 
-
-    update(
-        props.modelValue.map(
-            value =>
-                String(value.id) ===
+    try {
+        if (item.__uploaded_file) {
+            const fileId =
                 String(
-                    renamingItem.value
+                    item.id
+                ).replace(
+                    'project-file-',
+                    ''
                 )
-                    ? {
-                        ...value,
+
+            const resolvedProjectId =
+                resolvedProjectIdForItem(
+                    item
+                )
+
+            if (!resolvedProjectId) {
+                throw new Error(
+                    'Project ID is required to rename an uploaded file.'
+                )
+            }
+
+            const response =
+                await api.patch(
+                    `/projects/${resolvedProjectId}/files/${fileId}`,
+                    {
                         name
                     }
-                    : value
-        )
-    )
+                )
 
+            const updated =
+                response.data?.data ||
+                response.data ||
+                {}
 
-    renamingItem.value =
-        null
+            update(
+                props.modelValue.map(
+                    value =>
+                        String(value.id) ===
+                        String(item.id)
+                            ? {
+                                ...value,
+                                name:
+                                    updated.display_name ||
+                                    updated.original_filename ||
+                                    name,
+                                mime_type:
+                                    updated.mime_type ||
+                                    value.mime_type,
+                                extension:
+                                    updated.extension ||
+                                    value.extension,
+                                size:
+                                    updated.size ??
+                                    value.size,
+                                updated_at:
+                                    updated.updated_at ||
+                                    value.updated_at
+                            }
+                            : value
+                )
+            )
+        } else {
+            update(
+                props.modelValue.map(
+                    value =>
+                        String(value.id) ===
+                        String(item.id)
+                            ? {
+                                ...value,
+                                name
+                            }
+                            : value
+                )
+            )
+        }
 
+        renamingItem.value =
+            null
+        renameValue.value =
+            ''
+    } catch (exception) {
+        renameValue.value =
+            item.name
 
-    renameValue.value =
-        ''
+        fileErrors.value = {
+            ...fileErrors.value,
+            name:
+                errorMessage(
+                    exception
+                )
+        }
+    }
 }
 
 
@@ -2191,34 +2572,53 @@ function collectDescendants(
 
 
 async function confirmDelete() {
-    if (
-        !deleteTarget.value
-    ) {
+    if (!deleteTarget.value) {
         return
     }
-
 
     deleting.value =
         true
 
-
     try {
-        const ids =
-            new Set([
-                deleteTarget.value.id
-            ])
+        const target =
+            deleteTarget.value
 
+        if (target.__uploaded_file) {
+            const fileId =
+                String(
+                    target.id
+                ).replace(
+                    'project-file-',
+                    ''
+                )
 
-        if (
-            deleteTarget.value.type ===
-            'folder'
-        ) {
-            collectDescendants(
-                deleteTarget.value.id,
-                ids
+            const resolvedProjectId =
+                resolvedProjectIdForItem(
+                    target
+                )
+
+            if (!resolvedProjectId) {
+                throw new Error(
+                    'Project ID is required to delete an uploaded file.'
+                )
+            }
+
+            await api.delete(
+                `/projects/${resolvedProjectId}/files/${fileId}`
             )
         }
 
+        const ids =
+            new Set([
+                target.id
+            ])
+
+        if (target.type === 'folder') {
+            collectDescendants(
+                target.id,
+                ids
+            )
+        }
 
         update(
             props.modelValue.filter(
@@ -2229,67 +2629,29 @@ async function confirmDelete() {
             )
         )
 
-
-        if (
-            ids.has(
-                selectedItem.value
-            )
-        ) {
+        if (ids.has(selectedItem.value)) {
             selectedItem.value =
                 null
         }
 
-
-        if (
-            ids.has(
-                currentFolder.value
-            )
-        ) {
+        if (ids.has(currentFolder.value)) {
             openRoot()
         }
 
-
         deleteTarget.value =
             null
+    } catch (exception) {
+        fileErrors.value = {
+            ...fileErrors.value,
+            general:
+                errorMessage(
+                    exception
+                )
+        }
     } finally {
         deleting.value =
             false
     }
-}
-
-function menuPosition(item) {
-    const element = document.querySelector(
-        `[data-file-item-id="${item.id}"]`
-    )
-
-    if (!element) {
-        return 'top-full'
-    }
-
-    const rect = element.getBoundingClientRect()
-    const menuHeight = 240
-    const spaceBelow = window.innerHeight - rect.bottom
-
-    return spaceBelow < menuHeight
-        ? 'bottom-full'
-        : 'top-full'
-}
-
-function shouldOpenMenuUp(item) {
-    const element = document.querySelector(
-        `[data-file-item-id="${item.id}"]`
-    )
-
-    if (!element) {
-        return false
-    }
-
-    const rect = element.getBoundingClientRect()
-
-    return (
-        window.innerHeight -
-        rect.bottom
-    ) < 260
 }
 
 
@@ -2468,6 +2830,11 @@ onMounted(() => {
         'click',
         handleDocumentClick
     )
+
+    window.addEventListener(
+        'resize',
+        closeMenu
+    )
 })
 
 
@@ -2481,6 +2848,11 @@ onUnmounted(() => {
     document.removeEventListener(
         'click',
         handleDocumentClick
+    )
+
+    window.removeEventListener(
+        'resize',
+        closeMenu
     )
 })
 
@@ -2847,6 +3219,9 @@ watch(
                 overflow-y-auto
                 overscroll-contain
             "
+            @scroll="
+                closeMenu
+            "
         >
             <!-- Items -->
             <div
@@ -2863,9 +3238,6 @@ watch(
                     :key="
                         item.id
                     "
-                    :data-file-item-id="
-                        item.id
-                "
                     class="
                         group
                         flex
@@ -3088,6 +3460,13 @@ watch(
                                         ? 'true'
                                         : 'false'
                                 "
+                                :ref="
+                                    element =>
+                                        setMenuButtonRef(
+                                            item.id,
+                                            element
+                                        )
+                                "
                                 @click.stop="
                                     toggleMenu(
                                         item.id
@@ -3106,27 +3485,34 @@ watch(
 
 
                             <!-- Context menu -->
-                            <div
-                                v-if="
-                                    openMenu ===
-                                    item.id
-                                "
-                                class="
-                                    absolute
-                                    right-0
-                                    z-[20000]
-                                    min-w-36
-                                    border
-                                    border-dark
-                                    bg-light
-                                "
-                                :class="
-                                    shouldOpenMenuUp(item)
-                                        ? 'bottom-full mb-1'
-                                        : 'top-full mt-1'
-                                "
-                                @click.stop
-                            >
+                            <Teleport to="body">
+                                <div
+                                    v-if="
+                                        openMenu ===
+                                        item.id &&
+                                        contextMenuCoords
+                                    "
+                                    :ref="
+                                        setContextMenuRef
+                                    "
+                                    data-file-structure-menu
+                                    class="
+                                        fixed
+                                        z-[9999]
+                                        min-w-36
+                                        border
+                                        border-dark
+                                        bg-light
+                                        shadow-lg
+                                    "
+                                    :style="{
+                                        top:
+                                            `${contextMenuCoords.top}px`,
+                                        left:
+                                            `${contextMenuCoords.left}px`
+                                    }"
+                                    @click.stop
+                                >
                                 <button
                                     type="button"
                                     class="
@@ -3301,7 +3687,8 @@ watch(
                                         }}
                                     </span>
                                 </button>
-                            </div>
+                                                            </div>
+                            </Teleport>
                         </div>
                     </div>
                 </div>
@@ -3560,18 +3947,15 @@ watch(
                         py-3
                     "
                 >
-                    <p
+                    <span
                         class="
                             p
                             uppercase
                             text-dark/60
                         "
                     >
-                        Destination:
-                        <strong>
-                            {{ selectedMoveDestinationLabel }}
-                        </strong>
-                    </p>
+                        Destination: {{ selectedMoveDestinationLabel }}
+                    </span>
                 </div>
             </div>
 
