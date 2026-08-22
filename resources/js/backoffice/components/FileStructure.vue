@@ -17,11 +17,21 @@ import AdminConfirmDialog from '@shared/components/ConfirmDialog.vue'
 import Modal from '@shared/components/Modal.vue'
 
 
+import api, {
+    errorMessage
+} from '../admin/composables/useAdminApi'
+
+
 const props =
     defineProps({
         modelValue: {
             type: Array,
             default: () => []
+        },
+
+        projectId: {
+            type: [String, Number, null],
+            default: null
         },
 
         initialFolderId: {
@@ -45,11 +55,6 @@ const props =
         },
 
         disabled: {
-            type: Boolean,
-            default: false
-        },
-
-        showImagePreviews: {
             type: Boolean,
             default: false
         },
@@ -96,14 +101,6 @@ const contextMenuCoords =
 
 const contextMenuRef =
     ref(null)
-
-
-function setContextMenuRef(
-    element
-) {
-    contextMenuRef.value =
-        element
-}
 
 
 const menuButtonRefs =
@@ -472,6 +469,37 @@ function getItem(
             String(item.id) ===
             String(id)
     )
+}
+
+
+function resolvedProjectIdForItem(
+    item
+) {
+    if (props.projectId) {
+        return props.projectId
+    }
+
+    if (item?.project_id) {
+        return item.project_id
+    }
+
+    const urls = [
+        item?.open_url,
+        item?.download_url
+    ]
+
+    for (const value of urls) {
+        const match =
+            String(value || '').match(
+                /\/projects\/(\d+)\/files\//
+            )
+
+        if (match?.[1]) {
+            return match[1]
+        }
+    }
+
+    return null
 }
 
 
@@ -859,41 +887,6 @@ function normalizeUploadedResourceType(
 }
 
 
-function isImagePreviewFile(
-    item
-) {
-    if (
-        item?.type !==
-        'file'
-    ) {
-        return false
-    }
-
-    const mime =
-        String(
-            item?.mime_type ||
-            ''
-        ).toLowerCase()
-
-    if (
-        mime.startsWith(
-            'image/'
-        )
-    ) {
-        return true
-    }
-
-    const name =
-        String(
-            item?.name ||
-            ''
-        ).toLowerCase()
-
-    return /\.(png|jpe?g|gif|webp|svg|avif|bmp|ico|tiff?)$/i.test(
-        name
-    )
-}
-
 function humanFileType(
     file
 ) {
@@ -1044,6 +1037,14 @@ function setMenuButtonRef(
 }
 
 
+function setContextMenuRef(
+    element
+) {
+    contextMenuRef.value =
+        element
+}
+
+
 async function positionContextMenu() {
     await nextTick()
 
@@ -1062,15 +1063,12 @@ async function positionContextMenu() {
             String(itemId)
         ]
 
-    const menuValue =
-        contextMenuRef.value
-
     const menu =
         Array.isArray(
-            menuValue
+            contextMenuRef.value
         )
-            ? menuValue[0]
-            : menuValue
+            ? contextMenuRef.value[0]
+            : contextMenuRef.value
 
     if (
         !button ||
@@ -1152,13 +1150,23 @@ async function toggleMenu(
         return
     }
 
-    contextMenuCoords.value =
-        null
+    /*
+     * The menu itself is rendered only when
+     * contextMenuCoords exists. Therefore we must
+     * give it an initial position first; otherwise
+     * positionContextMenu() can never measure the
+     * menu because the menu has not been rendered.
+     */
+    contextMenuCoords.value = {
+        top: 0,
+        left: 0
+    }
 
     openMenu.value =
         itemId
 
     await nextTick()
+
     await positionContextMenu()
 }
 
@@ -1172,43 +1180,24 @@ function closeMenu() {
 }
 
 
-function handleDocumentClick(event) {
-    const target = event.target
-
-    const clickedMenuButton =
-        target?.closest?.(
-            '[data-file-menu-button]'
-        )
-
-    const clickedContextMenu =
-        target?.closest?.(
-            '[data-file-context-menu]'
-        )
-
-    const clickedUploadMenu =
-        target?.closest?.(
-            '[data-upload-menu]'
-        )
-
-    const clickedUploadButton =
-        target?.closest?.(
-            '[data-upload-button]'
-        )
+function handleDocumentClick(
+    event
+) {
+    const target =
+        event?.target
 
     if (
-        !clickedMenuButton &&
-        !clickedContextMenu
+        target?.closest?.(
+            '[data-file-structure-menu]'
+        )
     ) {
-        closeMenu()
+        return
     }
 
-    if (
-        !clickedUploadMenu &&
-        !clickedUploadButton
-    ) {
-        uploadMenuOpen.value =
-            false
-    }
+    uploadMenuOpen.value =
+        false
+
+    closeMenu()
 }
 
 
@@ -1407,12 +1396,26 @@ function browseMoveFolder(
 
     moveBrowserFolderId.value =
         folder.id
+
+    moveDestination.value =
+        String(
+            folder.id
+        )
+
+    moveError.value =
+        ''
 }
 
 
 function browseMoveRoot() {
     moveBrowserFolderId.value =
         null
+
+    moveDestination.value =
+        '__root__'
+
+    moveError.value =
+        ''
 }
 
 
@@ -1434,18 +1437,6 @@ function browseMoveUp() {
         null
 }
 
-
-function selectCurrentMoveDestination() {
-    moveDestination.value =
-        moveBrowserFolderId.value === null
-            ? '__root__'
-            : String(
-                moveBrowserFolderId.value
-            )
-
-    moveError.value =
-        ''
-}
 
 
 function openMoveDialog(
@@ -1492,23 +1483,42 @@ function closeMoveDialog() {
 }
 
 
-function confirmMove() {
+async function confirmMove() {
     if (!moveTarget.value) {
         return
     }
+
+    const target =
+        moveTarget.value
 
     const destinationId =
         moveDestination.value ===
         '__root__'
             ? null
-            : moveDestination.value
+            : Number(
+                moveDestination.value
+            )
+
+    if (
+        destinationId !== null &&
+        !Number.isInteger(
+            destinationId
+        )
+    ) {
+        moveError.value =
+            'Please select a valid destination folder.'
+
+        return
+    }
 
     if (
         String(
-            moveTarget.value.parent_id ?? '__root__'
+            target.parent_id ??
+            '__root__'
         ) ===
         String(
-            destinationId ?? '__root__'
+            destinationId ??
+            '__root__'
         )
     ) {
         closeMoveDialog()
@@ -1517,12 +1527,9 @@ function confirmMove() {
 
     const destinationFolder =
         destinationId !== null
-            ? getItem(destinationId)
-            : null
-
-    const normalizedDestinationId =
-        destinationFolder
-            ? destinationFolder.id
+            ? getItem(
+                destinationId
+            )
             : null
 
     if (
@@ -1534,30 +1541,93 @@ function confirmMove() {
             'Please select a valid destination folder.'
         return
     }
-    update(
-        props.modelValue.map(
-            item =>
-                String(item.id) ===
-                String(
-                    moveTarget.value.id
-                )
-                    ? {
-                        ...item,
-                        parent_id:
-                            normalizedDestinationId,
-                        parent_client_key:
-                            destinationFolder
-                                ? String(
-                                    destinationFolder.client_key ||
-                                    destinationFolder.id
-                                )
-                                : null
-                    }
-                    : item
-        )
-    )
 
-    closeMoveDialog()
+    try {
+        if (target.__uploaded_file) {
+            const fileId =
+                String(
+                    target.id
+                ).replace(
+                    'project-file-',
+                    ''
+                )
+
+            const resolvedProjectId =
+                resolvedProjectIdForItem(
+                    target
+                )
+
+            if (!resolvedProjectId) {
+                throw new Error(
+                    'Project ID is required to move an uploaded file.'
+                )
+            }
+
+            const response =
+                await api.put(
+                    `/projects/${resolvedProjectId}/files/${fileId}/move`,
+                    {
+                        folder_id:
+                            destinationId
+                    }
+                )
+
+            const updated =
+                response.data?.data ||
+                response.data ||
+                {}
+
+            update(
+                props.modelValue.map(
+                    item =>
+                        String(item.id) ===
+                        String(target.id)
+                            ? {
+                                ...item,
+                                parent_id:
+                                    updated.folder_id ??
+                                    destinationId,
+                                parent_client_key:
+                                    updated.folder_id !== null &&
+                                    updated.folder_id !== undefined
+                                        ? String(
+                                            updated.folder_id
+                                        )
+                                        : null
+                            }
+                            : item
+                )
+            )
+        } else {
+            update(
+                props.modelValue.map(
+                    item =>
+                        String(item.id) ===
+                        String(target.id)
+                            ? {
+                                ...item,
+                                parent_id:
+                                    destinationId,
+                                parent_client_key:
+                                    destinationFolder
+                                        ? String(
+                                            destinationFolder.client_key ||
+                                            destinationFolder.id
+                                        )
+                                        : null
+                            }
+                            : item
+                )
+            )
+        }
+
+        closeMoveDialog()
+    } catch (exception) {
+        moveError.value =
+            errorMessage(
+                exception
+            )
+    }
 }
 
 
@@ -1602,65 +1672,125 @@ async function startRename(
 }
 
 
-function finishRename() {
-    if (
-        !renamingItem.value
-    ) {
+async function finishRename() {
+    if (!renamingItem.value) {
         return
     }
-
 
     const item =
         getItem(
             renamingItem.value
         )
 
-
     if (!item) {
         cancelRename()
-
         return
     }
 
-
     const name =
         renameValue.value.trim()
-
 
     if (!name) {
         renameValue.value =
             item.name
 
-
         renamingItem.value =
             null
-
         return
     }
 
-
-    update(
-        props.modelValue.map(
-            value =>
-                String(value.id) ===
+    try {
+        if (item.__uploaded_file) {
+            const fileId =
                 String(
-                    renamingItem.value
+                    item.id
+                ).replace(
+                    'project-file-',
+                    ''
                 )
-                    ? {
-                        ...value,
+
+            const resolvedProjectId =
+                resolvedProjectIdForItem(
+                    item
+                )
+
+            if (!resolvedProjectId) {
+                throw new Error(
+                    'Project ID is required to rename an uploaded file.'
+                )
+            }
+
+            const response =
+                await api.patch(
+                    `/projects/${resolvedProjectId}/files/${fileId}`,
+                    {
                         name
                     }
-                    : value
-        )
-    )
+                )
 
+            const updated =
+                response.data?.data ||
+                response.data ||
+                {}
 
-    renamingItem.value =
-        null
+            update(
+                props.modelValue.map(
+                    value =>
+                        String(value.id) ===
+                        String(item.id)
+                            ? {
+                                ...value,
+                                name:
+                                    updated.display_name ||
+                                    updated.original_filename ||
+                                    name,
+                                mime_type:
+                                    updated.mime_type ||
+                                    value.mime_type,
+                                extension:
+                                    updated.extension ||
+                                    value.extension,
+                                size:
+                                    updated.size ??
+                                    value.size,
+                                updated_at:
+                                    updated.updated_at ||
+                                    value.updated_at
+                            }
+                            : value
+                )
+            )
+        } else {
+            update(
+                props.modelValue.map(
+                    value =>
+                        String(value.id) ===
+                        String(item.id)
+                            ? {
+                                ...value,
+                                name
+                            }
+                            : value
+                )
+            )
+        }
 
+        renamingItem.value =
+            null
+        renameValue.value =
+            ''
+    } catch (exception) {
+        renameValue.value =
+            item.name
 
-    renameValue.value =
-        ''
+        fileErrors.value = {
+            ...fileErrors.value,
+            name:
+                errorMessage(
+                    exception
+                )
+        }
+    }
 }
 
 
@@ -2395,34 +2525,53 @@ function collectDescendants(
 
 
 async function confirmDelete() {
-    if (
-        !deleteTarget.value
-    ) {
+    if (!deleteTarget.value) {
         return
     }
-
 
     deleting.value =
         true
 
-
     try {
-        const ids =
-            new Set([
-                deleteTarget.value.id
-            ])
+        const target =
+            deleteTarget.value
 
+        if (target.__uploaded_file) {
+            const fileId =
+                String(
+                    target.id
+                ).replace(
+                    'project-file-',
+                    ''
+                )
 
-        if (
-            deleteTarget.value.type ===
-            'folder'
-        ) {
-            collectDescendants(
-                deleteTarget.value.id,
-                ids
+            const resolvedProjectId =
+                resolvedProjectIdForItem(
+                    target
+                )
+
+            if (!resolvedProjectId) {
+                throw new Error(
+                    'Project ID is required to delete an uploaded file.'
+                )
+            }
+
+            await api.delete(
+                `/projects/${resolvedProjectId}/files/${fileId}`
             )
         }
 
+        const ids =
+            new Set([
+                target.id
+            ])
+
+        if (target.type === 'folder') {
+            collectDescendants(
+                target.id,
+                ids
+            )
+        }
 
         update(
             props.modelValue.filter(
@@ -2433,28 +2582,25 @@ async function confirmDelete() {
             )
         )
 
-
-        if (
-            ids.has(
-                selectedItem.value
-            )
-        ) {
+        if (ids.has(selectedItem.value)) {
             selectedItem.value =
                 null
         }
 
-
-        if (
-            ids.has(
-                currentFolder.value
-            )
-        ) {
+        if (ids.has(currentFolder.value)) {
             openRoot()
         }
 
-
         deleteTarget.value =
             null
+    } catch (exception) {
+        fileErrors.value = {
+            ...fileErrors.value,
+            general:
+                errorMessage(
+                    exception
+                )
+        }
     } finally {
         deleting.value =
             false
@@ -2876,7 +3022,6 @@ watch(
                 >
                     <button
                         type="button"
-                        data-upload-button
                         aria-label="Upload"
                         class="
                             flex
@@ -2925,7 +3070,6 @@ watch(
                             uploadMenuOpen &&
                             allowUploadControl
                         "
-                        data-upload-menu
                         class="
                             absolute
                             right-0
@@ -3090,57 +3234,7 @@ watch(
                             sm:col-span-1
                         "
                     >
-                        <div
-                            v-if="
-                                showImagePreviews &&
-                                isImagePreviewFile(item)
-                            "
-                            class="
-                                flex
-                                h-12
-                                w-12
-                                shrink-0
-                                items-center
-                                justify-center
-                                overflow-hidden
-                                border
-                                border-accent/20
-                                bg-light
-                            "
-                        >
-                            <img
-                                v-if="
-                                    item.thumbnail_url
-                                "
-                                :src="
-                                    item.thumbnail_url
-                                "
-                                :alt="
-                                    item.name ||
-                                    'Image'
-                                "
-                                class="
-                                    h-full
-                                    w-full
-                                    object-cover
-                                "
-                                loading="lazy"
-                            />
-
-                            <i
-                                v-else
-                                class="
-                                    bi
-                                    bi-image
-                                    text-xl
-                                    text-dark/30
-                                "
-                                aria-hidden="true"
-                            />
-                        </div>
-
                         <i
-                            v-else
                             class="
                                 bi
                                 shrink-0
@@ -3300,7 +3394,6 @@ watch(
                                     !disabled
                                 "
                                 type="button"
-                                data-file-menu-button
                                 class="
                                     flex
                                     h-8
@@ -3349,10 +3442,13 @@ watch(
                                 <div
                                     v-if="
                                         openMenu ===
-                                        item.id
+                                        item.id &&
+                                        contextMenuCoords
                                     "
-                                    data-file-context-menu
-                                    :ref="setContextMenuRef"
+                                    :ref="
+                                        setContextMenuRef
+                                    "
+                                    data-file-structure-menu
                                     class="
                                         fixed
                                         z-[9999]
@@ -3364,17 +3460,9 @@ watch(
                                     "
                                     :style="{
                                         top:
-                                            contextMenuCoords
-                                                ? `${contextMenuCoords.top}px`
-                                                : '0',
+                                            `${contextMenuCoords.top}px`,
                                         left:
-                                            contextMenuCoords
-                                                ? `${contextMenuCoords.left}px`
-                                                : '0',
-                                        visibility:
-                                            contextMenuCoords
-                                                ? 'visible'
-                                                : 'hidden'
+                                            `${contextMenuCoords.left}px`
                                     }"
                                     @click.stop
                                 >
@@ -3456,7 +3544,9 @@ watch(
                                     "
                                     @click="
                                         openMenu = null;
-                                        openFileEditor(item)
+                                        item.__uploaded_file
+                                            ? openFile(item)
+                                            : openFileEditor(item)
                                     "
                                 >
                                     <span>
@@ -3810,10 +3900,6 @@ watch(
                         border-accent/20
                         px-4
                         py-3
-                        flex
-                        items-center
-                        justify-between
-                        gap-3
                     "
                 >
                     <span
@@ -3823,17 +3909,8 @@ watch(
                             text-dark/60
                         "
                     >
-                        Selected: {{ selectedMoveDestinationLabel }}
+                        Destination: {{ selectedMoveDestinationLabel }}
                     </span>
-
-                    <Button
-                        type="button"
-                        text="select this location"
-                        align="right"
-                        @click="
-                            selectCurrentMoveDestination
-                        "
-                    />
                 </div>
             </div>
 

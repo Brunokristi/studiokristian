@@ -4838,6 +4838,9 @@ useAdminPageHeader({
 
 
                         <FileStructure
+                            :project-id="
+                                projectId
+                            "
                             :model-value="
                                 [
                                 ...projectFolders,

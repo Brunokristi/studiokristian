@@ -3516,6 +3516,17 @@ async function handleImagePickerFileOpen(file) {
                 )
             }
 
+            const projectFileId =
+                Number(
+                    String(
+                        file.id ||
+                        ''
+                    ).replace(
+                        'project-file-',
+                        ''
+                    )
+                )
+
             const replacePos =
                 Number.isInteger(
                     imageNodePickerPos.value
@@ -3558,10 +3569,7 @@ async function handleImagePickerFileOpen(file) {
                                 '100%',
                             pendingProjectImage:
                                 false,
-                            projectFileId:
-                                Number(
-                                    file.id
-                                )
+                            projectFileId
                         }
                     )
 
@@ -3584,16 +3592,7 @@ async function handleImagePickerFileOpen(file) {
                             '100%',
                         pendingProjectImage:
                             false,
-                        projectFileId:
-                            Number(
-                                String(
-                                    file.id ||
-                                    ''
-                                ).replace(
-                                    'project-file-',
-                                    ''
-                                )
-                            )
+                        projectFileId
                     })
                     .run()
             }

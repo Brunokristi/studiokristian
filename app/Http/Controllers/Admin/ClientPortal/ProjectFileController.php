@@ -555,6 +555,7 @@ class ProjectFileController extends Controller
         $storagePath = $file->storage_path;
 
         DB::transaction(function () use ($file, $request, $project) {
+            $this->removeDeletedFileFromDocuments($project, $file);
             $file->delete();
             app(AuditLogger::class)->record('project_file_deleted', $request->user(), $file, $project->company_id, $project->id);
         });
@@ -562,6 +563,83 @@ class ProjectFileController extends Controller
         Storage::disk($disk)->delete($storagePath);
 
         return response()->json(['status' => 'deleted']);
+    }
+
+    private function removeDeletedFileFromDocuments(Project $project, ProjectFile $file): void
+    {
+        $fileId = (int) $file->getKey();
+
+        $project->folders()
+            ->where('resource_type', 'document')
+            ->whereNotNull('content')
+            ->get()
+            ->each(function (ProjectFolder $document) use ($fileId): void {
+                $content = json_decode((string) $document->content, true);
+
+                if (! is_array($content)) {
+                    return;
+                }
+
+                $changed = false;
+                $cleaned = $this->removeProjectFileImageNodes($content, $fileId, $changed);
+
+                if (! $changed) {
+                    return;
+                }
+
+                if (
+                    ($cleaned['type'] ?? null) === 'doc' &&
+                    empty($cleaned['content'])
+                ) {
+                    $cleaned['content'] = [['type' => 'paragraph']];
+                }
+
+                $document->update([
+                    'content' => json_encode($cleaned),
+                ]);
+            });
+    }
+
+    private function removeProjectFileImageNodes(array $node, int $fileId, bool &$changed): array
+    {
+        $attributes = $node['attrs'] ?? [];
+        $projectFileId = (int) ($attributes['projectFileId'] ?? 0);
+        $source = (string) ($attributes['src'] ?? '');
+        $isLegacyFileUrl = preg_match(
+            '#/projects/\d+/files/' . preg_quote((string) $fileId, '#') . '/open(?:\?|$)#',
+            $source
+        ) === 1;
+
+        if (
+            ($node['type'] ?? null) === 'image' &&
+            ($projectFileId === $fileId || $isLegacyFileUrl)
+        ) {
+            $changed = true;
+
+            return [];
+        }
+
+        if (! isset($node['content']) || ! is_array($node['content'])) {
+            return $node;
+        }
+
+        $children = [];
+
+        foreach ($node['content'] as $child) {
+            $cleanedChild = $this->removeProjectFileImageNodes(
+                $child,
+                $fileId,
+                $changed
+            );
+
+            if (! empty($cleanedChild)) {
+                $children[] = $cleanedChild;
+            }
+        }
+
+        $node['content'] = $children;
+
+        return $node;
     }
 
     private function breadcrumbs(?ProjectFolder $folder): array { $items=[]; while($folder){array_unshift($items,['id'=>$folder->id,'name'=>$folder->name]);$folder=$folder->parent;} return $items; }

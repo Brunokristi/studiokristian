@@ -184,6 +184,67 @@ class ProjectFileUploadTest extends TestCase
         Storage::disk('local')->assertMissing($path);
     }
 
+    public function test_file_delete_removes_referenced_images_from_project_documents(): void
+    {
+        [$project, $admin] = $this->projectAndAdmin();
+
+        $path = 'client-portal/projects/' . $project->id . '/files/' . Str::uuid();
+        Storage::disk('local')->put($path, 'image payload');
+
+        $file = ProjectFile::query()->create([
+            'project_id' => $project->id,
+            'original_filename' => 'logo.png',
+            'display_name' => 'logo.png',
+            'extension' => 'png',
+            'storage_path' => $path,
+            'disk' => 'local',
+            'mime_type' => 'image/png',
+            'size' => 13,
+            'checksum' => hash('sha256', 'image payload'),
+            'visibility' => 'internal',
+            'uploaded_by' => $admin->id,
+        ]);
+
+        $document = ProjectFolder::query()->create([
+            'project_id' => $project->id,
+            'type' => 'file',
+            'name' => 'Brief',
+            'resource_type' => 'document',
+            'content' => json_encode([
+                'type' => 'doc',
+                'content' => [
+                    [
+                        'type' => 'paragraph',
+                        'content' => [
+                            ['type' => 'text', 'text' => 'Keep this text.'],
+                        ],
+                    ],
+                    [
+                        'type' => 'image',
+                        'attrs' => [
+                            'src' => "https://example.test/admin/client-portal/api/projects/{$project->id}/files/{$file->id}/open",
+                            'projectFileId' => $file->id,
+                        ],
+                    ],
+                ],
+            ]),
+            'client_visible' => true,
+            'created_by' => $admin->id,
+        ]);
+
+        $this->actingAs($admin)
+            ->withHeader('Accept', 'application/json')
+            ->deleteJson("/admin/client-portal/api/projects/{$project->id}/files/{$file->id}")
+            ->assertOk();
+
+        $content = json_decode((string) $document->fresh()->content, true);
+
+        $this->assertSame('doc', $content['type']);
+        $this->assertCount(1, $content['content']);
+        $this->assertSame('paragraph', $content['content'][0]['type']);
+        $this->assertSame('Keep this text.', $content['content'][0]['content'][0]['text']);
+    }
+
     public function test_open_streams_svg_inline_and_download_preserves_original_filename(): void
     {
         [$project, $admin] = $this->projectAndAdmin();
