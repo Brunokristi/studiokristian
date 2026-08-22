@@ -218,13 +218,62 @@ const files =
 
 
 const currentFolderItems =
-    computed(() =>
-        props.modelValue.filter(
-            item =>
-                item.parent_id ===
-                currentFolder.value
+    computed(() => {
+        const items =
+            props.modelValue.filter(
+                item =>
+                    item.parent_id ===
+                    currentFolder.value
+            )
+
+        return [
+            ...items
+        ].sort(
+            (
+                a,
+                b
+            ) => {
+                const aType =
+                    a?.type ===
+                    'folder'
+                        ? 0
+                        : 1
+
+                const bType =
+                    b?.type ===
+                    'folder'
+                        ? 0
+                        : 1
+
+                if (
+                    aType !==
+                    bType
+                ) {
+                    return (
+                        aType -
+                        bType
+                    )
+                }
+
+                return String(
+                    a?.name ||
+                    a?.display_name ||
+                    ''
+                ).localeCompare(
+                    String(
+                        b?.name ||
+                        b?.display_name ||
+                        ''
+                    ),
+                    undefined,
+                    {
+                        numeric: true,
+                        sensitivity: 'base'
+                    }
+                )
+            }
         )
-    )
+    })
 
 
 const currentFolders =
@@ -2238,46 +2287,56 @@ function handleUploadChange(
             []
         )
 
-    const isDirectoryUpload =
-        Boolean(
-            event?.target
-                ?.webkitdirectory
-        )
+    if (
+        selectedFiles.length
+    ) {
+        const isDirectoryUpload =
+            Boolean(
+                event?.target
+                    ?.webkitdirectory
+            )
 
-    const relativePaths =
-        selectedFiles.map(
-            file =>
-                String(
-                    file
-                        ?.webkitRelativePath ||
-                    file?.name ||
-                    ''
-                )
-        )
+        const relativePaths =
+            selectedFiles.map(
+                file =>
+                    String(
+                        file
+                            ?.webkitRelativePath ||
+                        file?.name ||
+                        ''
+                    )
+            )
 
-    if (selectedFiles.length) {
         emit(
             'upload-files',
             {
-                files: selectedFiles,
+                files:
+                    selectedFiles,
+
                 relativePaths,
+
                 isDirectoryUpload,
-                folderId: currentFolder.value,
-                parent: currentFolder.value
-                    ? getItem(
-                        currentFolder.value
-                    )
-                    : null
+
+                folderId:
+                    currentFolder.value,
+
+                parent:
+                    currentFolder.value
+                        ? getItem(
+                            currentFolder.value
+                        )
+                        : null
             }
         )
     }
 
-    if (event?.target) {
+    if (
+        event?.target
+    ) {
         event.target.value =
             ''
     }
 }
-
 
 function closeFileCreator() {
     showFileCreator.value =
@@ -3544,9 +3603,7 @@ watch(
                                     "
                                     @click="
                                         openMenu = null;
-                                        item.__uploaded_file
-                                            ? openFile(item)
-                                            : openFileEditor(item)
+                                        openFileEditor(item)
                                     "
                                 >
                                     <span>

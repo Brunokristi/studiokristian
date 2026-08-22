@@ -288,204 +288,6 @@ class ProjectFileController extends Controller
         );
     }
 
-    public function thumbnail(
-        Project $project,
-        ProjectFile $file
-    ): \Illuminate\Http\Response {
-        $this->authorizeProjectAccess(
-            request(),
-            $project
-        );
-
-        abort_unless(
-            $file->project_id === $project->id,
-            404
-        );
-
-        $mime =
-            strtolower(
-                (string) $file->mime_type
-            );
-
-        $supported =
-            in_array(
-                $mime,
-                [
-                    'image/jpeg',
-                    'image/png',
-                    'image/gif',
-                    'image/webp'
-                ],
-                true
-            );
-
-        abort_unless(
-            $supported,
-            404
-        );
-
-        $disk =
-            $file->disk ?: 'local';
-
-        $storage =
-            Storage::disk(
-                $disk
-            );
-
-        abort_unless(
-            $storage->exists(
-                $file->storage_path
-            ),
-            404
-        );
-
-        abort_unless(
-            extension_loaded('gd'),
-            503,
-            'PHP GD is required to generate image thumbnails.'
-        );
-
-        $thumbnailPath =
-            'client-portal/projects/' .
-            $project->id .
-            '/thumbnails/' .
-            $file->id .
-            '.jpg';
-
-        if (
-            !$storage->exists(
-                $thumbnailPath
-            )
-        ) {
-            $contents =
-                $storage->get(
-                    $file->storage_path
-                );
-
-            $source =
-                @imagecreatefromstring(
-                    $contents
-                );
-
-            abort_unless(
-                $source !== false,
-                404
-            );
-
-            $sourceWidth =
-                imagesx(
-                    $source
-                );
-
-            $sourceHeight =
-                imagesy(
-                    $source
-                );
-
-            $maxSize =
-                320;
-
-            $scale =
-                min(
-                    1,
-                    $maxSize /
-                    max(
-                        $sourceWidth,
-                        $sourceHeight
-                    )
-                );
-
-            $targetWidth =
-                max(
-                    1,
-                    (int) round(
-                        $sourceWidth *
-                        $scale
-                    )
-                );
-
-            $targetHeight =
-                max(
-                    1,
-                    (int) round(
-                        $sourceHeight *
-                        $scale
-                    )
-                );
-
-            $thumbnail =
-                imagecreatetruecolor(
-                    $targetWidth,
-                    $targetHeight
-                );
-
-            imagealphablending(
-                $thumbnail,
-                true
-            );
-
-            imagesavealpha(
-                $thumbnail,
-                true
-            );
-
-            imagecopyresampled(
-                $thumbnail,
-                $source,
-                0,
-                0,
-                0,
-                0,
-                $targetWidth,
-                $targetHeight,
-                $sourceWidth,
-                $sourceHeight
-            );
-
-            ob_start();
-
-            imagejpeg(
-                $thumbnail,
-                null,
-                82
-            );
-
-            $jpeg =
-                ob_get_clean();
-
-            imagedestroy(
-                $thumbnail
-            );
-
-            imagedestroy(
-                $source
-            );
-
-            $storage->put(
-                $thumbnailPath,
-                $jpeg
-            );
-        }
-
-        return response(
-            $storage->get(
-                $thumbnailPath
-            ),
-            200,
-            [
-                'Content-Type' =>
-                    'image/jpeg',
-
-                'Cache-Control' =>
-                    'private, max-age=86400',
-
-                'X-Content-Type-Options' =>
-                    'nosniff'
-            ]
-        );
-    }
-
-
     public function download(Project $project, ProjectFile $file): StreamedResponse
     {
         $this->authorizeProjectAccess(request(), $project);
@@ -546,6 +348,90 @@ class ProjectFileController extends Controller
         return response()->json($this->filePayload($request, $project, $file->fresh()));
     }
 
+    public function move(Project $project, ProjectFile $file, Request $request): JsonResponse
+    {
+        $this->authorizeProjectAccess(
+            $request,
+            $project
+        );
+
+        abort_unless(
+            $file->project_id ===
+                $project->id,
+            404
+        );
+
+        $data =
+            $request->validate([
+                'folder_id' => [
+                    'nullable',
+                    'integer'
+                ],
+            ]);
+
+        $destinationId =
+            $data['folder_id'] ??
+            null;
+
+        if (
+            $destinationId !== null &&
+            ! $project->folders()
+                ->whereKey(
+                    $destinationId
+                )
+                ->exists()
+        ) {
+            throw ValidationException::withMessages([
+                'folder_id' =>
+                    'Destination folder must belong to this project.'
+            ]);
+        }
+
+        if (
+            (int) $file->project_folder_id ===
+            (int) $destinationId
+        ) {
+            return response()->json(
+                $this->filePayload(
+                    $request,
+                    $project,
+                    $file->fresh()
+                )
+            );
+        }
+
+        $oldFolderId =
+            $file->project_folder_id;
+
+        $file->update([
+            'project_folder_id' =>
+                $destinationId
+        ]);
+
+        app(AuditLogger::class)->record(
+            'project_file_moved',
+            $request->user(),
+            $file,
+            $project->company_id,
+            $project->id,
+            [
+                'from_folder_id' =>
+                    $oldFolderId,
+                'to_folder_id' =>
+                    $destinationId,
+            ]
+        );
+
+        return response()->json(
+            $this->filePayload(
+                $request,
+                $project,
+                $file->fresh()
+            )
+        );
+    }
+
+
     public function destroy(Project $project, ProjectFile $file, Request $request): JsonResponse
     {
         $this->authorizeProjectAccess($request, $project);
@@ -555,7 +441,6 @@ class ProjectFileController extends Controller
         $storagePath = $file->storage_path;
 
         DB::transaction(function () use ($file, $request, $project) {
-            $this->removeDeletedFileFromDocuments($project, $file);
             $file->delete();
             app(AuditLogger::class)->record('project_file_deleted', $request->user(), $file, $project->company_id, $project->id);
         });
@@ -563,83 +448,6 @@ class ProjectFileController extends Controller
         Storage::disk($disk)->delete($storagePath);
 
         return response()->json(['status' => 'deleted']);
-    }
-
-    private function removeDeletedFileFromDocuments(Project $project, ProjectFile $file): void
-    {
-        $fileId = (int) $file->getKey();
-
-        $project->folders()
-            ->where('resource_type', 'document')
-            ->whereNotNull('content')
-            ->get()
-            ->each(function (ProjectFolder $document) use ($fileId): void {
-                $content = json_decode((string) $document->content, true);
-
-                if (! is_array($content)) {
-                    return;
-                }
-
-                $changed = false;
-                $cleaned = $this->removeProjectFileImageNodes($content, $fileId, $changed);
-
-                if (! $changed) {
-                    return;
-                }
-
-                if (
-                    ($cleaned['type'] ?? null) === 'doc' &&
-                    empty($cleaned['content'])
-                ) {
-                    $cleaned['content'] = [['type' => 'paragraph']];
-                }
-
-                $document->update([
-                    'content' => json_encode($cleaned),
-                ]);
-            });
-    }
-
-    private function removeProjectFileImageNodes(array $node, int $fileId, bool &$changed): array
-    {
-        $attributes = $node['attrs'] ?? [];
-        $projectFileId = (int) ($attributes['projectFileId'] ?? 0);
-        $source = (string) ($attributes['src'] ?? '');
-        $isLegacyFileUrl = preg_match(
-            '#/projects/\d+/files/' . preg_quote((string) $fileId, '#') . '/open(?:\?|$)#',
-            $source
-        ) === 1;
-
-        if (
-            ($node['type'] ?? null) === 'image' &&
-            ($projectFileId === $fileId || $isLegacyFileUrl)
-        ) {
-            $changed = true;
-
-            return [];
-        }
-
-        if (! isset($node['content']) || ! is_array($node['content'])) {
-            return $node;
-        }
-
-        $children = [];
-
-        foreach ($node['content'] as $child) {
-            $cleanedChild = $this->removeProjectFileImageNodes(
-                $child,
-                $fileId,
-                $changed
-            );
-
-            if (! empty($cleanedChild)) {
-                $children[] = $cleanedChild;
-            }
-        }
-
-        $node['content'] = $children;
-
-        return $node;
     }
 
     private function breadcrumbs(?ProjectFolder $folder): array { $items=[]; while($folder){array_unshift($items,['id'=>$folder->id,'name'=>$folder->name]);$folder=$folder->parent;} return $items; }
@@ -784,28 +592,8 @@ class ProjectFileController extends Controller
             'created_at' => $file->created_at,
             'updated_at' => $file->updated_at,
             'open_url' => url("/admin/client-portal/{$apiPrefix}/projects/{$project->id}/files/{$file->id}/open"),
-            'thumbnail_url' => $this->isThumbnailableImage($file)
-                ? url("/admin/client-portal/{$apiPrefix}/projects/{$project->id}/files/{$file->id}/thumbnail")
-                : null,
             'download_url' => url("/admin/client-portal/{$apiPrefix}/projects/{$project->id}/files/{$file->id}/download"),
         ];
-    }
-
-    private function isThumbnailableImage(
-        ProjectFile $file
-    ): bool {
-        return in_array(
-            strtolower(
-                (string) $file->mime_type
-            ),
-            [
-                'image/jpeg',
-                'image/png',
-                'image/gif',
-                'image/webp'
-            ],
-            true
-        );
     }
 
     private function authorizeProjectAccess(Request $request, Project $project): void
