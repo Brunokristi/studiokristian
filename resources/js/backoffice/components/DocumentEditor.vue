@@ -332,6 +332,10 @@ const imagePickerLoading = ref(false)
 const imagePickerError = ref('')
 const imagePickerItems = ref([])
 const imagePickerCurrentFolderId = ref(null)
+const imagePickerLoadedFolders = ref(
+    new Set()
+)
+const imagePickerStructureLoaded = ref(false)
 const imagePickerUploading = ref(false)
 
 const imageNodePickerContext = ref(false)
@@ -2839,10 +2843,22 @@ function openProjectFilesForImageNode(
             : null
     imagePickerCurrentFolderId.value =
         null
+
+    imagePickerItems.value =
+        []
+
+    imagePickerLoadedFolders.value =
+        new Set()
+
+    imagePickerStructureLoaded.value =
+        false
+
     showImagePickerModal.value =
         true
 
-    void loadImagePickerItems()
+    void loadImagePickerItems(
+        null
+    )
 }
 
 
@@ -2933,17 +2949,20 @@ function normalizeProjectFolders(
     const previousById =
         new Map(
             previous
-                .filter(item =>
-                    isPersistedFolderId(
-                        item?.id
-                    )
+                .filter(
+                    item =>
+                        isPersistedFolderId(
+                            item?.id
+                        )
                 )
-                .map(item => [
-                    String(
-                        item.id
-                    ),
-                    item
-                ])
+                .map(
+                    item => [
+                        String(
+                            item.id
+                        ),
+                        item
+                    ]
+                )
         )
 
     const normalized =
@@ -2955,7 +2974,7 @@ function normalizeProjectFolders(
                 const previousItem =
                     previousById.get(
                         String(
-                            item.id
+                            item?.id
                         )
                     ) ||
                     previous[
@@ -2963,24 +2982,43 @@ function normalizeProjectFolders(
                     ] ||
                     null
 
+                const type =
+                    item?.type ===
+                        'file'
+                        ? 'file'
+                        : 'folder'
+
                 return {
                     ...item,
-                    type: 'folder',
+
+                    type,
+
+                    resource_type:
+                        type === 'file'
+                            ? (
+                                item?.resource_type ||
+                                previousItem?.resource_type ||
+                                'document'
+                            )
+                            : null,
+
                     client_key:
                         previousItem?.client_key ||
-                        item.client_key ||
+                        item?.client_key ||
                         String(
-                            item.id
+                            item?.id
                         ),
+
                     parent_client_key:
-                        item.parent_id !== null &&
-                        item.parent_id !== undefined
+                        item?.parent_id !== null &&
+                        item?.parent_id !== undefined
                             ? String(
                                 item.parent_id
                             )
                             : null,
+
                     client_visible:
-                        item.client_visible ??
+                        item?.client_visible ??
                         previousItem?.client_visible ??
                         true
                 }
@@ -3004,6 +3042,7 @@ function normalizeProjectFolders(
     return normalized.map(
         item => ({
             ...item,
+
             parent_client_key:
                 item.parent_id !==
                     null &&
@@ -3023,7 +3062,6 @@ function normalizeProjectFolders(
         })
     )
 }
-
 
 function isPersistedFolderId(
     value
@@ -3163,6 +3201,40 @@ async function persistImagePickerStructure() {
 }
 
 
+function isBrowserImageFile(
+    file
+) {
+    if (
+        !file
+    ) {
+        return false
+    }
+
+    const mime =
+        String(
+            file.type ||
+            ''
+        ).toLowerCase()
+
+    if (
+        mime.startsWith(
+            'image/'
+        )
+    ) {
+        return true
+    }
+
+    const name =
+        String(
+            file.name ||
+            ''
+        ).toLowerCase()
+
+    return /\.(png|jpe?g|gif|webp|svg|avif|bmp|ico|tiff?)$/i.test(
+        name
+    )
+}
+
 function normalizePickerFile(
     file
 ) {
@@ -3192,6 +3264,9 @@ function normalizePickerFile(
         open_url:
             file.open_url ||
             '',
+        thumbnail_url:
+            file.thumbnail_url ||
+            '',
         download_url:
             file.download_url ||
             '',
@@ -3207,20 +3282,33 @@ function normalizePickerFile(
 }
 
 
-async function loadImagePickerItems() {
+async function loadImagePickerItems(
+    folderId = null,
+    force = false
+) {
     if (
         !props.projectId
     ) {
-        imagePickerItems.value = []
+        imagePickerItems.value =
+            []
+
         return
     }
 
-    imagePickerLoading.value =
-        true
-    imagePickerError.value =
-        ''
+    const cacheKey =
+        folderId === null
+            ? 'root'
+            : String(
+                folderId
+            )
 
-    try {
+    /*
+     * Load the folder/document structure once.
+     * This is metadata only; it does not download file contents.
+     */
+    if (
+        !imagePickerStructureLoaded.value
+    ) {
         const projectResponse =
             await api.get(
                 `/projects/${props.projectId}`
@@ -3237,80 +3325,111 @@ async function loadImagePickerItems() {
                 imagePickerStructureItems()
             )
 
-        const collectedFiles = []
-        const queue = [null]
-        const visited =
-            new Set()
+        const uploadedFiles =
+            (
+                imagePickerItems.value ||
+                []
+            ).filter(
+                item =>
+                    item?.__uploaded_file
+            )
 
-        while (queue.length) {
-            const folderId =
-                queue.shift()
+        imagePickerItems.value = [
+            ...structureItems,
+            ...uploadedFiles
+        ]
 
-            const response =
-                await api.get(
-                    `/projects/${props.projectId}/files`,
-                    {
+        imagePickerStructureLoaded.value =
+            true
+    }
+
+    if (
+        !force &&
+        imagePickerLoadedFolders.value.has(
+            cacheKey
+        )
+    ) {
+        imagePickerCurrentFolderId.value =
+            folderId
+
+        return
+    }
+
+    imagePickerLoading.value =
+        true
+
+    imagePickerError.value =
+        ''
+
+    try {
+        const response =
+            await api.get(
+                `/projects/${props.projectId}/files`,
+                folderId === null
+                    ? {}
+                    : {
                         params: {
                             folder_id:
                                 folderId
                         }
                     }
-                )
-
-            const files =
-                Array.isArray(
-                    response.data?.files
-                )
-                    ? response.data.files
-                    : []
-
-            const folders =
-                Array.isArray(
-                    response.data?.folders
-                )
-                    ? response.data.folders
-                    : []
-
-            folders.forEach(
-                folder => {
-                    const id =
-                        Number(
-                            folder?.id
-                        )
-
-                    if (
-                        !Number.isFinite(
-                            id
-                        ) ||
-                        visited.has(id)
-                    ) {
-                        return
-                    }
-
-                    visited.add(id)
-                    queue.push(id)
-                }
             )
 
+        const files =
+            Array.isArray(
+                response.data?.files
+            )
+                ? response.data.files
+                : []
+
+        const imageFiles =
             files
                 .filter(
                     pickerAcceptsProjectFile
                 )
-                .forEach(
-                    file => {
-                        collectedFiles.push(
-                            normalizePickerFile(
-                                file
-                            )
-                        )
-                    }
+                .map(
+                    normalizePickerFile
                 )
-        }
+
+        const parentKey =
+            String(
+                folderId ??
+                ''
+            )
+
+        const retainedItems =
+            (
+                imagePickerItems.value ||
+                []
+            ).filter(
+                item => {
+                    if (
+                        !item?.__uploaded_file
+                    ) {
+                        return true
+                    }
+
+                    return (
+                        String(
+                            item.parent_id ??
+                            ''
+                        ) !==
+                        parentKey
+                    )
+                }
+            )
 
         imagePickerItems.value = [
-            ...structureItems,
-            ...collectedFiles
+            ...retainedItems,
+            ...imageFiles
         ]
+
+        imagePickerLoadedFolders.value.add(
+            cacheKey
+        )
+
+        imagePickerCurrentFolderId.value =
+            folderId
     } catch (exception) {
         imagePickerError.value =
             errorMessage(
@@ -3321,7 +3440,6 @@ async function loadImagePickerItems() {
             false
     }
 }
-
 
 function closeImagePickerModal() {
     showImagePickerModal.value =
@@ -3335,12 +3453,19 @@ function closeImagePickerModal() {
 }
 
 
-function handleImagePickerFolderOpen(
+async function handleImagePickerFolderOpen(
     folder
 ) {
-    imagePickerCurrentFolderId.value =
+    const folderId =
         folder?.id ??
         null
+
+    imagePickerCurrentFolderId.value =
+        folderId
+
+    await loadImagePickerItems(
+        folderId
+    )
 }
 
 
@@ -3432,7 +3557,11 @@ async function handleImagePickerFileOpen(file) {
                             width:
                                 '100%',
                             pendingProjectImage:
-                                false
+                                false,
+                            projectFileId:
+                                Number(
+                                    file.id
+                                )
                         }
                     )
 
@@ -3454,7 +3583,17 @@ async function handleImagePickerFileOpen(file) {
                         width:
                             '100%',
                         pendingProjectImage:
-                            false
+                            false,
+                        projectFileId:
+                            Number(
+                                String(
+                                    file.id ||
+                                    ''
+                                ).replace(
+                                    'project-file-',
+                                    ''
+                                )
+                            )
                     })
                     .run()
             }
@@ -3486,7 +3625,7 @@ async function handleImagePickerUpload(
         payload?.files ||
         []
     ).filter(
-        pickerAcceptsProjectFile
+        isBrowserImageFile
     )
 
     if (!files.length) {
@@ -3658,7 +3797,18 @@ async function handleImagePickerUpload(
             )
         }
 
-        await loadImagePickerItems()
+        imagePickerLoadedFolders.value.delete(
+            imagePickerCurrentFolderId.value ===
+                null
+                ? 'root'
+                : String(
+                    imagePickerCurrentFolderId.value
+                )
+        )
+
+        await loadImagePickerItems(
+            imagePickerCurrentFolderId.value
+        )
     } catch (exception) {
         imagePickerError.value =
             errorMessage(

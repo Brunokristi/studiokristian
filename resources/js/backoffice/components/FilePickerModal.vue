@@ -36,7 +36,7 @@ const props = defineProps({
 
     subtitle: {
         type: String,
-        default: 'Double-click a file to select it.'
+        default: 'Select an image from Project Files.'
     },
 
     allowUploadControl: {
@@ -46,7 +46,7 @@ const props = defineProps({
 
     allowMetadataEditing: {
         type: Boolean,
-        default: true
+        default: false
     },
 
     preventDeletingRequired: {
@@ -165,6 +165,9 @@ function updateItems(value) {
                 "
                 :disabled="
                     disabled
+                "
+                :show-image-previews="
+                    true
                 "
                 @update:model-value="
                     updateItems

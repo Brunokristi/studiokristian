@@ -32,6 +32,55 @@ export default Image.extend({
 
             pendingProjectImage: {
                 default: false
+            },
+
+            projectFileId: {
+                default: null,
+
+                parseHTML: element => {
+                    const value =
+                        element.getAttribute(
+                            'data-project-file-id'
+                        )
+
+                    if (
+                        value === null ||
+                        value === ''
+                    ) {
+                        return null
+                    }
+
+                    const id =
+                        Number(
+                            value
+                        )
+
+                    return Number.isFinite(
+                        id
+                    )
+                        ? id
+                        : null
+                },
+
+                renderHTML: attributes => {
+                    if (
+                        attributes.projectFileId ===
+                            null ||
+                        attributes.projectFileId ===
+                            undefined ||
+                        attributes.projectFileId ===
+                            ''
+                    ) {
+                        return {}
+                    }
+
+                    return {
+                        'data-project-file-id':
+                            String(
+                                attributes.projectFileId
+                            )
+                    }
+                }
             }
         }
     },
