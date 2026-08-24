@@ -67,6 +67,10 @@ const saving =
     ref(false)
 
 
+const resendingInvitation =
+    ref(false)
+
+
 const deleting =
     ref(false)
 
@@ -471,6 +475,40 @@ async function saveCoworker() {
 }
 
 
+async function resendInvitation() {
+    if (
+        !editing.value ||
+        !props.id ||
+        resendingInvitation.value
+    ) {
+        return
+    }
+
+    resendingInvitation.value =
+        true
+
+    requestError.value =
+        ''
+
+    try {
+        await api.post(
+            `/coworkers/${props.id}/resend-invitation`
+        )
+    } catch (
+        exception
+    ) {
+        showError(
+            errorMessage(
+                exception
+            )
+        )
+    } finally {
+        resendingInvitation.value =
+            false
+    }
+}
+
+
 function deleteCoworker() {
     if (
         !editing.value ||
@@ -828,6 +866,22 @@ useAdminPageHeader({
                     @click="
                         deleteCoworker
                     "
+                />
+
+                <Button
+                    type="button"
+                    text="resend invitation"
+                    :loading="
+                        resendingInvitation
+                    "
+                    :disabled="
+                        resendingInvitation ||
+                        deleting
+                    "
+                    @click="
+                        resendInvitation
+                    "
+                    align="left"
                 />
             </section>
         </form>

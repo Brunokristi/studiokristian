@@ -78,6 +78,9 @@ const saving =
 const deleting =
     ref(false)
 
+const resendingInvitation =
+    ref(false)
+
 
 const showDeleteConfirm =
     ref(false)
@@ -666,6 +669,41 @@ function cancel() {
     })
 }
 
+async function resendInvitation() {
+    if (
+        !editing.value ||
+        !companyId.value ||
+        !props.id ||
+        resendingInvitation.value ||
+        !form.can_access_portal
+    ) {
+        return
+    }
+
+    resendingInvitation.value =
+        true
+
+    requestError.value =
+        ''
+
+    try {
+        await api.post(
+            `/clients/${companyId.value}/contacts/${props.id}/resend-invitation`
+        )
+    } catch (
+        exception
+    ) {
+        showError(
+            errorMessage(
+                exception
+            )
+        )
+    } finally {
+        resendingInvitation.value =
+            false
+    }
+}
+
 
 function deleteContact() {
     if (
@@ -1032,6 +1070,20 @@ useAdminPageHeader({
                 >
                     Danger zone
                 </h3>
+
+                <Button
+                    type="button"
+                    :text="'Resend invitation'"
+                    :loading-text="'Sending...'"
+                    :loading="resendingInvitation"
+                    :disabled="
+                        resendingInvitation ||
+                        !form.can_access_portal
+                    "
+                    :lowercase="true"
+                    @click="resendInvitation"
+                    align="left"
+                />
 
 
                 <Button

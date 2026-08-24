@@ -187,6 +187,7 @@ Route::prefix('admin/client-portal')->middleware(['auth', 'admin'])->name('admin
         Route::post('/clients/{company}/archive', [AdminCompanyController::class, 'archive'])->name('clients.archive');
         Route::post('/clients/{company}/contacts', [AdminContactController::class, 'store'])->name('contacts.store');
         Route::put('/clients/{company}/contacts/{contact}', [AdminContactController::class, 'update'])->name('contacts.update');
+        Route::post('/clients/{company}/contacts/{contact}/resend-invitation', [AdminContactController::class, 'resendInvitation'])->name('contacts.resend-invitation');
         Route::delete('/clients/{company}/contacts/{contact}', [AdminContactController::class, 'destroy'])->name('contacts.destroy');
 
         Route::get('/projects', [AdminProjectController::class, 'index'])->name('projects.index');

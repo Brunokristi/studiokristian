@@ -23,7 +23,7 @@ class ClientMagicLinkNotification extends Notification implements ShouldQueue
 
     public function toMail(object $notifiable): MailMessage
     {
-        $subject = 'Prihlásenie do Client Portal';
+        $subject = 'Sign in to Client Portal';
 
         return (new MailMessage)
             ->subject($subject)
