@@ -1,4 +1,5 @@
 <script setup>
+
 import {
     computed,
     ref
@@ -7,12 +8,9 @@ import {
 import LanguageToggle from '@shared/components/LanguageToggle.vue'
 import { useClientPageHeader } from '../composables/useClientPageHeader'
 
-
 const {
     header: pageHeader
-} =
-    useClientPageHeader()
-
+} = useClientPageHeader()
 
 const props = defineProps({
     page: {
@@ -31,11 +29,9 @@ const props = defineProps({
     }
 })
 
-
 const emit = defineEmits([
     'set-locale'
 ])
-
 
 /*
 |--------------------------------------------------------------------------
@@ -54,16 +50,18 @@ const navigation = [
     }
 ]
 
-
 /*
 |--------------------------------------------------------------------------
 | Menu state
 |--------------------------------------------------------------------------
+|
+| Closed by default on small screens.
+| On desktop the sidebar is always visible through the lg: classes.
+|
 */
 
 const menuOpen =
-    ref(true)
-
+    ref(false)
 
 /*
 |--------------------------------------------------------------------------
@@ -108,7 +106,6 @@ const copy = {
     }
 }
 
-
 function t(
     key
 ) {
@@ -118,7 +115,6 @@ function t(
         key
     )
 }
-
 
 /*
 |--------------------------------------------------------------------------
@@ -133,12 +129,10 @@ const currentPage =
         )
     )
 
-
 const menuIconOpen =
     computed(() =>
         menuOpen.value
     )
-
 
 /*
 |--------------------------------------------------------------------------
@@ -154,21 +148,20 @@ function isNavigationItemActive(
     )
 }
 
-
 function closeMenu() {
     menuOpen.value =
         false
 }
 
-
 function toggleMenu() {
     menuOpen.value =
         !menuOpen.value
 }
+
 </script>
 
-
 <template>
+
     <div
         class="
             flex
@@ -180,6 +173,7 @@ function toggleMenu() {
             text-dark
         "
     >
+
         <!-- =========================================================
              Header
         ========================================================== -->
@@ -198,6 +192,7 @@ function toggleMenu() {
                 px-5
             "
         >
+
             <!-- Brand -->
 
             <a
@@ -206,6 +201,7 @@ function toggleMenu() {
                 "
                 class="
                     flex
+                    min-w-0
                     items-center
                     gap-1
                     transition-opacity
@@ -214,12 +210,14 @@ function toggleMenu() {
                 "
                 aria-label="Studio Kristian Client Portal"
             >
+
                 <img
                     src="/public/assets/logo.svg"
                     alt=""
                     class="
                         h-2.5
                         w-auto
+                        shrink-0
                     "
                 >
 
@@ -227,6 +225,7 @@ function toggleMenu() {
                     class="
                         hidden
                         h3
+                        truncate
                         uppercase
                         text-dark
                         sm:block
@@ -236,33 +235,30 @@ function toggleMenu() {
                         page.contact.company_name
                     }}
                 </span>
-            </a>
 
+            </a>
 
             <!-- Header actions -->
 
             <div
                 class="
                     flex
+                    shrink-0
                     items-center
                     gap-4
                     sm:gap-6
                 "
             >
-                <!-- Company -->
 
-                
-
-
-                <!-- Desktop language -->
+                <!-- Language -->
 
                 <LanguageToggle
                     :model-value="locale"
                     :compact="true"
-                    class="hidden sm:flex"
-                    @update:model-value="emit('set-locale', $event)"
+                    @update:model-value="
+                        emit('set-locale', $event)
+                    "
                 />
-
 
                 <!-- Mobile menu -->
 
@@ -293,6 +289,7 @@ function toggleMenu() {
                         toggleMenu
                     "
                 >
+
                     <span
                         class="
                             menu-icon
@@ -307,24 +304,28 @@ function toggleMenu() {
                         }"
                         aria-hidden="true"
                     >
+
                         <span
                             class="
                                 menu-line
                                 menu-line-top
                             "
-                        />
+                        ></span>
 
                         <span
                             class="
                                 menu-line
                                 menu-line-bottom
                             "
-                        />
-                    </span>
-                </button>
-            </div>
-        </header>
+                        ></span>
 
+                    </span>
+
+                </button>
+
+            </div>
+
+        </header>
 
         <!-- =========================================================
              Application shell
@@ -338,6 +339,7 @@ function toggleMenu() {
                 overflow-hidden
             "
         >
+
             <!-- Mobile overlay -->
 
             <button
@@ -357,24 +359,20 @@ function toggleMenu() {
                 @click="
                     closeMenu
                 "
-            />
+            ></button>
 
+            <!-- Main grid -->
 
             <div
                 class="
                     grid
                     h-full
                     min-h-0
-                    transition-[grid-template-columns]
-                    duration-300
-                    ease-out
-                "
-                :class="
-                    menuOpen
-                        ? 'lg:grid-cols-[250px_minmax(0,1fr)]'
-                        : 'lg:grid-cols-[0_minmax(0,1fr)]'
+                    grid-cols-1
+                    lg:grid-cols-[250px_minmax(0,1fr)]
                 "
             >
+
                 <!-- =================================================
                      Sidebar
                 ================================================== -->
@@ -408,6 +406,7 @@ function toggleMenu() {
                             : '-translate-x-full'
                     "
                 >
+
                     <!-- Navigation -->
 
                     <nav
@@ -419,6 +418,7 @@ function toggleMenu() {
                         "
                         aria-label="Main navigation"
                     >
+
                         <template
                             v-for="
                                 item in navigation
@@ -427,6 +427,7 @@ function toggleMenu() {
                                 item.key
                             "
                         >
+
                             <a
                                 :href="
                                     page.urls.dashboard
@@ -463,29 +464,10 @@ function toggleMenu() {
                                     )
                                 }}
                             </a>
+
                         </template>
+
                     </nav>
-
-
-                    <!-- Mobile language -->
-
-                    <div
-                        class="
-                            border-t
-                            border-accent
-                            px-5
-                            py-4
-                            sm:hidden
-                        "
-                    >
-                        <LanguageToggle
-                            :model-value="locale"
-                            :compact="true"
-                            class="w-full"
-                            @update:model-value="emit('set-locale', $event)"
-                        />
-                    </div>
-
 
                     <!-- Logout -->
 
@@ -500,6 +482,7 @@ function toggleMenu() {
                             border-accent
                         "
                     >
+
                         <input
                             type="hidden"
                             name="_token"
@@ -534,9 +517,10 @@ function toggleMenu() {
                                 t('logout')
                             }}
                         </button>
-                    </form>
-                </aside>
 
+                    </form>
+
+                </aside>
 
                 <!-- =================================================
                      Main content
@@ -556,6 +540,7 @@ function toggleMenu() {
                         lg:px-10
                     "
                 >
+
                     <!-- Status -->
 
                     <div
@@ -577,7 +562,6 @@ function toggleMenu() {
                             page.status
                         }}
                     </div>
-
 
                     <!-- Error -->
 
@@ -602,77 +586,191 @@ function toggleMenu() {
                         }}
                     </div>
 
-
-                    <!-- Page -->
+                    <!-- Page header -->
 
                     <header
                         v-if="pageHeader.title"
                         class="pb-10"
                     >
+
                         <nav
-                            v-if="pageHeader.breadcrumbs.length || pageHeader.eyebrow"
+                            v-if="
+                                pageHeader.breadcrumbs.length ||
+                                pageHeader.eyebrow
+                            "
                             aria-label="Breadcrumb"
-                            class="mb-2 flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 p uppercase"
+                            class="
+                                mb-2
+                                flex
+                                min-w-0
+                                flex-wrap
+                                items-center
+                                gap-x-2
+                                gap-y-1
+                                p
+                                uppercase
+                            "
                         >
+
                             <a
-                                :href="pageHeader.homeUrl"
-                                class="text-dark transition-colors hover:text-accent"
+                                :href="
+                                    pageHeader.homeUrl
+                                "
+                                class="
+                                    text-dark
+                                    transition-colors
+                                    hover:text-accent
+                                "
                             >
                                 Client
                             </a>
 
                             <template
-                                v-for="(breadcrumb, index) in pageHeader.breadcrumbs"
-                                :key="`${breadcrumb.label}-${index}`"
+                                v-for="
+                                    (
+                                        breadcrumb,
+                                        index
+                                    ) in pageHeader.breadcrumbs
+                                "
+                                :key="
+                                    `${breadcrumb.label}-${index}`
+                                "
                             >
-                                <span class="text-dark" aria-hidden="true">/</span>
+
+                                <span
+                                    class="
+                                        text-dark
+                                    "
+                                    aria-hidden="true"
+                                >
+                                    /
+                                </span>
 
                                 <a
-                                    v-if="breadcrumb.href"
-                                    :href="breadcrumb.href"
-                                    class="min-w-0 max-w-[12rem] truncate text-dark transition-colors hover:text-accent sm:max-w-none"
+                                    v-if="
+                                        breadcrumb.href
+                                    "
+                                    :href="
+                                        breadcrumb.href
+                                    "
+                                    class="
+                                        min-w-0
+                                        max-w-[12rem]
+                                        truncate
+                                        text-dark
+                                        transition-colors
+                                        hover:text-accent
+                                        sm:max-w-none
+                                    "
                                 >
-                                    {{ breadcrumb.label }}
+                                    {{
+                                        breadcrumb.label
+                                    }}
                                 </a>
 
                                 <span
                                     v-else
-                                    class="min-w-0 max-w-[12rem] truncate text-accent sm:max-w-none"
+                                    class="
+                                        min-w-0
+                                        max-w-[12rem]
+                                        truncate
+                                        text-accent
+                                        sm:max-w-none
+                                    "
                                     aria-current="page"
                                 >
-                                    {{ breadcrumb.label }}
+                                    {{
+                                        breadcrumb.label
+                                    }}
                                 </span>
+
                             </template>
 
-                            <template v-if="!pageHeader.breadcrumbs.length && pageHeader.eyebrow">
-                                <span class="text-dark" aria-hidden="true">/</span>
-                                <span class="text-accent">{{ pageHeader.eyebrow }}</span>
+                            <template
+                                v-if="
+                                    !pageHeader.breadcrumbs.length &&
+                                    pageHeader.eyebrow
+                                "
+                            >
+
+                                <span
+                                    class="
+                                        text-dark
+                                    "
+                                    aria-hidden="true"
+                                >
+                                    /
+                                </span>
+
+                                <span
+                                    class="
+                                        text-accent
+                                    "
+                                >
+                                    {{
+                                        pageHeader.eyebrow
+                                    }}
+                                </span>
+
                             </template>
+
                         </nav>
 
-                        <div class="flex flex-col gap-6 md:flex-row md:items-end md:justify-between">
+                        <div
+                            class="
+                                flex
+                                flex-col
+                                gap-6
+                                md:flex-row
+                                md:items-end
+                                md:justify-between
+                            "
+                        >
+
                             <div>
-                                <h1 class="h2 text-left">
-                                    {{ pageHeader.title }}
+
+                                <h1
+                                    class="
+                                        h2
+                                        text-left
+                                    "
+                                >
+                                    {{
+                                        pageHeader.title
+                                    }}
                                 </h1>
+
                             </div>
 
                             <div
                                 id="client-page-header-actions"
-                                class="flex flex-wrap gap-x-4 gap-y-3 md:justify-end"
-                            />
+                                class="
+                                    flex
+                                    flex-wrap
+                                    gap-x-4
+                                    gap-y-3
+                                    md:justify-end
+                                "
+                            ></div>
+
                         </div>
+
                     </header>
 
                     <slot />
+
                 </main>
+
             </div>
+
         </div>
+
     </div>
+
 </template>
 
-
 <style scoped>
+
 /*
 |--------------------------------------------------------------------------
 | Menu icon
@@ -682,7 +780,6 @@ function toggleMenu() {
 .menu-icon {
     display: block;
 }
-
 
 .menu-line {
     position: absolute;
@@ -696,16 +793,13 @@ function toggleMenu() {
         transform 0.25s ease;
 }
 
-
 .menu-line-top {
     top: 4px;
 }
 
-
 .menu-line-bottom {
     top: 11px;
 }
-
 
 /*
 |--------------------------------------------------------------------------
@@ -718,9 +812,9 @@ function toggleMenu() {
     transform: rotate(45deg);
 }
 
-
 .menu-icon.is-open .menu-line-bottom {
     top: 7.5px;
     transform: rotate(-45deg);
 }
+
 </style>

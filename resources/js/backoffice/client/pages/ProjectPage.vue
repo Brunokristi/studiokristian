@@ -1074,8 +1074,8 @@ useClientPageHeader({
     <div
         class="
             w-full
-            space-y-12
-            lg:space-y-14
+            space-y-28
+            lg:space-y-24
         "
     >
         <Teleport
@@ -1165,6 +1165,57 @@ useClientPageHeader({
         <template
             v-else
         >
+
+        <!--
+        |--------------------------------------------------------------------------
+        | Project details
+        |--------------------------------------------------------------------------
+        -->
+
+        <section>
+            <h2
+                class="
+                    h2
+                    text-accent
+                    text-left
+                "
+            >
+                {{
+                    copy.projectDetails
+                }}
+            </h2>
+
+            <div
+                class="
+                    mt-6
+                    grid
+                    gap-0
+                "
+            >
+                <Info
+                    v-for="
+                        (
+                            detail,
+                            index
+                        ) in projectDetails
+                    "
+                    :key="
+                        `project-detail-${index}`
+                    "
+                    :heading="
+                        detail.heading
+                    "
+                    :text="
+                        detail.text
+                    "
+                    :opened="
+                        False
+                    "
+                />
+            </div>
+        </section>
+
+
         <!--
         |--------------------------------------------------------------------------
         | Actions required
@@ -1251,21 +1302,7 @@ useClientPageHeader({
                             </span>
                         </div>
 
-                        <Button
-                            variant="light"
-                            hover-variant="dark"
-                            :text="
-                                copy.signatureRequired
-                            "
-                            align="right"
-                            class="
-                                max-w-[200px]
-                            "
-                        >
-                            {{
-                                copy.signatureRequired
-                            }}
-                        </Button>
+                        <i class="bi bi-arrow-up-right p" />
                     </a>
                 </li>
             </ul>
@@ -1480,56 +1517,6 @@ useClientPageHeader({
                 </p>
             </div>
 
-        </section>
-
-
-        <!--
-        |--------------------------------------------------------------------------
-        | Project details
-        |--------------------------------------------------------------------------
-        -->
-
-        <section>
-            <h2
-                class="
-                    h2
-                    text-accent
-                    text-left
-                "
-            >
-                {{
-                    copy.projectDetails
-                }}
-            </h2>
-
-            <div
-                class="
-                    mt-6
-                    grid
-                    gap-0
-                "
-            >
-                <Info
-                    v-for="
-                        (
-                            detail,
-                            index
-                        ) in projectDetails
-                    "
-                    :key="
-                        `project-detail-${index}`
-                    "
-                    :heading="
-                        detail.heading
-                    "
-                    :text="
-                        detail.text
-                    "
-                    :opened="
-                        False
-                    "
-                />
-            </div>
         </section>
 
 
