@@ -858,7 +858,7 @@ function normalizeDocumentContentForClient(
 
                 const match =
                     src.match(
-                        /\/projects\/\d+\/files\/(\d+)\/open(?:\?|$)/
+                        /\/files\/(\d+)\/open(?:[/?#]|$)/
                     )
 
                 if (match) {
@@ -1611,6 +1611,12 @@ useClientPageHeader({
             "
             :editable="
                 false
+            "
+            :client-mode="
+                true
+            "
+            :project-id="
+                props.data.project?.id || ''
             "
             :show-signature-status="
                 Boolean(

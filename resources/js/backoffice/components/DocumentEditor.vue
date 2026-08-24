@@ -292,6 +292,11 @@ const props = defineProps({
         default: ''
     },
 
+    clientMode: {
+        type: Boolean,
+        default: false
+    },
+
     language: {
         type: String,
         default: 'en'
@@ -893,6 +898,113 @@ function normalizeTableWidths(
 }
 
 
+function normalizeClientImageUrls(
+    node
+) {
+    if (
+        !node ||
+        typeof node !== 'object'
+    ) {
+        return node
+    }
+
+    const normalized = {
+        ...node
+    }
+
+    if (
+        node.type === 'image' &&
+        node.attrs &&
+        typeof node.attrs === 'object'
+    ) {
+        const attrs = {
+            ...node.attrs
+        }
+
+        let fileId =
+            attrs.projectFileId
+
+        if (
+            typeof fileId === 'string'
+        ) {
+            fileId =
+                fileId
+                    .replace(
+                        'project-file-',
+                        ''
+                    )
+                    .trim()
+        }
+
+        const numericFileId =
+            Number(fileId)
+
+        if (
+            !Number.isInteger(
+                numericFileId
+            ) ||
+            numericFileId <= 0
+        ) {
+            const src =
+                String(
+                    attrs.src ||
+                    ''
+                ).trim()
+
+            /*
+             * Recognize every project-file open URL
+             * format that may exist in documents:
+             *
+             * /admin/client-portal/api/projects/13/files/175/open
+             * /projects/13/files/175/open
+             * /client/files/175/open
+             */
+            const match =
+                src.match(
+                    /\/files\/(\d+)\/open(?:[/?#]|$)/
+                )
+
+            if (match) {
+                fileId =
+                    match[1]
+            }
+        }
+
+        const resolvedFileId =
+            Number(fileId)
+
+        if (
+            Number.isInteger(
+                resolvedFileId
+            ) &&
+            resolvedFileId > 0
+        ) {
+            attrs.src =
+                `/client/files/${resolvedFileId}/open`
+
+            attrs.projectFileId =
+                resolvedFileId
+        }
+
+        normalized.attrs =
+            attrs
+    }
+
+    if (
+        Array.isArray(
+            node.content
+        )
+    ) {
+        normalized.content =
+            node.content.map(
+                normalizeClientImageUrls
+            )
+    }
+
+    return normalized
+}
+
+
 function normalizeDoc(
     source
 ) {
@@ -932,8 +1044,15 @@ function normalizeDoc(
                     parsed.content
                 )
             ) {
+                const normalized =
+                    props.clientMode
+                        ? normalizeClientImageUrls(
+                            parsed
+                        )
+                        : parsed
+
                 return normalizeTableWidths(
-                    parsed
+                    normalized
                 )
             }
 
@@ -941,8 +1060,15 @@ function normalizeDoc(
                 parsed?.doc?.type ===
                 'doc'
             ) {
+                const normalized =
+                    props.clientMode
+                        ? normalizeClientImageUrls(
+                            parsed.doc
+                        )
+                        : parsed.doc
+
                 return normalizeTableWidths(
-                    parsed.doc
+                    normalized
                 )
             }
 
@@ -981,8 +1107,15 @@ function normalizeDoc(
     if (
         source?.type === 'doc'
     ) {
+        const normalized =
+            props.clientMode
+                ? normalizeClientImageUrls(
+                    source
+                )
+                : source
+
         return normalizeTableWidths(
-            source
+            normalized
         )
     }
 
@@ -990,8 +1123,15 @@ function normalizeDoc(
         source?.doc?.type ===
         'doc'
     ) {
+        const normalized =
+            props.clientMode
+                ? normalizeClientImageUrls(
+                    source.doc
+                )
+                : source.doc
+
         return normalizeTableWidths(
-            source.doc
+            normalized
         )
     }
 
