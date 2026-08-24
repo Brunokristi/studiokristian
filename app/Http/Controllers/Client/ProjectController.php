@@ -17,7 +17,36 @@ class ProjectController extends Controller
             'company', 'serviceProduct',
             'contracts' => fn ($query) => $query->whereIn('status', ['sent', 'viewed', 'accepted', 'superseded'])->latest(),
             'priceOffers' => fn ($query) => $query->whereIn('status', ['sent', 'viewed', 'accepted'])->latest(),
-            'files' => fn ($query) => $query->where('visibility', 'client')->latest(),
+            /*
+             * Only preload root-level client files.
+             *
+             * Nested project files are loaded lazily by the client
+             * ProjectPage through /client/projects/{project}/files.
+             * This keeps the initial HTML/Inertia payload small.
+             */
+            'files' => fn ($query) => $query
+                ->select([
+                    'id',
+                    'project_id',
+                    'project_folder_id',
+                    'original_filename',
+                    'display_name',
+                    'extension',
+                    'mime_type',
+                    'size',
+                    'disk',
+                    'visibility',
+                    'created_at',
+                    'updated_at',
+                ])
+                ->where(
+                    'visibility',
+                    'client'
+                )
+                ->whereNull(
+                    'project_folder_id'
+                )
+                ->latest(),
             'folders' => fn ($query) => $query->orderBy('sort_order'),
             'guides' => fn ($query) => $query->where('client_visible', true)->orderBy('sort_order'),
             'serviceAccounts' => fn ($query) => $query->where('client_visible', true)->with('credential')->orderBy('service_name'),

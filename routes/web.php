@@ -65,6 +65,7 @@ Route::prefix('client')->name('client.')->group(function () {
             ->name('contracts.accept');
         Route::get('/contracts/{contract}/download', [ClientContractController::class, 'download'])
             ->name('contracts.download');
+        Route::get('/projects/{project}/files', [ClientProjectFileController::class, 'index'] )->name('projects.files.index');
         Route::get('/files/{file}/open', [ClientProjectFileController::class, 'open'])->name('files.open');
         Route::get('/files/{file}/download', [ClientProjectFileController::class, 'download'])->name('files.download');
         Route::post('/projects/{project}/documents/{folder}/sign', [ClientProjectDocumentSignatureController::class, 'store'])

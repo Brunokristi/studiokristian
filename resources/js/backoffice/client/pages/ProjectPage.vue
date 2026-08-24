@@ -2,6 +2,7 @@
 import {
     computed,
     nextTick,
+    onMounted,
     onUnmounted,
     ref,
     watch
@@ -39,6 +40,33 @@ const selectedDocumentId =
 
 const activeStructureFolderId =
     ref(null)
+
+
+const documentsSection =
+    ref(null)
+
+
+let documentsSectionObserver =
+    null
+
+
+const projectFiles =
+    ref([])
+
+
+const projectFilesLoading =
+    ref(false)
+
+
+const projectFilesError =
+    ref('')
+
+
+const projectFilesLoadedFolders =
+    ref(
+        new Set()
+    )
+
 
 const previousPageScrollY =
     ref(null)
@@ -331,7 +359,7 @@ const copy =
 |--------------------------------------------------------------------------
 */
 
-const documentItems =
+const initialDocumentStructure =
     computed(() => {
         const structured =
             Array.isArray(
@@ -340,76 +368,80 @@ const documentItems =
                 ? props.data.project.document_structure
                 : []
 
-
         if (
             structured.length
         ) {
-            return structured.map(
-                item => ({
-                    id:
-                        item.id,
+            return structured
+                .filter(
+                    item =>
+                        item?.resource_type !==
+                        'file'
+                )
+                .map(
+                    item => ({
+                        id:
+                            item.id,
 
-                    parent_id:
-                        item.parent_id ??
-                        null,
+                        parent_id:
+                            item.parent_id ??
+                            null,
 
-                    type:
-                        item.type,
+                        type:
+                            item.type,
 
-                    name:
-                        item.name,
+                        name:
+                            item.name,
 
-                    resource_type:
-                        item.resource_type ||
-                        (
-                            item.type === 'folder'
-                                ? 'folder'
-                                : 'document'
-                        ),
+                        resource_type:
+                            item.resource_type ||
+                            (
+                                item.type === 'folder'
+                                    ? 'folder'
+                                    : 'document'
+                            ),
 
-                    content:
-                        item.content ||
-                        '',
+                        content:
+                            item.content ||
+                            '',
 
-                    requires_client_signature:
-                        Boolean(
-                            item.requires_client_signature
-                        ),
+                        requires_client_signature:
+                            Boolean(
+                                item.requires_client_signature
+                            ),
 
-                    requires_signature:
-                        Boolean(
-                            item.requires_signature
-                        ),
+                        requires_signature:
+                            Boolean(
+                                item.requires_signature
+                            ),
 
-                    signed:
-                        Boolean(
-                            item.signed
-                        ),
+                        signed:
+                            Boolean(
+                                item.signed
+                            ),
 
-                    can_sign:
-                        Boolean(
-                            item.can_sign
-                        ),
+                        can_sign:
+                            Boolean(
+                                item.can_sign
+                            ),
 
-                    sign_url:
-                        item.sign_url ||
-                        null,
+                        sign_url:
+                            item.sign_url ||
+                            null,
 
-                    open_url:
-                        item.open_url ||
-                        null,
+                        open_url:
+                            item.open_url ||
+                            null,
 
-                    download_url:
-                        item.download_url ||
-                        null,
+                        download_url:
+                            item.download_url ||
+                            null,
 
-                    requirement_level:
-                        item.requirement_level ||
-                        null
-                })
-            )
+                        requirement_level:
+                            item.requirement_level ||
+                            null
+                    })
+                )
         }
-
 
         return (
             props.data.project.documents ||
@@ -459,10 +491,6 @@ const documentItems =
                     document.sign_url ||
                     null,
 
-                open_url:
-                    document.open_url ||
-                    null,
-
                 requirement_level:
                     document.requires_signature
                         ? 'required'
@@ -470,6 +498,415 @@ const documentItems =
             })
         )
     })
+
+
+function normalizeProjectFile(
+    file
+) {
+    const id =
+        file?.id
+
+    if (
+        id === null ||
+        id === undefined
+    ) {
+        return null
+    }
+
+    return {
+        id:
+            `project-file-${id}`,
+
+        parent_id:
+            file?.folder_id ??
+            null,
+
+        type:
+            'file',
+
+        resource_type:
+            'file',
+
+        name:
+            file?.display_name ||
+            file?.original_filename ||
+            'file',
+
+        mime_type:
+            file?.mime_type ||
+            'application/octet-stream',
+
+        extension:
+            file?.extension ||
+            '',
+
+        size:
+            Number(
+                file?.size ||
+                0
+            ),
+
+        open_url:
+            `/client/files/${id}/open`,
+
+        thumbnail_url:
+            file?.thumbnail_url ||
+            '',
+
+        download_url:
+            `/client/files/${id}/download`,
+
+        content:
+            '',
+
+        __uploaded_file:
+            true
+    }
+}
+
+
+const initialUploadedProjectFiles =
+    computed(() => {
+        const structured =
+            Array.isArray(
+                props.data.project.document_structure
+            )
+                ? props.data.project.document_structure
+                : []
+
+        return structured
+            .filter(
+                item =>
+                    item?.resource_type ===
+                    'file'
+            )
+            .map(
+                normalizeProjectFile
+            )
+            .filter(
+                Boolean
+            )
+    })
+
+
+const documentItems =
+    computed(() => [
+        ...initialDocumentStructure.value,
+        ...projectFiles.value
+    ])
+
+
+async function loadProjectFilesFolder(
+    folderId = null,
+    force = false
+) {
+    const projectId =
+        props.data.project?.id
+
+    if (
+        !projectId
+    ) {
+        return
+    }
+
+    const cacheKey =
+        folderId === null
+            ? 'root'
+            : String(folderId)
+
+    if (
+        !force &&
+        projectFilesLoadedFolders.value.has(
+            cacheKey
+        )
+    ) {
+        return
+    }
+
+    projectFilesLoading.value =
+        true
+
+    projectFilesError.value =
+        ''
+
+    try {
+        const url =
+            new URL(
+                `/client/projects/${projectId}/files`,
+                window.location.origin
+            )
+
+        if (
+            folderId !== null &&
+            folderId !== undefined
+        ) {
+            url.searchParams.set(
+                'folder_id',
+                String(folderId)
+            )
+        }
+
+        const response =
+            await fetch(
+                url.toString(),
+                {
+                    method: 'GET',
+                    credentials: 'same-origin',
+                    headers: {
+                        Accept:
+                            'application/json'
+                    }
+                }
+            )
+
+        const payload =
+            await response
+                .json()
+                .catch(
+                    () => ({})
+                )
+
+        if (
+            !response.ok
+        ) {
+            throw new Error(
+                payload?.message ||
+                'Project files could not be loaded.'
+            )
+        }
+
+        const files =
+            Array.isArray(
+                payload?.files
+            )
+                ? payload.files
+                : (
+                    Array.isArray(
+                        payload?.data
+                    )
+                        ? payload.data
+                        : []
+                )
+
+        const mappedFiles =
+            files
+                .map(
+                    normalizeProjectFile
+                )
+                .filter(
+                    Boolean
+                )
+
+        const parentKey =
+            String(
+                folderId ??
+                ''
+            )
+
+        projectFiles.value = [
+            ...projectFiles.value.filter(
+                item =>
+                    String(
+                        item?.parent_id ??
+                        ''
+                    ) !==
+                    parentKey
+            ),
+            ...mappedFiles
+        ]
+
+        projectFilesLoadedFolders.value.add(
+            cacheKey
+        )
+    } catch (
+        exception
+    ) {
+        projectFilesError.value =
+            exception instanceof Error
+                ? exception.message
+                : 'Project files could not be loaded.'
+
+        /*
+         * Compatibility fallback:
+         * if the lazy client endpoint is not available yet,
+         * retain the file metadata that was already included
+         * in the initial project payload.
+         */
+        if (
+            cacheKey === 'root' &&
+            !projectFiles.value.length
+        ) {
+            projectFiles.value =
+                initialUploadedProjectFiles.value
+        }
+    } finally {
+        projectFilesLoading.value =
+            false
+    }
+}
+
+
+function resetProjectFilesCache() {
+    projectFiles.value =
+        []
+
+    projectFilesLoadedFolders.value =
+        new Set()
+
+    projectFilesError.value =
+        ''
+}
+
+
+function refreshProjectFilesFolder(
+    folderId = null
+) {
+    const cacheKey =
+        folderId === null
+            ? 'root'
+            : String(folderId)
+
+    projectFilesLoadedFolders.value.delete(
+        cacheKey
+    )
+
+    return loadProjectFilesFolder(
+        folderId
+    )
+}
+
+
+
+function clientProjectFileOpenUrl(
+    fileId
+) {
+    const numericId =
+        Number(fileId)
+
+    if (
+        !Number.isInteger(
+            numericId
+        ) ||
+        numericId <= 0
+    ) {
+        return ''
+    }
+
+    return `/client/files/${numericId}/open`
+}
+
+
+function normalizeDocumentContentForClient(
+    source
+) {
+    let parsed =
+        source
+
+    if (
+        typeof source === 'string'
+    ) {
+        try {
+            parsed =
+                JSON.parse(
+                    source
+                )
+        } catch {
+            return source
+        }
+    }
+
+    if (
+        !parsed ||
+        typeof parsed !== 'object'
+    ) {
+        return source
+    }
+
+    function visit(
+        node
+    ) {
+        if (
+            !node ||
+            typeof node !== 'object'
+        ) {
+            return node
+        }
+
+        const normalized = {
+            ...node
+        }
+
+        if (
+            node.attrs &&
+            typeof node.attrs === 'object'
+        ) {
+            const attrs = {
+                ...node.attrs
+            }
+
+            let fileId =
+                attrs.projectFileId
+
+            if (
+                !fileId
+            ) {
+                const src =
+                    String(
+                        attrs.src ||
+                        ''
+                    )
+
+                const match =
+                    src.match(
+                        /\/projects\/\d+\/files\/(\d+)\/open(?:\?|$)/
+                    )
+
+                if (match) {
+                    fileId =
+                        match[1]
+                }
+            }
+
+            const clientUrl =
+                clientProjectFileOpenUrl(
+                    fileId
+                )
+
+            if (
+                node.type === 'image' &&
+                clientUrl
+            ) {
+                attrs.src =
+                    clientUrl
+            }
+
+            normalized.attrs =
+                attrs
+        }
+
+        if (
+            Array.isArray(
+                node.content
+            )
+        ) {
+            normalized.content =
+                node.content.map(
+                    visit
+                )
+        }
+
+        return normalized
+    }
+
+    const normalized =
+        visit(
+            parsed
+        )
+
+    return JSON.stringify(
+        normalized
+    )
+}
 
 
 const selectedDocument =
@@ -484,13 +921,27 @@ const selectedDocument =
             return null
         }
 
-        return documentItems.value.find(
-            item =>
-                String(item.id) ===
-                    String(id) &&
-                item.type === 'file' &&
-                item.resource_type === 'document'
-        ) || null
+        const document =
+            documentItems.value.find(
+                item =>
+                    String(item.id) ===
+                        String(id) &&
+                    item.type === 'file' &&
+                    item.resource_type ===
+                        'document'
+            )
+
+        if (!document) {
+            return null
+        }
+
+        return {
+            ...document,
+            content:
+                normalizeDocumentContentForClient(
+                    document.content
+                )
+        }
     })
 
 
@@ -642,12 +1093,19 @@ function openDocument(
 }
 
 
-function handleStructureFolderOpen(
+async function handleStructureFolderOpen(
     folder
 ) {
-    activeStructureFolderId.value =
+    const folderId =
         folder?.id ??
         null
+
+    activeStructureFolderId.value =
+        folderId
+
+    await loadProjectFilesFolder(
+        folderId
+    )
 }
 
 
@@ -699,6 +1157,11 @@ watch(
 
 
 onUnmounted(() => {
+    documentsSectionObserver?.disconnect()
+
+    documentsSectionObserver =
+        null
+
     unlockPageScroll()
 })
 
@@ -1053,6 +1516,61 @@ async function submitTicket() {
             false
     }
 }
+onMounted(() => {
+    /*
+     * Do not request project files during the initial page render.
+     *
+     * The project structure and authored documents are already in the
+     * page payload. Uploaded files are only needed when the Documents
+     * section becomes relevant to the user.
+     */
+    if (
+        selectedDocumentIdFromUrl()
+    ) {
+        void loadProjectFilesFolder()
+
+        return
+    }
+
+    if (
+        !documentsSection.value ||
+        typeof IntersectionObserver ===
+            'undefined'
+    ) {
+        return
+    }
+
+    documentsSectionObserver =
+        new IntersectionObserver(
+            entries => {
+                const entry =
+                    entries[0]
+
+                if (
+                    !entry?.isIntersecting
+                ) {
+                    return
+                }
+
+                void loadProjectFilesFolder()
+
+                documentsSectionObserver?.disconnect()
+
+                documentsSectionObserver =
+                    null
+            },
+            {
+                rootMargin:
+                    '500px 0px'
+            }
+        )
+
+    documentsSectionObserver.observe(
+        documentsSection.value
+    )
+})
+
+
 useClientPageHeader({
     title: computed(() => props.data.project?.name || ''),
     eyebrow: computed(() => props.data.project?.service_name || ''),
@@ -1526,7 +2044,10 @@ useClientPageHeader({
         |--------------------------------------------------------------------------
         -->
 
-        <section id="client-project-documents">
+        <section
+            id="client-project-documents"
+            ref="documentsSection"
+        >
             <h2
                 class="
                     h2
@@ -1545,6 +2066,45 @@ useClientPageHeader({
                     space-y-5
                 "
             >
+                <div
+                    v-if="
+                        projectFilesLoading
+                    "
+                    class="
+                        border-t
+                        border-accent
+                        pt-4
+                    "
+                >
+                    <p
+                        class="
+                            p
+                            uppercase
+                            text-dark/40
+                        "
+                    >
+                        {{
+                            locale === 'sk'
+                                ? 'Načítavam súbory...'
+                                : 'Loading files...'
+                        }}
+                    </p>
+                </div>
+
+                <p
+                    v-if="
+                        projectFilesError
+                    "
+                    class="
+                        p
+                        text-red-700
+                    "
+                >
+                    {{
+                        projectFilesError
+                    }}
+                </p>
+
                 <FileStructure
                     :model-value="
                         documentItems
