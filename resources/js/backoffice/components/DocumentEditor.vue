@@ -848,6 +848,51 @@ function nodesFromText(
 }
 
 
+function normalizeTableWidths(
+    node
+) {
+    if (
+        !node ||
+        typeof node !== 'object'
+    ) {
+        return node
+    }
+
+    const normalized = {
+        ...node
+    }
+
+    if (
+        node.attrs &&
+        (
+            node.type === 'tableCell' ||
+            node.type === 'tableHeader'
+        )
+    ) {
+        normalized.attrs = {
+            ...node.attrs,
+            colwidth: null
+        }
+    }
+
+    if (
+        Array.isArray(
+            node.content
+        )
+    ) {
+        normalized.content =
+            node.content.map(
+                child =>
+                    normalizeTableWidths(
+                        child
+                    )
+            )
+    }
+
+    return normalized
+}
+
+
 function normalizeDoc(
     source
 ) {
@@ -887,14 +932,18 @@ function normalizeDoc(
                     parsed.content
                 )
             ) {
-                return parsed
+                return normalizeTableWidths(
+                    parsed
+                )
             }
 
             if (
                 parsed?.doc?.type ===
                 'doc'
             ) {
-                return parsed.doc
+                return normalizeTableWidths(
+                    parsed.doc
+                )
             }
 
             if (
@@ -932,14 +981,18 @@ function normalizeDoc(
     if (
         source?.type === 'doc'
     ) {
-        return source
+        return normalizeTableWidths(
+            source
+        )
     }
 
     if (
         source?.doc?.type ===
         'doc'
     ) {
-        return source.doc
+        return normalizeTableWidths(
+            source.doc
+        )
     }
 
     return {
@@ -1285,10 +1338,47 @@ const ActiveBlockHighlight = Extension.create({
 })
 
 
+function getEditorView(
+    instance = editor.value
+) {
+    if (
+        !instance ||
+        instance.isDestroyed
+    ) {
+        return null
+    }
+
+    try {
+        return instance.view
+    } catch {
+        return null
+    }
+}
+
+
+function getEditorDom(
+    instance = editor.value
+) {
+    const view =
+        getEditorView(
+            instance
+        )
+
+    if (!view) {
+        return null
+    }
+
+    try {
+        return view.dom
+    } catch {
+        return null
+    }
+}
+
+
 function clearActiveBlockVisuals() {
     const root =
-        editor.value?.view
-            ?.dom
+        getEditorDom()
 
     if (
         !(root instanceof HTMLElement)
@@ -1333,8 +1423,9 @@ function updateBlockToolsUI() {
     } = instance.state
 
     const root =
-        instance.view
-            ?.dom
+        getEditorDom(
+            instance
+        )
 
     if (
         !(root instanceof HTMLElement)
@@ -1629,8 +1720,17 @@ function moveBlockByInsertIndex(
 
     nextTick(() => {
         try {
+            const view =
+                getEditorView(
+                    instance
+                )
+
+            if (!view) {
+                return
+            }
+
             const coords =
-                instance.view.coordsAtPos(
+                view.coordsAtPos(
                     Math.max(
                         1,
                         movedNodePos + 1
@@ -2113,8 +2213,9 @@ function updateSelectionUI() {
     }
 
     const root =
-        instance.view
-            ?.dom
+        getEditorDom(
+            instance
+        )
 
     const index =
         getActiveTopLevelIndex(
@@ -2151,8 +2252,17 @@ function updateSelectionUI() {
     }
 
     try {
+        const view =
+            getEditorView(
+                instance
+            )
+
+        if (!view) {
+            return
+        }
+
         const coords =
-            instance.view.coordsAtPos(
+            view.coordsAtPos(
                 selection.from
             )
 
@@ -2261,8 +2371,17 @@ function syncSlashMenu() {
         1
 
     try {
+        const view =
+            getEditorView(
+                instance
+            )
+
+        if (!view) {
+            return
+        }
+
         const coords =
-            instance.view.coordsAtPos(
+            view.coordsAtPos(
                 from
             )
 
@@ -2632,8 +2751,17 @@ function openCommandMenu(
             .from
 
     try {
+        const view =
+            getEditorView(
+                instance
+            )
+
+        if (!view) {
+            return
+        }
+
         const coords =
-            instance.view.coordsAtPos(
+            view.coordsAtPos(
                 instance.state.selection.from
             )
 
@@ -3573,7 +3701,16 @@ async function handleImagePickerFileOpen(file) {
                         }
                     )
 
-                instance.view.dispatch(
+                const view =
+                    getEditorView(
+                        instance
+                    )
+
+                if (!view) {
+                    return
+                }
+
+                view.dispatch(
                     tr.scrollIntoView()
                 )
             } else {
@@ -4244,7 +4381,7 @@ const editor = useEditor({
         }),
 
         Table.configure({
-            resizable: true
+            resizable: false
         }),
 
         InfoBlock,
@@ -4440,7 +4577,7 @@ const editor = useEditor({
                 document.activeElement
 
             const editorRoot =
-                editor.value?.view?.dom
+                getEditorDom()
 
             if (
                 activeElement instanceof Node &&
@@ -4563,7 +4700,16 @@ onUnmounted(() => {
     )
 
     clearAutosaveTimer()
-    editor.value?.destroy()
+
+    const instance =
+        editor.value
+
+    if (
+        instance &&
+        !instance.isDestroyed
+    ) {
+        instance.destroy()
+    }
 })
 </script>
 
@@ -5920,11 +6066,14 @@ onUnmounted(() => {
 
 .article-editor :deep(.ProseMirror td),
 .article-editor :deep(.ProseMirror th) {
-    width: 33.33%;
+    width: auto !important;
+    min-width: 0 !important;
     border: 1px solid rgb(19 62 180);
     padding: 0.75rem;
     vertical-align: top;
     text-align: left;
+    overflow-wrap: anywhere;
+    word-break: break-word;
 }
 
 .article-editor :deep(.ProseMirror th) {

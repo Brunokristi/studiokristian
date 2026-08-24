@@ -1,10 +1,10 @@
 <script setup>
+
 import {
     computed,
     ref,
     watch
 } from 'vue'
-
 
 import {
     RouterLink,
@@ -12,26 +12,20 @@ import {
     useRoute
 } from 'vue-router'
 
-
 import Tag from '@shared/components/Tag.vue'
 import Toast from '@shared/components/Toast.vue'
 import useAutosavePolicy from '../composables/useAutosavePolicy'
 import { useAdminPageHeader } from '../composables/useAdminPageHeader'
 
-
 const {
     header: pageHeader
-} =
-    useAdminPageHeader()
-
+} = useAdminPageHeader()
 
 const {
     enabled,
     status,
     lastSavedAt
-} =
-    useAutosavePolicy()
-
+} = useAutosavePolicy()
 
 const lastSavedLabel =
     computed(() => {
@@ -41,21 +35,17 @@ const lastSavedLabel =
             return 'never'
         }
 
-
         const savedAt =
             new Date(
                 lastSavedAt.value
             )
 
-
         const now =
             new Date()
-
 
         const diffMs =
             now.getTime() -
             savedAt.getTime()
-
 
         if (
             diffMs <
@@ -63,7 +53,6 @@ const lastSavedLabel =
         ) {
             return 'now'
         }
-
 
         return savedAt.toLocaleTimeString(
             [],
@@ -74,14 +63,21 @@ const lastSavedLabel =
         )
     })
 
-
 const route =
     useRoute()
 
+/*
+|--------------------------------------------------------------------------
+| Menu state
+|--------------------------------------------------------------------------
+|
+| Closed by default on small screens.
+| On desktop the sidebar is always visible through lg: classes.
+|
+*/
 
 const menuOpen =
-    ref(true)
-
+    ref(false)
 
 const csrfToken =
     document.querySelector(
@@ -100,7 +96,6 @@ const isAdminUser =
     Boolean(
         currentUserPayload?.is_admin
     )
-
 
 const adminNavigation = [
     {
@@ -159,7 +154,7 @@ const coworkerNavigation = [
             name: 'projects.index'
         },
         match: 'projects'
-    },
+    }
 ]
 
 const navigation =
@@ -169,7 +164,6 @@ const navigation =
             : coworkerNavigation
     )
 
-
 const currentRouteName =
     computed(() => {
         return String(
@@ -177,7 +171,6 @@ const currentRouteName =
             ''
         )
     })
-
 
 function isActive(
     item
@@ -192,24 +185,20 @@ function isActive(
         )
     }
 
-
     return currentRouteName.value.startsWith(
         `${item.match}.`
     )
 }
-
 
 function toggleMenu() {
     menuOpen.value =
         !menuOpen.value
 }
 
-
 function closeMenu() {
     menuOpen.value =
         false
 }
-
 
 watch(
     () => route.fullPath,
@@ -218,8 +207,8 @@ watch(
          * Only close the navigation
          * automatically on mobile.
          *
-         * On desktop the user's
-         * sidebar state is preserved.
+         * On desktop the sidebar is
+         * always visible.
          */
         if (
             window.innerWidth <
@@ -229,10 +218,11 @@ watch(
         }
     }
 )
+
 </script>
 
-
 <template>
+
     <div
         class="
             flex
@@ -244,7 +234,9 @@ watch(
             text-dark
         "
     >
+
         <!-- Header -->
+
         <header
             class="
                 z-50
@@ -259,7 +251,9 @@ watch(
                 px-5
             "
         >
+
             <!-- Brand -->
+
             <RouterLink
                 :to="{
                     name: 'dashboard'
@@ -274,6 +268,7 @@ watch(
                 "
                 aria-label="Studio Kristian Backoffice"
             >
+
                 <img
                     src="/public/assets/logo.svg"
                     alt=""
@@ -290,10 +285,11 @@ watch(
                 >
                     backoffice
                 </span>
+
             </RouterLink>
 
-
             <!-- Header actions -->
+
             <div
                 class="
                     flex
@@ -301,7 +297,9 @@ watch(
                     gap-6
                 "
             >
+
                 <!-- Autosave -->
+
                 <div
                     v-if="enabled"
                     class="
@@ -311,6 +309,7 @@ watch(
                         sm:flex
                     "
                 >
+
                     <Tag
                         :text="
                             status === 'saving'
@@ -332,10 +331,11 @@ watch(
                             lastSavedLabel
                         }}
                     </span>
+
                 </div>
 
-
                 <!-- Navigation toggle -->
+
                 <button
                     type="button"
                     class="
@@ -359,6 +359,7 @@ watch(
                         toggleMenu
                     "
                 >
+
                     <span
                         class="
                             menu-icon
@@ -368,30 +369,36 @@ watch(
                             w-5
                         "
                         :class="{
-                            'is-open': menuOpen
+                            'is-open':
+                                menuOpen
                         }"
                         aria-hidden="true"
                     >
+
                         <span
                             class="
                                 menu-line
                                 menu-line-top
                             "
-                        />
+                        ></span>
 
                         <span
                             class="
                                 menu-line
                                 menu-line-bottom
                             "
-                        />
+                        ></span>
+
                     </span>
+
                 </button>
+
             </div>
+
         </header>
 
-
         <!-- Application -->
+
         <div
             class="
                 relative
@@ -400,7 +407,9 @@ watch(
                 overflow-hidden
             "
         >
+
             <!-- Mobile backdrop -->
+
             <button
                 v-if="
                     menuOpen
@@ -418,26 +427,22 @@ watch(
                 @click="
                     closeMenu
                 "
-            />
-
+            ></button>
 
             <!-- Application grid -->
+
             <div
                 class="
                     grid
                     h-full
                     min-h-0
-                    transition-[grid-template-columns]
-                    duration-300
-                    ease-out
-                "
-                :class="
-                    menuOpen
-                        ? 'lg:grid-cols-[250px_minmax(0,1fr)]'
-                        : 'lg:grid-cols-[0_minmax(0,1fr)]'
+                    grid-cols-1
+                    lg:grid-cols-[250px_minmax(0,1fr)]
                 "
             >
+
                 <!-- Sidebar -->
+
                 <aside
                     id="admin-navigation"
                     class="
@@ -456,7 +461,6 @@ watch(
                         transition-transform
                         duration-300
                         ease-out
-
                         lg:static
                         lg:h-full
                         lg:w-[250px]
@@ -468,7 +472,9 @@ watch(
                             : '-translate-x-full'
                     "
                 >
+
                     <!-- Navigation -->
+
                     <nav
                         class="
                             min-h-0
@@ -477,6 +483,7 @@ watch(
                             overscroll-contain
                         "
                     >
+
                         <RouterLink
                             v-for="
                                 item
@@ -504,15 +511,23 @@ watch(
                                 hover:bg-accent
                                 hover:text-light
                             "
+                            :class="{
+                                'text-accent':
+                                    isActive(item)
+                            }"
+                            @click="
+                                closeMenu
+                            "
                         >
                             {{
                                 item.label
                             }}
                         </RouterLink>
+
                     </nav>
 
-
                     <!-- Logout -->
+
                     <form
                         method="POST"
                         action="/logout"
@@ -522,6 +537,7 @@ watch(
                             border-accent
                         "
                     >
+
                         <input
                             type="hidden"
                             name="_token"
@@ -554,11 +570,13 @@ watch(
                         >
                             Log out
                         </button>
+
                     </form>
+
                 </aside>
 
-
                 <!-- Main -->
+
                 <main
                     class="
                         min-h-0
@@ -572,76 +590,192 @@ watch(
                         lg:px-10
                     "
                 >
+
                     <header
                         v-if="pageHeader.title"
                         class="pb-10"
                     >
+
                         <nav
-                            v-if="pageHeader.breadcrumbs.length || pageHeader.eyebrow"
+                            v-if="
+                                pageHeader.breadcrumbs.length ||
+                                pageHeader.eyebrow
+                            "
                             aria-label="Breadcrumb"
-                            class="mb-2 flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 p uppercase"
+                            class="
+                                mb-2
+                                flex
+                                min-w-0
+                                flex-wrap
+                                items-center
+                                gap-x-2
+                                gap-y-1
+                                p
+                                uppercase
+                            "
                         >
+
                             <RouterLink
-                                :to="{ name: 'dashboard' }"
-                                class="text-dark transition-colors hover:text-accent"
+                                :to="{
+                                    name: 'dashboard'
+                                }"
+                                class="
+                                    text-dark
+                                    transition-colors
+                                    hover:text-accent
+                                "
                             >
                                 Admin
                             </RouterLink>
 
                             <template
-                                v-for="(breadcrumb, index) in pageHeader.breadcrumbs"
-                                :key="`${breadcrumb.label}-${index}`"
+                                v-for="
+                                    (
+                                        breadcrumb,
+                                        index
+                                    ) in pageHeader.breadcrumbs
+                                "
+                                :key="
+                                    `${breadcrumb.label}-${index}`
+                                "
                             >
-                                <span class="text-dark" aria-hidden="true">/</span>
+
+                                <span
+                                    class="
+                                        text-dark
+                                    "
+                                    aria-hidden="true"
+                                >
+                                    /
+                                </span>
 
                                 <RouterLink
-                                    v-if="breadcrumb.to"
-                                    :to="breadcrumb.to"
-                                    class="min-w-0 max-w-[12rem] truncate text-dark transition-colors hover:text-accent sm:max-w-none"
+                                    v-if="
+                                        breadcrumb.to
+                                    "
+                                    :to="
+                                        breadcrumb.to
+                                    "
+                                    class="
+                                        min-w-0
+                                        max-w-[12rem]
+                                        truncate
+                                        text-dark
+                                        transition-colors
+                                        hover:text-accent
+                                        sm:max-w-none
+                                    "
                                 >
-                                    {{ breadcrumb.label }}
+                                    {{
+                                        breadcrumb.label
+                                    }}
                                 </RouterLink>
 
                                 <span
                                     v-else
-                                    class="min-w-0 max-w-[12rem] truncate text-accent sm:max-w-none"
+                                    class="
+                                        min-w-0
+                                        max-w-[12rem]
+                                        truncate
+                                        text-accent
+                                        sm:max-w-none
+                                    "
                                     aria-current="page"
                                 >
-                                    {{ breadcrumb.label }}
+                                    {{
+                                        breadcrumb.label
+                                    }}
                                 </span>
+
                             </template>
 
-                            <template v-if="!pageHeader.breadcrumbs.length && pageHeader.eyebrow">
-                                <span class="text-dark" aria-hidden="true">/</span>
-                                <span class="text-accent">{{ pageHeader.eyebrow }}</span>
+                            <template
+                                v-if="
+                                    !pageHeader.breadcrumbs.length &&
+                                    pageHeader.eyebrow
+                                "
+                            >
+
+                                <span
+                                    class="
+                                        text-dark
+                                    "
+                                    aria-hidden="true"
+                                >
+                                    /
+                                </span>
+
+                                <span
+                                    class="
+                                        text-accent
+                                    "
+                                >
+                                    {{
+                                        pageHeader.eyebrow
+                                    }}
+                                </span>
+
                             </template>
+
                         </nav>
 
-                        <div class="flex flex-col gap-6 md:flex-row md:items-end md:justify-between">
+                        <div
+                            class="
+                                flex
+                                flex-col
+                                gap-6
+                                md:flex-row
+                                md:items-end
+                                md:justify-between
+                            "
+                        >
+
                             <div>
-                                <h1 class="h2 text-left">
-                                    {{ pageHeader.title }}
+
+                                <h1
+                                    class="
+                                        h2
+                                        text-left
+                                    "
+                                >
+                                    {{
+                                        pageHeader.title
+                                    }}
                                 </h1>
+
                             </div>
 
                             <div
                                 id="admin-page-header-actions"
-                                class="flex flex-wrap gap-x-7 gap-y-4 md:justify-end"
-                            />
+                                class="
+                                    flex
+                                    flex-wrap
+                                    gap-x-7
+                                    gap-y-4
+                                    md:justify-end
+                                "
+                            ></div>
+
                         </div>
+
                     </header>
 
                     <RouterView />
+
                 </main>
+
             </div>
+
         </div>
 
-
         <Toast />
+
     </div>
+
 </template>
 
 <style scoped>
+
 .menu-icon {
     display: block;
 }
@@ -675,4 +809,5 @@ watch(
     top: 7.5px;
     transform: rotate(-45deg);
 }
+
 </style>
