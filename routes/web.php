@@ -63,6 +63,11 @@ Route::prefix('api')->group(function () {
         PublicServiceController::class,
         'index',
     ]);
+
+    Route::get('/services/{slug}', [
+        PublicServiceController::class,
+        'show',
+    ]);
 });
 
 

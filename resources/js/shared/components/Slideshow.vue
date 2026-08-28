@@ -179,13 +179,15 @@ function next() {
     clearMainAnimationTimer()
 
     mainAnimationTimer = window.setTimeout(() => {
-        currentIndex.value = getWrappedIndex(
-            currentIndex.value + 1,
-            editorImages.value.length
-        )
+        currentIndex.value =
+            getWrappedIndex(
+                currentIndex.value + 1,
+                editorImages.value.length
+            )
 
         isMainAnimating.value = false
-    }, 420)
+        mainAnimationTimer = null
+    }, 460)
 }
 
 function prev() {
@@ -202,13 +204,15 @@ function prev() {
     clearMainAnimationTimer()
 
     mainAnimationTimer = window.setTimeout(() => {
-        currentIndex.value = getWrappedIndex(
-            currentIndex.value - 1,
-            editorImages.value.length
-        )
+        currentIndex.value =
+            getWrappedIndex(
+                currentIndex.value - 1,
+                editorImages.value.length
+            )
 
         isMainAnimating.value = false
-    }, 420)
+        mainAnimationTimer = null
+    }, 460)
 }
 
 function clearMainAnimationTimer() {
@@ -220,12 +224,16 @@ function clearMainAnimationTimer() {
 
 /*
 |--------------------------------------------------------------------------
-| Lightbox / teleport
+| Lightbox
 |--------------------------------------------------------------------------
 */
 
 const displayImage = computed(() => {
-    return props.images[lightboxIndex.value] || null
+    return (
+        props.images[
+            lightboxIndex.value
+        ] || null
+    )
 })
 
 const lightboxHasMultipleImages = computed(() => {
@@ -272,14 +280,17 @@ function nextLightbox() {
     clearLightboxAnimationTimer()
 
     lightboxAnimationTimer = window.setTimeout(() => {
-        lightboxIndex.value = getWrappedIndex(
-            lightboxIndex.value + 1,
-            props.images.length
-        )
+        lightboxIndex.value =
+            getWrappedIndex(
+                lightboxIndex.value + 1,
+                props.images.length
+            )
 
-        currentIndex.value = lightboxIndex.value
+        currentIndex.value =
+            lightboxIndex.value
 
         isLightboxAnimating.value = false
+        lightboxAnimationTimer = null
     }, 460)
 }
 
@@ -297,14 +308,17 @@ function prevLightbox() {
     clearLightboxAnimationTimer()
 
     lightboxAnimationTimer = window.setTimeout(() => {
-        lightboxIndex.value = getWrappedIndex(
-            lightboxIndex.value - 1,
-            props.images.length
-        )
+        lightboxIndex.value =
+            getWrappedIndex(
+                lightboxIndex.value - 1,
+                props.images.length
+            )
 
-        currentIndex.value = lightboxIndex.value
+        currentIndex.value =
+            lightboxIndex.value
 
         isLightboxAnimating.value = false
+        lightboxAnimationTimer = null
     }, 460)
 }
 
@@ -317,7 +331,7 @@ function clearLightboxAnimationTimer() {
 
 /*
 |--------------------------------------------------------------------------
-| Open / close teleport
+| Open / close lightbox
 |--------------------------------------------------------------------------
 */
 
@@ -392,15 +406,21 @@ watch(
             return
         }
 
-        const maxIndex = props.editable
-            ? length
-            : length - 1
+        const maxIndex =
+            props.editable
+                ? length
+                : length - 1
 
-        if (currentIndex.value > maxIndex) {
+        if (
+            currentIndex.value >
+            maxIndex
+        ) {
             currentIndex.value = maxIndex
         }
 
-        if (lightboxIndex.value >= length) {
+        if (
+            lightboxIndex.value >= length
+        ) {
             lightboxIndex.value = length - 1
         }
     }
@@ -536,6 +556,7 @@ function openReplacePicker(index) {
     }
 
     editingIndex.value = index
+
     replaceInput.value?.click()
 }
 
@@ -560,8 +581,9 @@ function handleAddFile(event) {
         return
     }
 
-    const imageFiles = files.filter(file =>
-        file?.type?.startsWith('image/')
+    const imageFiles = files.filter(
+        file =>
+            file?.type?.startsWith('image/')
     )
 
     if (!imageFiles.length) {
@@ -569,7 +591,8 @@ function handleAddFile(event) {
     }
 
     const newImages = imageFiles.map(file => {
-        const preview = URL.createObjectURL(file)
+        const preview =
+            URL.createObjectURL(file)
 
         return {
             path: '',
@@ -597,7 +620,9 @@ function handleAddFile(event) {
 
     emit(
         'add',
-        newImages[newImages.length - 1]
+        newImages[
+            newImages.length - 1
+        ]
     )
 
     nextTick(() => {
@@ -620,7 +645,8 @@ function handleFileChange(event) {
 */
 
 function handleReplaceFile(event) {
-    const file = event.target.files?.[0]
+    const file =
+        event.target.files?.[0]
 
     event.target.value = ''
 
@@ -631,14 +657,19 @@ function handleReplaceFile(event) {
         return
     }
 
-    if (!file.type.startsWith('image/')) {
+    if (
+        !file.type.startsWith('image/')
+    ) {
         return
     }
 
     const index = editingIndex.value
-    const oldImage = props.images[index]
 
-    const preview = URL.createObjectURL(file)
+    const oldImage =
+        props.images[index]
+
+    const preview =
+        URL.createObjectURL(file)
 
     const updatedImage = {
         ...oldImage,
@@ -653,7 +684,8 @@ function handleReplaceFile(event) {
         ...props.images
     ]
 
-    updatedImages[index] = updatedImage
+    updatedImages[index] =
+        updatedImage
 
     emit(
         'update:images',
@@ -685,12 +717,14 @@ function removeImage(index) {
         return
     }
 
-    const image = props.images[index]
+    const image =
+        props.images[index]
 
-    const updatedImages = props.images.filter(
-        (_, imageIndex) =>
-            imageIndex !== index
-    )
+    const updatedImages =
+        props.images.filter(
+            (_, imageIndex) =>
+                imageIndex !== index
+        )
 
     emit(
         'update:images',
@@ -746,18 +780,22 @@ function updateImageField(
         return
     }
 
-    const updatedImages = props.images.map(
-        (image, imageIndex) => {
-            if (imageIndex !== index) {
-                return image
-            }
+    const updatedImages =
+        props.images.map(
+            (image, imageIndex) => {
+                if (
+                    imageIndex !==
+                    index
+                ) {
+                    return image
+                }
 
-            return {
-                ...image,
-                [field]: value
+                return {
+                    ...image,
+                    [field]: value
+                }
             }
-        }
-    )
+        )
 
     emit(
         'update:images',
@@ -867,6 +905,11 @@ onUnmounted(() => {
 </script>
 
 <template>
+
+    <!-- ========================================================= -->
+    <!-- MAIN SLIDER -->
+    <!-- ========================================================= -->
+
     <div
         class="
             flex
@@ -878,9 +921,6 @@ onUnmounted(() => {
         @mouseenter="handleMouseEnter"
         @mouseleave="handleMouseLeave"
     >
-        <!-- ===================================================== -->
-        <!-- MAIN SLIDER -->
-        <!-- ===================================================== -->
 
         <div
             class="
@@ -891,7 +931,9 @@ onUnmounted(() => {
                 gap-4
             "
         >
-            <!-- Previous -->
+
+            <!-- PREVIOUS -->
+
             <button
                 type="button"
                 class="
@@ -907,19 +949,22 @@ onUnmounted(() => {
                 <i class="bi bi-arrow-left"></i>
             </button>
 
-            <!-- ================================================= -->
-            <!-- IMAGE STACK -->
-            <!-- ================================================= -->
+
+            <!-- IMAGE -->
 
             <div
                 class="
                     relative
+                    aspect-[3/4]
                     h-[350px]
-                    w-[250px]
+                    w-auto
                     shrink-0
+                    overflow-hidden
                 "
             >
-                <!-- ADD IMAGE -->
+
+                <!-- ADD -->
+
                 <button
                     v-if="
                         editable &&
@@ -932,15 +977,12 @@ onUnmounted(() => {
                     "
                     type="button"
                     class="
-                        group
                         flex
                         h-full
                         w-full
                         cursor-pointer
-                        flex-col
                         items-center
                         justify-center
-                        gap-3
                         bg-accent/[0.04]
                         text-accent
                         transition-colors
@@ -950,12 +992,12 @@ onUnmounted(() => {
                     "
                     @click="openFilePickerForAdd"
                 >
-                    <span class="leading-none">
-                        <i class="bi bi-plus-lg"></i>
-                    </span>
+                    <i class="bi bi-plus-lg"></i>
                 </button>
 
-                <!-- EMPTY PUBLIC STATE -->
+
+                <!-- EMPTY -->
+
                 <div
                     v-else-if="
                         !currentImage ||
@@ -977,9 +1019,13 @@ onUnmounted(() => {
                     No image available
                 </div>
 
-                <!-- IMAGE STACK -->
+
+                <!-- IMAGES -->
+
                 <template v-else>
-                    <!-- Previous -->
+
+                    <!-- PREVIOUS -->
+
                     <div
                         v-if="
                             mainPreviousImage &&
@@ -988,11 +1034,11 @@ onUnmounted(() => {
                             )
                         "
                         class="
-                            carousel-card
-                            carousel-card-previous
+                            slideshow-image
+                            slideshow-image-previous
                         "
                         :class="{
-                            'carousel-main-previous':
+                            'slideshow-image-previous-active':
                                 isMainAnimating &&
                                 mainDirection === 'prev'
                         }"
@@ -1011,7 +1057,9 @@ onUnmounted(() => {
                         />
                     </div>
 
-                    <!-- Next -->
+
+                    <!-- NEXT -->
+
                     <div
                         v-if="
                             mainNextImage &&
@@ -1020,11 +1068,11 @@ onUnmounted(() => {
                             )
                         "
                         class="
-                            carousel-card
-                            carousel-card-next
+                            slideshow-image
+                            slideshow-image-next
                         "
                         :class="{
-                            'carousel-main-next':
+                            'slideshow-image-next-active':
                                 isMainAnimating &&
                                 mainDirection === 'next'
                         }"
@@ -1043,18 +1091,20 @@ onUnmounted(() => {
                         />
                     </div>
 
-                    <!-- Current -->
+
+                    <!-- CURRENT -->
+
                     <div
                         class="
-                            carousel-card
-                            carousel-card-current
+                            slideshow-image
+                            slideshow-image-current
                         "
                         :class="{
-                            'carousel-main-current-next':
+                            'slideshow-current-next':
                                 isMainAnimating &&
                                 mainDirection === 'next',
 
-                            'carousel-main-current-prev':
+                            'slideshow-current-prev':
                                 isMainAnimating &&
                                 mainDirection === 'prev'
                         }"
@@ -1072,9 +1122,12 @@ onUnmounted(() => {
                             "
                         />
                     </div>
+
                 </template>
 
-                <!-- EDITING OVERLAY -->
+
+                <!-- EDITING -->
+
                 <div
                     v-if="
                         editable &&
@@ -1095,6 +1148,7 @@ onUnmounted(() => {
                     "
                 >
                     <div class="space-y-3">
+
                         <FormField
                             id="image-description"
                             type="textarea"
@@ -1149,7 +1203,6 @@ onUnmounted(() => {
                             <button
                                 type="button"
                                 class="
-                                    p
                                     cursor-pointer
                                     text-dark
                                     transition-colors
@@ -1161,13 +1214,17 @@ onUnmounted(() => {
                                     )
                                 "
                             >
-                                <i class="bi bi-arrow-repeat"></i>
+                                <i
+                                    class="
+                                        bi
+                                        bi-arrow-repeat
+                                    "
+                                ></i>
                             </button>
 
                             <button
                                 type="button"
                                 class="
-                                    p
                                     cursor-pointer
                                     text-dark
                                     transition-colors
@@ -1179,14 +1236,23 @@ onUnmounted(() => {
                                     )
                                 "
                             >
-                                <i class="bi bi-eraser"></i>
+                                <i
+                                    class="
+                                        bi
+                                        bi-eraser
+                                    "
+                                ></i>
                             </button>
                         </div>
+
                     </div>
                 </div>
+
             </div>
 
-            <!-- Next -->
+
+            <!-- NEXT -->
+
             <button
                 type="button"
                 class="
@@ -1201,11 +1267,11 @@ onUnmounted(() => {
             >
                 <i class="bi bi-arrow-right"></i>
             </button>
+
         </div>
 
-        <!-- ===================================================== -->
+
         <!-- EXPAND -->
-        <!-- ===================================================== -->
 
         <button
             type="button"
@@ -1236,9 +1302,8 @@ onUnmounted(() => {
             ></i>
         </button>
 
-        <!-- ===================================================== -->
+
         <!-- FILE INPUTS -->
-        <!-- ===================================================== -->
 
         <input
             v-if="editable"
@@ -1258,85 +1323,109 @@ onUnmounted(() => {
             class="hidden"
             @change="handleReplaceFile"
         />
+
     </div>
 
+
     <!-- ========================================================= -->
-    <!-- FULLSCREEN TELEPORT -->
+    <!-- TELEPORT -->
     <!-- ========================================================= -->
 
     <Teleport to="body">
+
         <Transition name="slideshow-teleport">
+
             <div
                 v-if="isLightboxOpen"
                 class="
-                    slideshow-teleport
+                    fixed
+                    inset-0
+                    z-[2100]
+                    flex
+                    h-screen
+                    w-screen
+                    flex-col
+                    items-center
+                    justify-center
+                    overflow-hidden
+                    bg-black
                 "
             >
-                <!-- BACKGROUND -->
+
+                <!-- ================================================= -->
+                <!-- CAROUSEL -->
+                <!-- ================================================= -->
+
                 <div
                     class="
-                        slideshow-teleport-background
+                        flex
+                        min-h-0
+                        w-full
+                        flex-1
+                        items-center
+                        justify-center
                     "
-                    @click.self="closeLightbox"
-                ></div>
-
-                <!-- CLOSE -->
-                <button
-                    type="button"
-                    class="
-                        slideshow-close
-                    "
-                    aria-label="Close image preview"
-                    title="Close"
-                    @click="closeLightbox"
                 >
-                    <span
-                        class="
-                            slideshow-close-icon
+
+                    <!-- PREVIOUS -->
+
+                    <button
+                        v-if="
+                            showArrows &&
+                            lightboxHasMultipleImages
                         "
+                        type="button"
+                        class="
+                            absolute
+                            left-4
+                            top-1/2
+                            z-50
+                            flex
+                            h-10
+                            w-10
+                            -translate-y-1/2
+                            cursor-pointer
+                            items-center
+                            justify-center
+                            text-white
+                            transition
+                            duration-200
+                            hover:scale-105
+                            hover:text-accent
+                            active:scale-95
+                            sm:left-8
+                        "
+                        aria-label="Previous image"
+                        @click="prevLightbox"
                     >
-                        <span></span>
-                        <span></span>
-                    </span>
-                </button>
+                        <i
+                            class="
+                                bi
+                                bi-arrow-left
+                                text-lg
+                            "
+                        ></i>
+                    </button>
 
-                <!-- PREVIOUS -->
-                <button
-                    v-if="
-                        showArrows &&
-                        lightboxHasMultipleImages
-                    "
-                    type="button"
-                    class="
-                        slideshow-arrow
-                        slideshow-arrow-prev
-                    "
-                    aria-label="Previous image"
-                    @click="prevLightbox"
-                >
-                    <i
-                        class="
-                            bi
-                            bi-arrow-left
-                        "
-                    ></i>
-                </button>
 
-                <!-- ================================================= -->
-                <!-- CENTER CONTENT -->
-                <!-- ================================================= -->
+                    <!-- ================================================= -->
+                    <!-- IMAGE -->
+                    <!-- ================================================= -->
 
-                <div
-                    class="
-                        slideshow-teleport-content
-                    "
-                >
                     <div
                         class="
-                            lightbox-carousel
+                            relative
+                            aspect-[3/4]
+                            h-[520px]
+                            w-[390px]
+                            max-h-[60vh]
+                            max-w-[75vw]
+                            overflow-hidden
                         "
                     >
+
                         <!-- PREVIOUS -->
+
                         <div
                             v-if="
                                 lightboxPreviousImage &&
@@ -1345,11 +1434,11 @@ onUnmounted(() => {
                                 )
                             "
                             class="
-                                lightbox-card
-                                lightbox-card-previous
+                                lightbox-image
+                                lightbox-image-previous
                             "
                             :class="{
-                                'lightbox-previous-prev':
+                                'lightbox-image-previous-active':
                                     isLightboxAnimating &&
                                     lightboxDirection === 'prev'
                             }"
@@ -1368,7 +1457,9 @@ onUnmounted(() => {
                             />
                         </div>
 
+
                         <!-- NEXT -->
+
                         <div
                             v-if="
                                 lightboxNextImage &&
@@ -1377,11 +1468,11 @@ onUnmounted(() => {
                                 )
                             "
                             class="
-                                lightbox-card
-                                lightbox-card-next
+                                lightbox-image
+                                lightbox-image-next
                             "
                             :class="{
-                                'lightbox-next-next':
+                                'lightbox-image-next-active':
                                     isLightboxAnimating &&
                                     lightboxDirection === 'next'
                             }"
@@ -1400,7 +1491,9 @@ onUnmounted(() => {
                             />
                         </div>
 
+
                         <!-- CURRENT -->
+
                         <div
                             v-if="
                                 displayImage &&
@@ -1409,8 +1502,8 @@ onUnmounted(() => {
                                 )
                             "
                             class="
-                                lightbox-card
-                                lightbox-card-current
+                                lightbox-image
+                                lightbox-image-current
                             "
                             :class="{
                                 'lightbox-current-next':
@@ -1435,9 +1528,73 @@ onUnmounted(() => {
                                 "
                             />
                         </div>
+
                     </div>
 
-                    <!-- CAPTION -->
+
+                    <!-- NEXT -->
+
+                    <button
+                        v-if="
+                            showArrows &&
+                            lightboxHasMultipleImages
+                        "
+                        type="button"
+                        class="
+                            absolute
+                            right-4
+                            top-1/2
+                            z-50
+                            flex
+                            h-10
+                            w-10
+                            -translate-y-1/2
+                            cursor-pointer
+                            items-center
+                            justify-center
+                            text-white
+                            transition
+                            duration-200
+                            hover:scale-105
+                            hover:text-accent
+                            active:scale-95
+                            sm:right-8
+                        "
+                        aria-label="Next image"
+                        @click="nextLightbox"
+                    >
+                        <i
+                            class="
+                                bi
+                                bi-arrow-right
+                                text-lg
+                            "
+                        ></i>
+                    </button>
+
+                </div>
+
+
+                <!-- ================================================= -->
+                <!-- DESCRIPTION + CLOSE -->
+                <!-- ================================================= -->
+
+                <div
+                    class="
+                        z-50
+                        flex
+                        w-full
+                        shrink-0
+                        flex-col
+                        items-center
+                        gap-3
+                        px-6
+                        pb-6
+                    "
+                >
+
+                    <!-- DESCRIPTION -->
+
                     <p
                         v-if="
                             displayImage &&
@@ -1446,7 +1603,12 @@ onUnmounted(() => {
                             )
                         "
                         class="
-                            slideshow-caption
+                            m-0
+                            max-w-2xl
+                            text-center
+                            text-sm
+                            leading-relaxed
+                            text-white/80
                         "
                     >
                         {{
@@ -1455,44 +1617,55 @@ onUnmounted(() => {
                             )
                         }}
                     </p>
+
+
+                    <!-- CLOSE -->
+
+                    <button
+                        type="button"
+                        class="
+                            flex
+                            cursor-pointer
+                            items-center
+                            justify-center
+                            text-white
+                            transition
+                            duration-200
+                            hover:scale-105
+                            hover:text-accent
+                            active:scale-95
+                        "
+                        aria-label="Close image preview"
+                        title="Close"
+                        @click="closeLightbox"
+                    >
+                        <i
+                            class="
+                                bi
+                                bi-x-lg
+                                text-xl
+                            "
+                        ></i>
+                    </button>
+
                 </div>
 
-                <!-- NEXT -->
-                <button
-                    v-if="
-                        showArrows &&
-                        lightboxHasMultipleImages
-                    "
-                    type="button"
-                    class="
-                        slideshow-arrow
-                        slideshow-arrow-next
-                    "
-                    aria-label="Next image"
-                    @click="nextLightbox"
-                >
-                    <i
-                        class="
-                            bi
-                            bi-arrow-right
-                        "
-                    ></i>
-                </button>
             </div>
+
         </Transition>
+
     </Teleport>
 </template>
 
 <style scoped>
 /*
 |--------------------------------------------------------------------------
-| Main carousel
+| MAIN SLIDER
 |--------------------------------------------------------------------------
 */
 
-.carousel-card {
+.slideshow-image {
     position: absolute;
-
     inset: 0;
 
     width: 100%;
@@ -1500,16 +1673,11 @@ onUnmounted(() => {
 
     overflow: hidden;
 
-    background: #f7f8fd;
-
-    transform-origin: center bottom;
-
-    will-change:
-        transform,
-        opacity;
+    will-change: transform;
+    backface-visibility: hidden;
 }
 
-.carousel-card img {
+.slideshow-image img {
     display: block;
 
     width: 100%;
@@ -1521,595 +1689,256 @@ onUnmounted(() => {
     pointer-events: none;
 }
 
-.carousel-card-previous {
-    z-index: 1;
-
-    transform:
-        translateY(-10px)
-        scale(0.94);
-
-    opacity: 0.5;
-}
-
-.carousel-card-next {
-    z-index: 2;
-
-    transform:
-        translateY(10px)
-        scale(0.94);
-
-    opacity: 0.7;
-}
-
-.carousel-card-current {
+.slideshow-image-current {
     z-index: 10;
 
-    transform:
-        translateY(0)
-        scale(1);
-
-    opacity: 1;
-
-    transition:
-        transform 420ms
-        cubic-bezier(
-            0.16,
-            1,
-            0.3,
-            1
-        ),
-        opacity 420ms
-        cubic-bezier(
-            0.16,
-            1,
-            0.3,
-            1
-        );
+    transform: translateX(0);
 }
+
+.slideshow-image-next {
+    z-index: 5;
+
+    transform: translateX(100%);
+}
+
+.slideshow-image-previous {
+    z-index: 5;
+
+    transform: translateX(-100%);
+}
+
 
 /*
 |--------------------------------------------------------------------------
-| Main - next
+| MAIN NEXT
 |--------------------------------------------------------------------------
 */
 
-.carousel-main-current-next {
-    transform:
-        translateY(-110%)
-        scale(0.96);
-
-    opacity: 0;
-}
-
-.carousel-main-next {
+.slideshow-current-next {
     animation:
-        mainNextCard
-        420ms
-        cubic-bezier(
-            0.16,
-            1,
-            0.3,
-            1
-        )
+        slideshowCurrentNext
+        460ms
+        cubic-bezier(0.16, 1, 0.3, 1)
         forwards;
 }
 
-@keyframes mainNextCard {
-    from {
-        transform:
-            translateY(10px)
-            scale(0.94);
-
-        opacity: 0.7;
-    }
-
-    to {
-        transform:
-            translateY(0)
-            scale(1);
-
-        opacity: 1;
-    }
-}
-
-/*
-|--------------------------------------------------------------------------
-| Main - previous
-|--------------------------------------------------------------------------
-*/
-
-.carousel-main-current-prev {
-    transform:
-        translateY(110%)
-        scale(0.96);
-
-    opacity: 0;
-}
-
-.carousel-main-previous {
+.slideshow-image-next-active {
     animation:
-        mainPreviousCard
-        420ms
-        cubic-bezier(
-            0.16,
-            1,
-            0.3,
-            1
-        )
+        slideshowNextEnter
+        460ms
+        cubic-bezier(0.16, 1, 0.3, 1)
         forwards;
 }
 
-@keyframes mainPreviousCard {
+@keyframes slideshowCurrentNext {
     from {
-        transform:
-            translateY(-10px)
-            scale(0.94);
-
-        opacity: 0.5;
+        transform: translateX(0);
     }
 
     to {
-        transform:
-            translateY(0)
-            scale(1);
-
-        opacity: 1;
+        transform: translateX(-100%);
     }
 }
 
+@keyframes slideshowNextEnter {
+    from {
+        transform: translateX(100%);
+    }
+
+    to {
+        transform: translateX(0);
+    }
+}
+
+
 /*
 |--------------------------------------------------------------------------
-| FULLSCREEN TELEPORT
+| MAIN PREVIOUS
 |--------------------------------------------------------------------------
 */
 
-.slideshow-teleport {
-    position: fixed;
+.slideshow-current-prev {
+    animation:
+        slideshowCurrentPrev
+        460ms
+        cubic-bezier(0.16, 1, 0.3, 1)
+        forwards;
+}
 
+.slideshow-image-previous-active {
+    animation:
+        slideshowPreviousEnter
+        460ms
+        cubic-bezier(0.16, 1, 0.3, 1)
+        forwards;
+}
+
+@keyframes slideshowCurrentPrev {
+    from {
+        transform: translateX(0);
+    }
+
+    to {
+        transform: translateX(100%);
+    }
+}
+
+@keyframes slideshowPreviousEnter {
+    from {
+        transform: translateX(-100%);
+    }
+
+    to {
+        transform: translateX(0);
+    }
+}
+
+
+/*
+|--------------------------------------------------------------------------
+| LIGHTBOX
+|--------------------------------------------------------------------------
+*/
+
+.lightbox-image {
+    position: absolute;
     inset: 0;
-
-    z-index: 2100;
 
     width: 100%;
     height: 100%;
 
-    display: flex;
-    align-items: center;
-    justify-content: center;
-
-    background: #000;
-
     overflow: hidden;
+
+    will-change: transform;
+    backface-visibility: hidden;
 }
 
-.slideshow-teleport-background {
-    position: absolute;
-
-    inset: 0;
-
-    z-index: 1;
-
-    background: #000;
-}
-
-/*
-|--------------------------------------------------------------------------
-| Center content
-|--------------------------------------------------------------------------
-*/
-
-.slideshow-teleport-content {
-    position: relative;
-
-    z-index: 10;
-
-    width: min(
-        92vw,
-        900px
-    );
-
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-
-    gap: 16px;
-}
-
-/*
-|--------------------------------------------------------------------------
-| Lightbox carousel
-|--------------------------------------------------------------------------
-*/
-
-.lightbox-carousel {
-    position: relative;
-
-    width: 100%;
-    height: 78vh;
-
-    overflow: visible;
-}
-
-/*
-|--------------------------------------------------------------------------
-| Lightbox cards
-|--------------------------------------------------------------------------
-*/
-
-.lightbox-card {
-    position: absolute;
-
-    inset: 0;
-
-    display: flex;
-    align-items: center;
-    justify-content: center;
-
-    will-change:
-        transform,
-        opacity;
-}
-
-.lightbox-card img {
+.lightbox-image img {
     display: block;
 
-    max-width: 100%;
-    max-height: 100%;
+    width: 100%;
+    height: 100%;
 
-    object-fit: contain;
+    object-fit: cover;
 
     user-select: none;
     pointer-events: none;
 }
 
-/*
-|--------------------------------------------------------------------------
-| Previous image underneath
-|--------------------------------------------------------------------------
-*/
-
-.lightbox-card-previous {
-    z-index: 1;
-
-    transform:
-        translateY(-28px)
-        scale(0.92);
-
-    opacity: 0.35;
-
-    filter: brightness(0.65);
-}
-
-/*
-|--------------------------------------------------------------------------
-| Next image underneath
-|--------------------------------------------------------------------------
-*/
-
-.lightbox-card-next {
-    z-index: 2;
-
-    transform:
-        translateY(28px)
-        scale(0.92);
-
-    opacity: 0.45;
-
-    filter: brightness(0.7);
-}
-
-/*
-|--------------------------------------------------------------------------
-| Current image
-|--------------------------------------------------------------------------
-*/
-
-.lightbox-card-current {
+.lightbox-image-current {
     z-index: 10;
 
-    transform:
-        translateY(0)
-        scale(1);
-
-    opacity: 1;
-
-    transition:
-        transform 460ms
-        cubic-bezier(
-            0.16,
-            1,
-            0.3,
-            1
-        ),
-        opacity 460ms
-        cubic-bezier(
-            0.16,
-            1,
-            0.3,
-            1
-        );
+    transform: translateX(0);
 }
+
+.lightbox-image-next {
+    z-index: 5;
+
+    transform: translateX(100%);
+}
+
+.lightbox-image-previous {
+    z-index: 5;
+
+    transform: translateX(-100%);
+}
+
 
 /*
 |--------------------------------------------------------------------------
-| Next animation
+| LIGHTBOX NEXT
 |--------------------------------------------------------------------------
 */
 
 .lightbox-current-next {
-    transform:
-        translateY(-110%)
-        scale(0.96);
-
-    opacity: 0;
-}
-
-.lightbox-next-next {
     animation:
-        lightboxNextCard
+        lightboxCurrentNext
         460ms
-        cubic-bezier(
-            0.16,
-            1,
-            0.3,
-            1
-        )
+        cubic-bezier(0.16, 1, 0.3, 1)
         forwards;
 }
 
-@keyframes lightboxNextCard {
-    from {
-        transform:
-            translateY(28px)
-            scale(0.92);
+.lightbox-image-next-active {
+    animation:
+        lightboxNextEnter
+        460ms
+        cubic-bezier(0.16, 1, 0.3, 1)
+        forwards;
+}
 
-        opacity: 0.45;
+@keyframes lightboxCurrentNext {
+    from {
+        transform: translateX(0);
     }
 
     to {
-        transform:
-            translateY(0)
-            scale(1);
-
-        opacity: 1;
+        transform: translateX(-100%);
     }
 }
 
+@keyframes lightboxNextEnter {
+    from {
+        transform: translateX(100%);
+    }
+
+    to {
+        transform: translateX(0);
+    }
+}
+
+
 /*
 |--------------------------------------------------------------------------
-| Previous animation
+| LIGHTBOX PREVIOUS
 |--------------------------------------------------------------------------
 */
 
 .lightbox-current-prev {
-    transform:
-        translateY(110%)
-        scale(0.96);
-
-    opacity: 0;
-}
-
-.lightbox-previous-prev {
     animation:
-        lightboxPreviousCard
+        lightboxCurrentPrev
         460ms
-        cubic-bezier(
-            0.16,
-            1,
-            0.3,
-            1
-        )
+        cubic-bezier(0.16, 1, 0.3, 1)
         forwards;
 }
 
-@keyframes lightboxPreviousCard {
-    from {
-        transform:
-            translateY(-28px)
-            scale(0.92);
+.lightbox-image-previous-active {
+    animation:
+        lightboxPreviousEnter
+        460ms
+        cubic-bezier(0.16, 1, 0.3, 1)
+        forwards;
+}
 
-        opacity: 0.35;
+@keyframes lightboxCurrentPrev {
+    from {
+        transform: translateX(0);
     }
 
     to {
-        transform:
-            translateY(0)
-            scale(1);
-
-        opacity: 1;
+        transform: translateX(100%);
     }
 }
 
-/*
-|--------------------------------------------------------------------------
-| CLOSE BUTTON
-|--------------------------------------------------------------------------
-|
-| Same 24px control and 18px two-line geometry as the
-| navigation menu/X.
-|
-*/
+@keyframes lightboxPreviousEnter {
+    from {
+        transform: translateX(-100%);
+    }
 
-.slideshow-close {
-    position: absolute;
-
-    top: 24px;
-    right: 24px;
-
-    z-index: 100;
-
-    width: 24px;
-    height: 24px;
-
-    padding: 0;
-
-    display: flex;
-    align-items: center;
-    justify-content: center;
-
-    color: white;
-
-    background: transparent;
-    border: 0;
-
-    cursor: pointer;
-
-    transition:
-        transform 220ms
-        cubic-bezier(
-            0.16,
-            1,
-            0.3,
-            1
-        ),
-        color 220ms ease;
+    to {
+        transform: translateX(0);
+    }
 }
 
-.slideshow-close:hover {
-    color: var(--color-accent);
-
-    transform: scale(1.05);
-}
-
-.slideshow-close:active {
-    transform: scale(0.95);
-}
-
-.slideshow-close-icon {
-    position: relative;
-
-    width: 18px;
-    height: 14px;
-
-    display: block;
-
-    pointer-events: none;
-}
-
-.slideshow-close-icon span {
-    position: absolute;
-
-    left: 0;
-    top: 6.5px;
-
-    width: 18px;
-    height: 1px;
-
-    background: currentColor;
-
-    transform-origin: center;
-}
-
-.slideshow-close-icon span:first-child {
-    transform: rotate(45deg);
-}
-
-.slideshow-close-icon span:last-child {
-    transform: rotate(-45deg);
-}
 
 /*
 |--------------------------------------------------------------------------
-| Arrows
-|--------------------------------------------------------------------------
-*/
-
-.slideshow-arrow {
-    position: absolute;
-
-    top: 50%;
-
-    z-index: 50;
-
-    width: 24px;
-    height: 24px;
-
-    padding: 0;
-
-    display: flex;
-    align-items: center;
-    justify-content: center;
-
-    color: white;
-
-    background: transparent;
-    border: 0;
-
-    cursor: pointer;
-
-    transform: translateY(-50%);
-
-    transition:
-        transform 220ms
-        cubic-bezier(
-            0.16,
-            1,
-            0.3,
-            1
-        ),
-        color 220ms ease;
-}
-
-.slideshow-arrow:hover {
-    color: var(--color-accent);
-
-    transform:
-        translateY(-50%)
-        scale(1.05);
-}
-
-.slideshow-arrow:active {
-    transform:
-        translateY(-50%)
-        scale(0.95);
-}
-
-.slideshow-arrow-prev {
-    left: 24px;
-}
-
-.slideshow-arrow-next {
-    right: 24px;
-}
-
-/*
-|--------------------------------------------------------------------------
-| Caption
-|--------------------------------------------------------------------------
-*/
-
-.slideshow-caption {
-    position: relative;
-
-    z-index: 40;
-
-    max-width: 90%;
-
-    margin: 0;
-
-    text-align: center;
-
-    font-size: 0.875rem;
-    line-height: 1.4;
-
-    color: rgba(
-        255,
-        255,
-        255,
-        0.9
-    );
-}
-
-/*
-|--------------------------------------------------------------------------
-| Teleport entrance
+| TELEPORT FADE
 |--------------------------------------------------------------------------
 */
 
 .slideshow-teleport-enter-active,
 .slideshow-teleport-leave-active {
-    transition:
-        opacity 350ms ease;
+    transition: opacity 350ms ease;
 }
 
 .slideshow-teleport-enter-from,
@@ -2117,29 +1946,41 @@ onUnmounted(() => {
     opacity: 0;
 }
 
+
 /*
 |--------------------------------------------------------------------------
-| Reduced motion
+| MOBILE
 |--------------------------------------------------------------------------
 */
 
-@media (
-    prefers-reduced-motion: reduce
-) {
-    .carousel-card,
-    .carousel-card-current,
-    .lightbox-card,
-    .lightbox-card-current,
-    .slideshow-close,
-    .slideshow-arrow {
-        transition: none;
+@media (max-width: 640px) {
+    .slideshow-teleport {
+        padding: 0;
+    }
+}
+
+
+/*
+|--------------------------------------------------------------------------
+| REDUCED MOTION
+|--------------------------------------------------------------------------
+*/
+
+@media (prefers-reduced-motion: reduce) {
+    .slideshow-current-next,
+    .slideshow-current-prev,
+    .slideshow-image-next-active,
+    .slideshow-image-previous-active,
+    .lightbox-current-next,
+    .lightbox-current-prev,
+    .lightbox-image-next-active,
+    .lightbox-image-previous-active {
+        animation: none;
     }
 
-    .carousel-main-next,
-    .carousel-main-previous,
-    .lightbox-next-next,
-    .lightbox-previous-prev {
-        animation: none;
+    .slideshow-teleport-enter-active,
+    .slideshow-teleport-leave-active {
+        transition: none;
     }
 }
 </style>

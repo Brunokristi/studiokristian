@@ -155,6 +155,22 @@ export default {
         ],
     },
 
+    services: {
+        title: 'Services',
+        description:
+            'From branding and marketing to websites, digital products and business systems.',
+        loading:
+            'Loading services...',
+        contact:
+            'Have an idea? Let’s talk',
+        included:
+            'What is included',
+        notFound:
+            'Service not found',
+        notFoundDescription:
+            'The service you are looking for does not exist or is no longer available.',
+    },
+
     seo: {
         home: {
             title: 'studio kristian | Digital help for young businesses',
@@ -175,6 +191,17 @@ export default {
         contact: {
             title: 'Let’s Talk | studio kristian',
             description: 'Have a business idea, a project or something that could work better? Get in touch with studio kristian and figure out what would actually help.',
+        },
+        services: {
+            title: 'Services | studio kristian',
+            description:
+                'Explore branding, marketing, websites, digital products and business systems by studio kristian.',
+        },
+
+        service: {
+            title: 'Service | studio kristian',
+            description:
+                'Explore this studio kristian service and what it includes.',
         },
     },
 

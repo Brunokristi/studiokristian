@@ -111,6 +111,13 @@ const routes = [
         },
     },
 
+    {
+        path: '/services/:slug',
+        name: 'service',
+        component: () =>
+            import('../pages/Service.vue'),
+    },
+
 ];
 
 const router = createRouter({

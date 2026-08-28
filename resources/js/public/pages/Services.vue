@@ -7,8 +7,13 @@ import {
 
 import { useI18n } from 'vue-i18n'
 
-import { useGlobalActions } from '../composables/useGlobalActions'
-import { useSeoMeta } from '../composables/useSeoMeta'
+import {
+    useGlobalActions,
+} from '../composables/useGlobalActions'
+
+import {
+    useSeoMeta,
+} from '../composables/useSeoMeta'
 
 import Button from '@shared/components/Button.vue'
 import GridLayout from '../components/GridLayout.vue'
@@ -81,9 +86,7 @@ async function loadServices() {
 
         cards.value =
             serviceProducts.map(
-                (
-                    serviceProduct
-                ) => ({
+                serviceProduct => ({
                     heading:
                         serviceProduct.name,
 
@@ -98,6 +101,10 @@ async function loadServices() {
 
                     bgColor: '',
 
+                    /*
+                     * Each card opens its
+                     * individual service page.
+                     */
                     link:
                         `/services/${serviceProduct.slug}`,
                 })
@@ -186,3 +193,4 @@ watch(
         />
     </main>
 </template>
+
