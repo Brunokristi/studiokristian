@@ -2,23 +2,30 @@ import { viewDepthKey } from "vue-router";
 
 export default {
     home: {
-        title: 'Webstránky, ktoré fungujú. Systémy, ktoré rastú.',
-        description: 'Čisté weby a inteligentné systémy nvrhnuté pre rast vášho biznisu.',
-        callToAction: 'Poďme tvoriť spolu',
+        title: 'Pomáham mladým biznisom dať veci dokopy.',
+        description: 'Pomáham mladým biznisom rozbehnúť sa, rásť a fungovať lepšie pomocou brandingu, marketingu, technológií a systémov.',
+        callToAction: 'Poďme na to',
 
-        subtitle1: 'Menej dizajnu. Väčší efekt.',
-        description1: 'Minimalistické, modulárne weby navrhnuté pre výkon. Čistá štruktúra, rýchle načítanie a jasná cesta k výsledkom.',
+        subtitle1: 'Začnime nápadom.',
+        description1: 'Nemusíš mať všetko premyslené. Spoločne môžeme nastaviť značku, digitálnu prezentáciu aj smer, ktorým sa máš vydať. Potom postavíme to, čo tvoj biznis naozaj potrebuje.',
 
-        subtitle2: 'Systémy, ktoré šetria čas, nie ho plytvajú.',
-        description2: 'Menej klikov, automatizované systémy, plynulejšie procesy. AI tam, kde to dáva zmysel.',
-        workflow: 'Od nápadu k systému',
+        subtitle2: 'Nech tvoj biznis funguje lepšie.',
+        description2: 'Od webov a digitálnych produktov až po marketing, automatizáciu a vlastné systémy. Cieľ je jednoduchý. Získať viac zákazníkov, ušetriť čas a zjednodušiť každodenné fungovanie.',
+        workflow: 'Od nápadu k niečomu reálnemu',
 
         recentProjects: 'ďalšie projekty',
 
-        quote: 'Webstránka by nemala len dobre vyzerať. Mala by pre vás pracovať 24/7.',
+        quote: 'Pravdepodobne nepotrebuješ viac technológií. Potrebuješ tie správne.',
 
-        contact: 'Kontaktujt',
+        contact: 'Poďme sa porozprávať',
         vcard: 'Uložiť kontakt',
+
+        about: {
+            title: 'Ahoj, som Bruno.',
+            intro: 'FIIT STU • Developer • Designer • Entrepreneur • Bratislava',
+            text: 'Pracoval som na webových aplikáciách a business systémoch, ale aj na brandingu, digitálnych produktoch a marketingu. Dnes najradšej pomáham ľuďom, ktorí budujú niečo vlastné, zorientovať sa v digitálnej stránke ich biznisu.',
+            closing: 'Stále na tom všetkom pracujem aj ja. Len som možno o pár krokov vpredu.',
+        },
     },
 
     navigation: {
@@ -29,7 +36,7 @@ export default {
     },
 
     portfolio: {
-        contact: 'Poďme vytvoriť váš projekt',
+        contact: 'Máš nápad? Poďme sa porozprávať',
         loading: 'Načítavam projekty...',
         viewLive: 'Zobraziť naživo',
     },
@@ -60,60 +67,64 @@ export default {
         callEnded: 'Hovor ukončený ({time})',
         dragToCall: 'Kontaktuj potiahnutím',
 
-        transcript: `Ahoj, vďaka za tvoj záujem. Väčšinou sa najskôr snažím pochopiť, čo skutočne potrebuješ. Niekedy je to jednoduchá webstránka s pevnou štruktúrou a čistým dizajnom. Niekedy je to väčší systém, ktorý šetrí čas, odstraňuje manuálnu prácu a zjednodušuje celý proces. Snažím sa udržať veci minimalistické, prehľadné a funkčné. Menej chaosu, menej klikov, lepšie výsledky. Ak to dáva zmysel, viem do procesu zapojiť aj automatizáciu alebo AI. Ak už máš nejakú predstavu, ozvi sa mi. A ak nie, to je v poriadku. Spolu na to prídeme.`,
+        transcript: `Ahoj, vďaka, že si sa ozval. Ak buduješ biznis, spúšťaš niečo nové alebo máš pocit, že by digitálna stránka tvojho biznisu mohla fungovať oveľa lepšie, si tu správne. Pomáham mladým biznisom zistiť, čo vlastne potrebujú. Môže to byť branding a marketing, web, digitálny produkt, systém alebo automatizácia. Nemusíš mať všetko premyslené ešte predtým, ako sa ozveš. Možno máš zatiaľ len nápad. Možno už máš fungujúci biznis, ktorý prerástol spôsob, akým momentálne funguje. V oboch prípadoch sa na to môžeme pozrieť spolu a zistiť, čo by ti reálne pomohlo posunúť sa ďalej.`,
 
         items: [
             {
-                heading: 'Čo vlastne tvoríš?',
-                text: 'Tvorím čisté webstránky a vlastné systémy navrhnuté na riešenie reálnych potrieb biznisu. Od jednoduchých prezentačných stránok až po komplexné nástroje, ktoré automatizujú procesy a šetria čas.',
+                heading: 'S čím mi vlastne vieš pomôcť?',
+                text: 'Pomáham mladým biznisom premeniť nápady na niečo, čo ľudia nájdu, pochopia a používajú. Môže ísť o vytvorenie značky, marketing, web, digitálny produkt, systém alebo lepšie využitie technológií v biznise.',
             },
             {
-                heading: 'S kým spolupracuješ?',
-                text: 'Najčastejšie spolupracujem s malými firmami, zakladateľmi a nezávislými projektmi, ktoré chcú funkčné, prehľadné riešenie pripravené na rast.',
+                heading: 'Mám nápad, ale neviem, kde začať.',
+                text: 'To je úplne v pohode. Nemusíš mať perfektný plán ani dokonale napísané zadanie. Povedz mi, čo chceš vytvoriť a kam sa chceš dostať. Spoločne zistíme, čo má zmysel riešiť ako prvé.',
             },
             {
-                heading: 'Ako dlho to trvá?',
-                text: 'Záleží od rozsahu. Jednoduché weby môžu byť hotové už za týždeň, väčšie systémy trvajú dlhšie. Vždy sa snažím, aby bol proces efektívny a sústredený.',
+                heading: 'Vieš mi pomôcť rozbehnúť biznis digitálne?',
+                text: 'Áno. Môžeme spolu nastaviť digitálnu stránku tvojho biznisu od brandingu a vizuálnej identity cez web a marketing až po systémy, ktoré budú fungovať v pozadí. Cieľom je vytvoriť dobrý základ bez zbytočnej komplikácie.',
             },
             {
-                heading: 'Riešiš aj automatizáciu alebo AI?',
-                text: 'Áno. Navrhujem systémy, ktoré znižujú manuálnu prácu a zjednodušujú procesy. Ak to dáva zmysel, integrujem automatizáciu alebo AI.',
+                heading: 'Robíš iba webstránky?',
+                text: 'Nie. Web je často len jedna časť celého obrazu. Robím aj branding, marketing, digitálne produkty, automatizáciu a vlastné business systémy. To, na čom budeme pracovať, závisí od toho, čo tvoj biznis skutočne potrebuje.',
             },
             {
-                heading: 'Čo sa deje po spustení?',
-                text: 'Projekt vieme ďalej rozvíjať a zlepšovať. Väčšina projektov sa časom vyvíja a ja ich navrhujem tak, aby rástli spolu s vaším biznisom.',
+                heading: 'Už mám fungujúci biznis. Vieš mi aj tak pomôcť?',
+                text: 'Jasné. Nemusíš začínať od nuly. Možno tvoja značka už nefunguje tak ako kedysi, web neprináša dosť zákazníkov, marketing nemá jasný smer alebo tráviš príliš veľa času manuálnou prácou. Pozrieme sa, kde má tvoj biznis najväčší priestor na zlepšenie.',
+            },
+            {
+                heading: 'Používaš aj AI?',
+                text: 'Keď to dáva zmysel. Viac ma zaujíma vyriešiť správnu vec než pridať AI len preto, že je to práve trendy. Niekedy je AI alebo automatizácia super riešenie. Niekedy je oveľa lepšie spraviť niečo jednoduchšie.',
             },
             {
                 heading: 'Koľko to stojí?',
-                text: 'Každý projekt je iný, preto cena závisí od vašich potrieb. Sústreďujem sa na správne riešenie, nie na univerzálne balíky.',
+                text: 'Záleží na tom, čo spolu chceme vyriešiť. Každý biznis je trochu iný, preto najskôr potrebujem pochopiť, čo potrebuješ. Potom nastavíme rozsah projektu a cenu podľa toho. Žiadne náhodné balíčky len preto, že ich mám v cenníku.',
             },
             {
-                heading: 'Musím presne vedieť, čo chcem?',
-                text: 'Nie nutne. Pomôžem vám preskúmať možnosti a nájsť najlepšie riešenie. Stačí sa podeliť o vašu predstavu a spoločne ju doladíme.',
+                heading: 'Čo ak ani neviem, čo vlastne potrebujem?',
+                text: 'Úplne v pohode. Nemusíš poznať odpoveď ešte predtým, ako sa ozveš. Povedz mi, čo buduješ, čo nefunguje alebo čo by si chcel zlepšiť. Zvyšok môžeme vyriešiť spolu.',
             }
         ],
     },
 
     seo: {
         home: {
-            title: 'studio kristian | Webstránky a systémy pre rast biznisu',
-            description: 'studio kristian tvorí čisté weby, škálovateľné systémy a praktickú automatizáciu, ktoré pomáhajú firmám rásť rýchlejšie s menším množstvom manuálnej práce.',
+            title: 'studio kristian | Digitálna pomoc pre mladé biznisy',
+            description: 'studio kristian pomáha mladým biznisom rozbehnúť sa, rásť a fungovať lepšie pomocou brandingu, marketingu, technológií a digitálnych systémov.',
         },
         portfolio: {
-            title: 'Portfólio | projekty studio kristian',
-            description: 'Pozrite si vybrané projekty studio kristian zamerané na výkon, prehľadnosť a reálny biznisový dopad.',
+            title: 'Projekty | studio kristian',
+            description: 'Pozrite si vybrané projekty studio kristian z oblasti brandingu, marketingu, webov, digitálnych produktov a business systémov.',
         },
         project: {
             title: 'Projekt | studio kristian',
-            description: 'Objavte detaily projektov, rozhodnutia v procese a implementačné riešenia od studio kristian.',
+            description: 'Pozrite si myšlienky, dizajn a digitálnu prácu, ktoré stoja za vybranými projektmi studio kristian.',
         },
         workflow: {
-            title: 'Proces | Od nápadu k systému | studio kristian',
-            description: 'Pozrite sa, ako studio kristian mení nápady na funkčné digitálne systémy cez jasný a spolupracujúci proces.',
+            title: 'Proces | Od nápadu k niečomu reálnemu | studio kristian',
+            description: 'Pozrite sa, ako studio kristian pomáha meniť podnikateľské nápady na značky, digitálne produkty, weby a systémy cez praktický a spolupracujúci proces.',
         },
         contact: {
             title: 'Kontakt | studio kristian',
-            description: 'Kontaktujte studio kristian a preberieme webstránky, systémy, automatizáciu a praktické riešenia pre váš biznis.',
+            description: 'Máš podnikateľský nápad, projekt alebo niečo, čo by mohlo fungovať lepšie? Ozvi sa studio kristian a spoločne zistíme, čo by ti reálne pomohlo.',
         },
     },
 
@@ -161,64 +172,58 @@ export default {
     workflowPage: {
         steps: [
             {
-                heading: '1. Úvodná analýza',
-                text: 'Začínam pochopením tvojich cieľov, výziev a potrieb a spoločne hľadáme najvhodnejšie riešenia.',
+                heading: '1. Začneme rozhovorom',
+                text: 'Povieš mi, čo buduješ, kam sa chceš dostať alebo čo ťa momentálne najviac trápi. Nepotrebuješ mať pripravené dokonalé zadanie.',
             },
             {
-                heading: '2. Definovanie rozsahu projektu',
-                text: 'Stanovím štruktúru, funkcie, časový plán a smerovanie projektu, aby bolo všetko jasné od začiatku.',
+                heading: '2. Zistíme, čo má naozaj zmysel',
+                text: 'Pozrieme sa na tvoj biznis, zákazníkov a ciele. Potom spolu zistíme, čo by ti reálne pomohlo. Môže to byť branding, marketing, web, nový produkt alebo lepší systém.',
             },
             {
-                heading: '3. Interaktívny prototyp',
-                text: 'Môžeš sledovať návrh v reálnom čase, kontrolovať priebeh a dávať spätnú väzbu počas vývoja prototypu.',
+                heading: '3. Dáme nápadu smer',
+                text: 'Zhrubého nápadu vytvoríme jasný smer. Prejdeme si značku, štruktúru, používateľský zážitok, obsah a funkcie ešte predtým, ako sa pustíme naplno do tvorby.',
             },
             {
-                heading: '4. Vývoj',
-                text: 'Schválený návrh prevediem do plne funkčnej a kvalitnej webstránky alebo aplikácie.',
+                heading: '4. Postavíme to, čo treba',
+                text: 'Zvolený smer premeníme na niečo reálne. Môže to byť značka, web, digitálny produkt, marketingová kampaň, automatizácia alebo vlastný systém. Záleží na tom, čo tvoj biznis potrebuje.',
             },
             {
-                heading: '5. Spustenie',
-                text: 'Projekt nasadím a uvediem do prevádzky s dôrazom na spoľahlivosť a bezproblémový chod.',
+                heading: '5. Spustíme to',
+                text: 'Všetko pripravíme a pustíme do sveta. Cieľom nie je len projekt dokončiť. Chceme, aby bol pripravený na reálne používanie a aby ho ľudia pochopili.',
             },
             {
-                heading: '6. Dokumentácia',
-                text: 'Dostaneš prehľadnú dokumentáciu, ktorá vám pomôže projekt pochopiť a spravovať.',
+                heading: '6. Pozrieme sa, čo funguje',
+                text: 'Keď je projekt vonku, začneme vidieť, čo funguje, čo nie a kde sa ľudia zasekávajú. Reálne dáta a spätná väzba sú väčšinou lepšie ako hádanie.',
             },
             {
-                heading: '7. Odovzdanie a zaškolenie (ak je potrebné)',
-                text: 'V prípade potreby zaškolím teba aj tvoj tím, aby ste vedeli s projektom pracovať samostatne.',
-            },
-            {
-                heading: '8. Údržba a monitoring',
-                text: 'Projekt môžeme ďalej sledovať a zlepšovať z pohľadu výkonu, použiteľnosti a stability.',
-            },
-            {
-                heading: '9. Iteratívne zlepšovanie (voliteľné)',
-                text: 'Na základe reálneho používania projekt postupne vylepšujeme.',
+                heading: '7. Budeme to zlepšovať',
+                text: 'Biznis sa mení. Menia sa aj zákazníci. Preto môžeme postupne zlepšovať značku, produkt, marketing alebo systémy podľa toho, ako bude tvoj biznis rásť.',
             },
         ],
+
         images: [
             {
-                alt: 'Úvodné stretnutie k projektu',
-                caption: 'Na začiatku si prejdeme detaily projektu a tvoje požiadavky',
+                alt: 'Úvodná analýza a plánovanie projektu',
+                caption: 'Začneme nápadom, nie komplikovaným zadaním',
             },
             {
-                alt: 'Náhľad návrhu vo Figme',
-                caption: 'Sleduj návrh v reálnom čase',
+                alt: 'Dizajn značky a digitálneho produktu',
+                caption: 'Dáme nápadu podobu, ktorú ľudia dokážu pochopiť a používať',
             },
             {
-                alt: 'Implementácia projektu',
-                caption: 'Vývoj webstránky alebo aplikácie',
+                alt: 'Vývoj webstránky a digitálneho produktu',
+                caption: 'Postavíme to, čo tvoj biznis skutočne potrebuje',
             },
             {
                 alt: 'Spustený projekt',
-                caption: 'Projekt je spustený a dostupný online',
+                caption: 'Dáme to von do sveta',
             },
             {
-                alt: 'Analytika a monitoring',
-                caption: 'Monitorovanie a podpora po spustení projektu',
+                alt: 'Analytika a zlepšovanie projektu',
+                caption: 'Sledujeme, učíme sa a posúvame to ďalej',
             },
         ],
+
         callToAction: 'Projekty',
     },
 }

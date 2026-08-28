@@ -38,6 +38,11 @@ const props = defineProps({
     draggable: {
         type: Boolean,
         default: true
+    },
+
+    opened: {
+        type: Boolean,
+        default: false
     }
 })
 
@@ -55,7 +60,7 @@ const emit = defineEmits([
 ])
 
 
-const isOpen = ref(false)
+const isOpen = ref(props.opened)
 
 const headingElement = ref(null)
 const textElement = ref(null)
@@ -103,6 +108,13 @@ function toggleOpen() {
     isOpen.value =
         !isOpen.value
 }
+
+watch(
+    () => props.opened,
+    value => {
+        isOpen.value = Boolean(value)
+    }
+)
 
 
 /*
@@ -173,7 +185,7 @@ const showEditorControls = computed(() => {
 function handleTextInput(event) {
     emit(
         'update:text',
-        event.currentTarget.textContent || ''
+        event.currentTarget.innerText ?? ''
     )
 }
 
@@ -571,6 +583,7 @@ function handleDragEnd() {
                                 mt-3
                                 min-h-[1.5em]
                                 cursor-text
+                                whitespace-pre-wrap
                                 text-light
                                 outline-none
                             "

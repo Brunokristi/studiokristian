@@ -2,34 +2,91 @@ import { viewDepthKey } from "vue-router";
 
 export default {
     home: {
-        title: 'Websites that work. Systems that scale.',
-        description: 'Clean websites and smart systems built to help your business grow.',
-        callToAction: 'Let’s make it real',
+        title: 'Helping businesses figure things out.',
 
-        subtitle1: 'Less design. More impact.',
-        description1: 'Minimal, modular websites built to perform. Clean structure, fast load, and a clear path to results.',
+        description:
+            'I help businesses build a clear brand, reach the right people and create digital systems that make the business work better.',
 
-        subtitle2: 'Built to save time, not waste it',
-        description2: 'Fewer clicks, automated systems, smoother flows. AI where it actually makes sense.',
-        workflow: 'From idea to system',
+        callToAction: 'Let’s figure it out',
 
-        recentProjects: 'more projects',
+        subtitle1:
+            'You do not need to know exactly what you need.',
 
-        quote: 'A website should not just look good. It should work for you 24/7.',
+        description1:
+            'Maybe you have an idea. Maybe you have a business that has outgrown its website, its brand or the way it currently works. You bring the goal. We figure out what needs to happen next.',
 
-        contact: 'Get in touch',
-        vcard: 'Save contact',
+        services: {
+            title: 'Here is what I can help with.',
+
+            description:
+                'From the way your business looks and communicates to the technology that keeps it running. The exact combination depends on what your business needs.',
+
+            viewAll: 'See all services',
+        },
+
+        projects: {
+            title: 'The fun part...',
+
+            description:
+                'A selection of projects across branding, websites, digital products, marketing and business systems.',
+        },
+
+        subtitle2:
+            'A good idea is only the beginning.',
+
+        description2:
+            'We start with what you are trying to achieve, decide what actually matters and then build the right things. No unnecessary complexity. No technology for the sake of technology.',
+
+        workflow:
+            'See how I work',
+
+        recentProjects:
+            'See all projects',
+
+        quote:
+            'You probably do not need more technology. You need the right technology.',
+
+        quoteText:
+            'The goal is not to add more tools to your business. It is to make the right things easier, clearer and more effective.',
+
+        contact:
+            'Let’s talk',
+
+        about: {
+            title: 'Hey, I’m Bruno',
+
+            intro:
+                'fiit stu • developer • designer • occasional genius',
+
+            text:
+                'I work across design, technology and business. That means I can help shape a brand, design a digital experience, build the technology behind it or connect the different pieces into a system that actually works.',
+
+            closing:
+                'You do not need to have everything figured out before we start. That is part of what I am here for.',
+        },
+
+        final: {
+            title:
+                'So, what are you trying to build?',
+
+            description:
+                'Tell me where you are, where you want to go and what is getting in the way. We can figure out the rest together.',
+
+            cta:
+                'Let’s talk',
+        },
     },
 
     navigation: {
         home: 'Home',
         portfolio: 'Work',
+        services: 'Services',
         workflow: 'Process',
         contact: 'Contact',
     },
 
     portfolio: {
-        contact: 'Let\'s build your project',
+        contact: 'Have an idea? Let’s talk',
         loading: 'Loading projects...',
         viewLive: 'View live',
     },
@@ -60,60 +117,64 @@ export default {
         callEnded: 'Call ended ({time})',
         dragToCall: 'Slide to contact',
 
-        transcript: `Hey, thanks for reaching out. Usually the first thing I want to understand is what your business actually needs. Sometimes it is a simple website with strong structure and clean design. Sometimes it is a bigger system that saves time, removes manual work and makes the whole flow easier. I like to keep things minimal, clear and functional. Less noise, fewer clicks, better results. If it makes sense, I can also bring automation or AI into the process. So if you already have an idea, send it over. And if not, that is fine too. We can figure it out together.`,
+        transcript: `Hey, thanks for reaching out. If you are building a business, launching something new, or just know that your business could work a lot better, you are in the right place. I help young businesses figure out what they actually need, from branding and marketing to websites, digital products, systems and automation. You do not need to have everything figured out before we start. Sometimes you just have an idea. Sometimes you have a business that has outgrown the way it currently works. Either way, we can look at it together and figure out what would actually move things forward.`,
 
         items: [
             {
-                heading: 'What What do you actually build?',
-                text: 'I build clean websites and custom systems designed to solve real business needs. From simple presentation pages to complex tools that automate workflows and save time.',
+                heading: 'What exactly do you help with?',
+                text: 'I help young businesses turn ideas into something people can find, understand and actually use. That can mean creating a brand, figuring out a marketing direction, building a website, setting up digital systems or finding better ways to use technology in the business.',
             },
             {
-                heading: 'Who do you work with?',
-                text: 'I mostly work with small businesses, founders and independent projects that want something functional, clear and built to grow.',
+                heading: 'I have an idea, but I do not know where to start.',
+                text: 'That is actually a good place to start. You do not need a perfect plan or a perfectly written brief. Tell me what you are trying to build and what you want to achieve, and we can figure out what needs to happen first.',
             },
             {
-                heading: 'How long does it take?',
-                text: 'It depends on the scope. Simple websites can take as little as a week, while larger systems take longer. I always aim to keep the process efficient and focused.',
+                heading: 'Can you help me launch my business digitally?',
+                text: 'Yes. I can help you put the digital side of your business together, from branding and visual identity to your website, marketing, content and the systems behind it. The idea is to build a solid foundation without making things unnecessarily complicated.',
             },
             {
-                heading: 'Do you also handle automation or AI?',
-                text: 'Yes. I design systems that reduce manual work and simplify workflows. If it makes sense, I integrate automation or AI to improve the process.',
+                heading: 'Do you only build websites?',
+                text: 'No. A website is often just one part of the bigger picture. I also work on branding, marketing, digital products, automation and custom business systems. What we work on depends on what would actually help your business.',
             },
             {
-                heading: 'What happens after launch?',
-                text: 'I can help you improve and extend the project over time. Most projects evolve, and I design them to grow with your business.',
+                heading: 'I already have a business. Can you still help?',
+                text: 'Absolutely. You do not need to be starting from zero. Maybe your brand no longer feels right, your website is not bringing in enough customers, your marketing needs direction, or too much of your time is spent doing things manually. We can figure out where there is room to improve.',
+            },
+            {
+                heading: 'Do you use AI?',
+                text: 'When it actually helps. I am more interested in solving the right business need than adding AI just because everyone is talking about it. Sometimes AI or automation is the right answer. Sometimes a simple solution is much better.',
             },
             {
                 heading: 'How much does it cost?',
-                text: 'Every project is different, so pricing depends on what you need. I focus on building the right solution rather than fitting everything into a fixed package.',
+                text: 'It depends on what we are trying to achieve. Every business is different, so I prefer to understand what you need first and then define the right scope. You are not going to get a random package just because it is there.',
             },
             {
-                heading: 'Do I need to know what I want exactly?',
-                text: 'Not necessarily. I can help you explore ideas and find the best solution for your needs. Just share what you have in mind, and we can work together to refine it.',
+                heading: 'What if I am not sure what I need?',
+                text: 'That is completely fine. You do not have to know the answer before you reach out. Tell me what you are building, what is not working or what you would like to improve. We can figure out the rest together.',
             }
         ],
     },
 
     seo: {
         home: {
-            title: 'studio kristian | Websites and Systems for Business Growth',
-            description: 'studio kristian builds clean websites, scalable systems, and practical automation to help businesses grow faster with less manual work.',
+            title: 'studio kristian | Digital help for young businesses',
+            description: 'studio kristian helps young businesses launch, grow and work smarter through branding, marketing, technology and digital systems.',
         },
         portfolio: {
-            title: 'Portfolio | studio kristian projects',
-            description: 'Explore selected studio kristian web and system projects focused on performance, clarity, and measurable business impact.',
+            title: 'Work | studio kristian',
+            description: 'Explore selected studio kristian projects across branding, marketing, websites, digital products and business systems.',
         },
         project: {
             title: 'Project | studio kristian',
-            description: 'Discover project details, workflow decisions, and implementation highlights from studio kristian.',
+            description: 'Explore the thinking, design and digital work behind selected studio kristian projects.',
         },
         workflow: {
-            title: 'Workflow | From Idea to System | studio kristian',
-            description: 'See how studio kristian turns ideas into structured digital systems through a clear, collaborative, and results-focused process.',
+            title: 'Process | From Idea to Something Real | studio kristian',
+            description: 'See how studio kristian helps turn business ideas into brands, digital experiences, products and systems through a practical and collaborative process.',
         },
         contact: {
-            title: 'Contact | studio kristian',
-            description: 'Get in touch with studio kristian to discuss websites, systems, automation, and practical solutions for your business.',
+            title: 'Let’s Talk | studio kristian',
+            description: 'Have a business idea, a project or something that could work better? Get in touch with studio kristian and figure out what would actually help.',
         },
     },
 
@@ -159,68 +220,64 @@ export default {
             cancel: "Cancel"
         }
     },
+
     workflowPage: {
         steps: [
             {
-                heading: '1. Initial Discovery',
-                text: 'We start by understanding your goals, challenges and requirements, and explore the most suitable solutions together.',
+                heading: '1. Start with a conversation',
+                text: 'Tell me what you are building, what you want to achieve, or what is currently driving you crazy. You do not need a perfect brief.',
             },
             {
-                heading: '2. Project Scope Definition',
-                text: 'We define the structure, features, timeline and overall direction of the project to ensure clarity from the beginning.',
+                heading: '2. Figure out what actually matters',
+                text: 'We look at the business, the audience and the goals. Then we decide what would genuinely help, whether that is branding, marketing, a website, a new product or a better system.',
             },
             {
-                heading: '3. Interactive Prototyping',
-                text: 'You can follow the design process in real time, review progress and provide feedback as the prototype evolves.',
+                heading: '3. Shape the idea',
+                text: 'We turn the rough idea into a clear direction. This is where we work through the brand, structure, user experience, content and features before getting too deep into building.',
             },
             {
-                heading: '4. Development',
-                text: 'The approved design is translated into a fully functional, high-quality website or application.',
+                heading: '4. Build the right things',
+                text: 'The approved direction becomes something real. That could be a brand, website, digital product, campaign, automation or custom system, depending on what the business actually needs.',
             },
             {
                 heading: '5. Launch',
-                text: 'The project is deployed and made live, ensuring everything runs smoothly and reliably.',
+                text: 'We get everything ready and put it out into the world. The goal is not just to finish the project, but to make sure it is ready to be used, seen and understood.',
             },
             {
-                heading: '6. Documentation Delivery',
-                text: 'You receive clear documentation to help you understand and manage the project moving forward.',
+                heading: '6. See what happens',
+                text: 'Once something is live, we can see what works, what does not and where people are getting stuck. Real usage is usually more useful than guessing.',
             },
             {
-                heading: '7. Handover & Training (if needed)',
-                text: 'If required, we provide guidance and training so you can confidently work with the final product.',
-            },
-            {
-                heading: '8. Maintenance & Monitoring',
-                text: 'We can continue to support the project by monitoring performance, usability and stability.',
-            },
-            {
-                heading: '9. Iterative Improvements (optional)',
-                text: 'Based on real usage and feedback, we refine and improve the project over time.',
+                heading: '7. Make it better',
+                text: 'Businesses change. So do their customers. We can keep improving the brand, product, marketing or systems as the business grows.',
             },
         ],
+
         images: [
             {
-                alt: 'Figma design preview',
-                caption: 'Follow the design process in real time',
+                alt: 'Project discovery and planning',
+                caption: 'Start with the idea, not a complicated brief',
             },
             {
-                alt: 'Project implementation',
-                caption: 'Development of the website or application',
+                alt: 'Brand and digital product design',
+                caption: 'Shape the idea into something people can actually use',
             },
             {
-                alt: 'Project discovery meeting',
-                caption: 'We start by defining the project details and your requirements',
+                alt: 'Website and digital product development',
+                caption: 'Build what the business actually needs',
             },
             {
-                alt: 'Live deployed project',
-                caption: 'Project launched and publicly available',
+                alt: 'Live launched project',
+                caption: 'Put it out into the world',
             },
             {
-                alt: 'Analytics and performance monitoring',
-                caption: 'Monitoring and support after launch',
+                alt: 'Project analytics and improvements',
+                caption: 'Learn, improve and keep moving',
             },
         ],
+
         callToAction: 'Recent Projects',
     },
 
+    
 }

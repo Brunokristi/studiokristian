@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\Project;
+use App\Models\ProjectFile;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -78,7 +79,12 @@ class PortfolioAdminController extends Controller
                 'summary' => $summaryEn,
                 'summary_translations' => $this->translationArray($summaryEn, $summarySk),
                 'hex_color' => $data['hex_color'] ?: null,
-                'logo_path' => $this->resolvedLogoPath($request->file('logo_file'), $slug, $this->nullableText($data['existing_logo_path'] ?? null), $this->nullableText($data['logo_path'] ?? null)),
+                'logo_path' => $this->resolvedLogoPath(
+                    $request->file('logo_file'),
+                    $slug,
+                    $this->nullableText($data['existing_logo_path'] ?? null),
+                    $this->nullableText($data['logo_path'] ?? null)
+                ),
             ]);
 
             $this->syncImages($request, $project, $data['images'] ?? []);
@@ -153,7 +159,14 @@ class PortfolioAdminController extends Controller
                 'summary' => $summaryEn,
                 'summary_translations' => $this->translationArray($summaryEn, $summarySk),
                 'hex_color' => $data['hex_color'] ?: null,
-                'logo_path' => $this->resolvedLogoPath($request->file('logo_file'), $slug, $this->nullableText($data['existing_logo_path'] ?? null), $this->nullableText($data['logo_path'] ?? null)),
+                'logo_path' => $this->resolvedLogoPath(
+                    $request->file('logo_file'),
+                    $slug,
+                    $this->nullableText($data['existing_logo_path'] ?? null),
+                    $this->nullableText($data['logo_path'] ?? null),
+                    $data['logo_project_file_id'] ?? null,
+                    $project
+                ),
             ]);
 
             $this->syncImages($request, $project, $data['images'] ?? []);
@@ -183,7 +196,7 @@ class PortfolioAdminController extends Controller
         return $request->validate([
             'company_id' => ['nullable', 'exists:companies,id'],
             'service_product_id' => ['nullable', 'exists:service_products,id'],
-            'portal_status' => ['nullable', 'in:active,on_hold,completed,archived'],
+            'portal_status' => ['nullable', 'in:draft,active,on_hold,completed,archived'],
             'name' => ['required', 'string', 'max:255'],
             'name_sk' => ['nullable', 'string', 'max:255'],
             'url' => ['nullable', 'string', 'max:255'],
@@ -194,9 +207,11 @@ class PortfolioAdminController extends Controller
             'logo_path' => ['nullable', 'string', 'max:255'],
             'existing_logo_path' => ['nullable', 'string', 'max:255'],
             'logo_file' => ['nullable', 'file', 'mimes:jpg,jpeg,png,gif,webp,svg,avif', 'max:20480'],
+            'logo_project_file_id' => ['nullable', 'integer', 'exists:project_files,id'],
             'images' => ['nullable', 'array'],
             'images.*.path' => ['nullable', 'string', 'max:255'],
             'images.*.existing_path' => ['nullable', 'string', 'max:255'],
+            'images.*.project_file_id' => ['nullable', 'integer', 'exists:project_files,id'],
             'images.*.file' => ['nullable', 'file', 'mimes:jpg,jpeg,png,gif,webp,svg,avif', 'max:20480'],
             'images.*.description' => ['nullable', 'string', 'max:255'],
             'images.*.description_sk' => ['nullable', 'string', 'max:255'],
@@ -226,7 +241,15 @@ class PortfolioAdminController extends Controller
             $uploadedFile = $request->file("images.$index.file");
             $existingPath = trim((string) ($image['existing_path'] ?? ''));
             $manualPath = trim((string) ($image['path'] ?? ''));
-            $path = $this->resolvedImagePath($uploadedFile, $folder, $existingPath, $manualPath);
+            $projectFileId = $image['project_file_id'] ?? null;
+            $path = $this->resolvedImagePath(
+                $uploadedFile,
+                $folder,
+                $existingPath,
+                $manualPath,
+                $projectFileId,
+                $project
+            );
 
             if ($path === '') {
                 continue;
@@ -240,7 +263,10 @@ class PortfolioAdminController extends Controller
             $project->images()->create([
                 'path' => $path,
                 'description' => $description,
-                'description_translations' => $this->translationArray($description, $descriptionSk),
+                'description_translations' => $this->preservedTranslationArray(
+                    $description,
+                    $descriptionSk
+                ),
                 'alt' => $alt,
                 'alt_translations' => $this->translationArray($alt, $altSk),
                 'sort_order' => (int) ($image['sort_order'] ?? 0),
@@ -253,26 +279,37 @@ class PortfolioAdminController extends Controller
         $project->features()->delete();
 
         foreach ($features as $feature) {
-            $titleEn = $this->nullableText($feature['title'] ?? null);
-            $titleSkInput = $this->nullableText($feature['title_sk'] ?? null);
-            $descriptionEn = $this->nullableText($feature['description'] ?? null);
-            $descriptionSkInput = $this->nullableText($feature['description_sk'] ?? null);
+            $titleEn = $this->preserveText($feature['title'] ?? null);
+            $titleSkInput = $this->preserveText($feature['title_sk'] ?? null);
+            $descriptionEn = $this->preserveText($feature['description'] ?? null);
+            $descriptionSkInput = $this->preserveText($feature['description_sk'] ?? null);
 
             $title = $titleEn ?? $titleSkInput;
             $description = $descriptionEn ?? $descriptionSkInput;
 
-            if ($title === null || $description === null) {
+            if (
+                $title === null ||
+                $description === null ||
+                trim($title) === '' ||
+                trim($description) === ''
+            ) {
                 continue;
             }
 
             $titleSk = $this->resolveSlovakText($title, $titleSkInput);
-            $descriptionSk = $this->resolveSlovakText($description, $descriptionSkInput);
+            $descriptionSk = $this->resolveFeatureDescriptionSlovakText(
+                $description,
+                $descriptionSkInput
+            );
 
             $project->features()->create([
                 'title' => $title,
                 'title_translations' => $this->translationArray($title, $titleSk),
                 'description' => $description,
-                'description_translations' => $this->translationArray($description, $descriptionSk),
+                'description_translations' => $this->preservedTranslationArray(
+                    $description,
+                    $descriptionSk
+                ),
                 'sort_order' => (int) ($feature['sort_order'] ?? 0),
             ]);
         }
@@ -318,13 +355,59 @@ class PortfolioAdminController extends Controller
         }
     }
 
-    private function resolvedImagePath(?UploadedFile $file, string $folder, string $existingPath, string $manualPath): string
-    {
+    private function resolvedImagePath(
+        ?UploadedFile $file,
+        string $folder,
+        string $existingPath,
+        string $manualPath,
+        mixed $projectFileId = null,
+        ?Project $project = null
+    ): string {
         if ($file instanceof UploadedFile) {
             Storage::disk('public')->makeDirectory($folder);
             $extension = strtolower($file->getClientOriginalExtension() ?: 'bin');
             $filename = Str::uuid() . '.' . $extension;
             $storedPath = $file->storeAs($folder, $filename, 'public');
+
+            return '/storage/' . $storedPath;
+        }
+
+        if ($projectFileId !== null && $project !== null) {
+            $projectFile = ProjectFile::query()
+                ->whereKey((int) $projectFileId)
+                ->where('project_id', $project->id)
+                ->first();
+
+            if (!$projectFile) {
+                throw ValidationException::withMessages([
+                    'images' => 'Selected project file does not belong to this project.'
+                ]);
+            }
+
+            $sourceDisk = $projectFile->disk ?: 'local';
+            $sourcePath = $projectFile->storage_path;
+
+            if (!Storage::disk($sourceDisk)->exists($sourcePath)) {
+                throw ValidationException::withMessages([
+                    'images' => 'Selected project file is no longer available.'
+                ]);
+            }
+
+            Storage::disk('public')->makeDirectory($folder);
+
+            $extension = strtolower(
+                $projectFile->extension
+                    ?: pathinfo($projectFile->original_filename, PATHINFO_EXTENSION)
+                    ?: 'bin'
+            );
+
+            $filename = Str::uuid() . '.' . $extension;
+            $storedPath = $folder . '/' . $filename;
+
+            Storage::disk('public')->put(
+                $storedPath,
+                Storage::disk($sourceDisk)->get($sourcePath)
+            );
 
             return '/storage/' . $storedPath;
         }
@@ -336,8 +419,14 @@ class PortfolioAdminController extends Controller
         return $manualPath;
     }
 
-    private function resolvedLogoPath(?UploadedFile $file, string $slug, ?string $existingPath, ?string $manualPath): ?string
-    {
+    private function resolvedLogoPath(
+        ?UploadedFile $file,
+        string $slug,
+        ?string $existingPath,
+        ?string $manualPath,
+        mixed $projectFileId = null,
+        ?Project $project = null
+    ): ?string {
         if ($file instanceof UploadedFile) {
             $folder = 'projects/' . $slug;
             Storage::disk('public')->makeDirectory($folder);
@@ -348,11 +437,140 @@ class PortfolioAdminController extends Controller
             return '/storage/' . $storedPath;
         }
 
+        if ($projectFileId !== null && $project !== null) {
+            $projectFile = ProjectFile::query()
+                ->whereKey((int) $projectFileId)
+                ->where('project_id', $project->id)
+                ->first();
+
+            if (!$projectFile) {
+                throw ValidationException::withMessages([
+                    'logo_project_file_id' => 'Selected project file does not belong to this project.'
+                ]);
+            }
+
+            $sourceDisk = $projectFile->disk ?: 'local';
+            $sourcePath = $projectFile->storage_path;
+
+            if (!Storage::disk($sourceDisk)->exists($sourcePath)) {
+                throw ValidationException::withMessages([
+                    'logo_project_file_id' => 'Selected project file is no longer available.'
+                ]);
+            }
+
+            $folder = 'projects/' . $slug;
+            Storage::disk('public')->makeDirectory($folder);
+
+            $extension = strtolower(
+                $projectFile->extension
+                    ?: pathinfo($projectFile->original_filename, PATHINFO_EXTENSION)
+                    ?: 'bin'
+            );
+
+            $filename = 'logo-' . Str::uuid() . '.' . $extension;
+            $storedPath = $folder . '/' . $filename;
+
+            Storage::disk('public')->put(
+                $storedPath,
+                Storage::disk($sourceDisk)->get($sourcePath)
+            );
+
+            return '/storage/' . $storedPath;
+        }
+
         if ($existingPath !== null) {
             return $existingPath;
         }
 
         return $manualPath;
+    }
+
+    /**
+     * Preserve editable text exactly as entered.
+     *
+     * Unlike nullableText(), this does not trim whitespace. This is
+     * important for Info/feature descriptions because users can
+     * intentionally enter line breaks, blank lines, indentation, and
+     * trailing spaces.
+     */
+    private function preserveText(mixed $value): ?string
+    {
+        if (!is_string($value)) {
+            return null;
+        }
+
+        return $value === '' ? null : $value;
+    }
+
+    private function resolveFeatureDescriptionSlovakText(
+        ?string $englishText,
+        mixed $providedSlovak
+    ): ?string {
+        $manualSlovak = $this->preserveText($providedSlovak);
+
+        if (
+            $manualSlovak !== null &&
+            trim($manualSlovak) !== ''
+        ) {
+            return $manualSlovak;
+        }
+
+        if (
+            $englishText === null ||
+            trim($englishText) === ''
+        ) {
+            return null;
+        }
+
+        return $this->translatePreservingLineBreaks($englishText)
+            ?? $englishText;
+    }
+
+    private function translatePreservingLineBreaks(
+        string $text
+    ): ?string {
+        $normalized = str_replace(
+            ["\r\n", "\r"],
+            "\n",
+            $text
+        );
+
+        $lines = explode("\n", $normalized);
+        $translatedLines = [];
+
+        foreach ($lines as $line) {
+            if ($line === '') {
+                $translatedLines[] = '';
+                continue;
+            }
+
+            $leading = '';
+            $trailing = '';
+
+            if (preg_match('/^\s+/u', $line, $matches)) {
+                $leading = $matches[0];
+            }
+
+            if (preg_match('/\s+$/u', $line, $matches)) {
+                $trailing = $matches[0];
+            }
+
+            $content = trim($line);
+
+            if ($content === '') {
+                $translatedLines[] = $line;
+                continue;
+            }
+
+            $translated = $this->translateEnToSk($content);
+
+            $translatedLines[] =
+                $leading .
+                ($translated ?? $content) .
+                $trailing;
+        }
+
+        return implode("\n", $translatedLines);
     }
 
     private function nullableText(mixed $value): ?string
@@ -416,6 +634,29 @@ class PortfolioAdminController extends Controller
         } catch (\Throwable) {
             return null;
         }
+    }
+
+    private function preservedTranslationArray(
+        ?string $en,
+        ?string $sk
+    ): ?array {
+        $translations = [];
+
+        if (
+            is_string($en) &&
+            trim($en) !== ''
+        ) {
+            $translations['en'] = $en;
+        }
+
+        if (
+            is_string($sk) &&
+            trim($sk) !== ''
+        ) {
+            $translations['sk'] = $sk;
+        }
+
+        return $translations === [] ? null : $translations;
     }
 
     private function translationArray(?string $en, ?string $sk): ?array

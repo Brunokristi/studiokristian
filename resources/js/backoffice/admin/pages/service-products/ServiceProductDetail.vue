@@ -173,6 +173,254 @@ const productForm =
     })
 
 
+/*
+|--------------------------------------------------------------------------
+| Services
+|--------------------------------------------------------------------------
+*/
+
+const services = ref([])
+const servicesLoading = ref(false)
+const serviceCreating = ref(false)
+const serviceDeletingId = ref(null)
+const serviceSearch = ref('')
+const serviceErrors = ref({})
+
+const serviceOptions = computed(() => {
+    const query = String(
+        serviceSearch.value || ''
+    ).trim()
+
+    const existing = services.value
+        .filter(service => {
+            if (!query) {
+                return true
+            }
+
+            return String(
+                service?.name || ''
+            )
+                .toLowerCase()
+                .includes(query.toLowerCase())
+        })
+        .map(service => ({
+            label: service.name,
+            value: service.id,
+            existing: true
+        }))
+
+    if (!query) {
+        return existing
+    }
+
+    const exactMatch = services.value.some(
+        service =>
+            String(
+                service?.name || ''
+            ).trim().toLowerCase() ===
+            query.toLowerCase()
+    )
+
+    if (exactMatch) {
+        return existing
+    }
+
+    return [
+        ...existing,
+        {
+            label: `Create "${query}"`,
+            value: '__create__',
+            create: true,
+            name: query
+        }
+    ]
+})
+
+const hasPersistedProduct = computed(() => {
+    return Boolean(
+        props.id ||
+        createdProductId.value ||
+        data.value?.product?.id
+    )
+})
+
+function currentProductId() {
+    return (
+        props.id ||
+        createdProductId.value ||
+        data.value?.product?.id ||
+        null
+    )
+}
+
+async function loadServices(
+    explicitProductId = null
+) {
+    const productId =
+        explicitProductId ||
+        currentProductId()
+
+    if (!productId) {
+        services.value = []
+        return
+    }
+
+    servicesLoading.value = true
+
+    try {
+        const response = await api.get(
+            `/service-products/${productId}/services`
+        )
+
+        services.value =
+            Array.isArray(response.data?.data)
+                ? response.data.data
+                : Array.isArray(response.data)
+                    ? response.data
+                    : []
+    } catch (exception) {
+        showError(
+            errorMessage(exception)
+        )
+    } finally {
+        servicesLoading.value = false
+    }
+}
+
+function searchServices(query) {
+    serviceSearch.value = String(
+        query || ''
+    )
+}
+
+async function handleServiceSelect(option) {
+    if (
+        !option ||
+        serviceCreating.value
+    ) {
+        return
+    }
+
+    if (option.existing) {
+        serviceSearch.value = ''
+        return
+    }
+
+    if (
+        option.value !== '__create__' ||
+        !option.name
+    ) {
+        return
+    }
+
+    const productId = currentProductId()
+
+    if (!productId) {
+        showError(
+            'Save the service product before adding services.'
+        )
+        return
+    }
+
+    const name = String(
+        option.name || ''
+    ).trim()
+
+    if (!name) {
+        return
+    }
+
+    const duplicate = services.value.some(
+        service =>
+            String(
+                service?.name || ''
+            ).trim().toLowerCase() ===
+            name.toLowerCase()
+    )
+
+    if (duplicate) {
+        serviceSearch.value = ''
+        return
+    }
+
+    serviceCreating.value = true
+    serviceErrors.value = {}
+
+    try {
+        const response = await api.post(
+            `/service-products/${productId}/services`,
+            {
+                name,
+                active: true
+            }
+        )
+
+        const created =
+            response.data?.data ||
+            response.data?.service ||
+            response.data
+
+        if (created?.id) {
+            services.value = [
+                ...services.value,
+                created
+            ].sort(
+                (a, b) =>
+                    Number(a?.sort_order || 0) -
+                    Number(b?.sort_order || 0)
+            )
+        } else {
+            await loadServices(productId)
+        }
+
+        serviceSearch.value = ''
+    } catch (exception) {
+        serviceErrors.value =
+            validationErrors(exception)
+
+        showError(
+            Object.values(
+                serviceErrors.value
+            ).flat()[0] ||
+            errorMessage(exception)
+        )
+    } finally {
+        serviceCreating.value = false
+    }
+}
+
+async function removeService(service) {
+    if (
+        !service?.id ||
+        serviceDeletingId.value ||
+        !editable.value
+    ) {
+        return
+    }
+
+    serviceDeletingId.value = service.id
+
+    try {
+        await api.delete(
+            `/services/${service.id}`
+        )
+
+        services.value =
+            services.value.filter(
+                item =>
+                    String(item.id) !==
+                    String(service.id)
+            )
+    } catch (exception) {
+        showError(
+            errorMessage(exception)
+        )
+    } finally {
+        serviceDeletingId.value = null
+    }
+}
+
+
 const isCreateMode =
     computed(() =>
         !props.id && !createdProductId.value
@@ -573,6 +821,7 @@ async function load(
                 data.value.product
             )
 
+            services.value = []
 
             return
         }
@@ -590,6 +839,11 @@ async function load(
 
         prepareProduct(
             data.value.product
+        )
+
+
+        await loadServices(
+            data.value.product?.id
         )
 
 
@@ -721,6 +975,10 @@ async function saveProduct() {
 
                 // Auto-generate the project structure before navigating so it always exists.
                 await createBlueprint(
+                    createdId
+                )
+
+                await loadServices(
                     createdId
                 )
 
@@ -2195,6 +2453,191 @@ useAdminPageHeader({
                             />
                     </section>
                 </form>
+            </section>
+
+
+            <!-- Services -->
+            <section
+                class="
+                    space-y-8
+                "
+            >
+                <div
+                    class="
+                        flex
+                        flex-col
+                        gap-2
+                    "
+                >
+                    <h2
+                        class="
+                            h2
+                            text-accent
+                            text-left
+                        "
+                    >
+                        Services
+                    </h2>
+
+                    <p
+                        class="
+                            p
+                            text-dark/50
+                        "
+                    >
+                        Add the individual services that belong to this service product.
+                    </p>
+                </div>
+
+                <div
+                    v-if="!hasPersistedProduct"
+                    class="
+                        border-t
+                        border-accent
+                        pt-5
+                    "
+                >
+                    <p
+                        class="
+                            p
+                            text-dark/45
+                        "
+                    >
+                        Save the service product first to add services.
+                    </p>
+                </div>
+
+                <div
+                    v-else
+                    class="
+                        space-y-6
+                    "
+                >
+                    <FormField
+                        id="service-product-service-search"
+                        v-model="serviceSearch"
+                        name="service"
+                        type="autocomplete"
+                        label="Add service"
+                        placeholder="Start typing a service"
+                        :options="serviceOptions"
+                        :loading="servicesLoading || serviceCreating"
+                        :disabled="!editable || serviceCreating"
+                        @search="searchServices"
+                        @select="handleServiceSelect"
+                    />
+
+                    <div
+                        v-if="servicesLoading"
+                        class="
+                            border-t
+                            border-accent
+                            pt-5
+                        "
+                    >
+                        <p
+                            class="
+                                p
+                                uppercase
+                                text-dark/40
+                            "
+                        >
+                            Loading services...
+                        </p>
+                    </div>
+
+                    <div
+                        v-else-if="services.length"
+                        class="
+                            border-t
+                            border-accent
+                        "
+                    >
+                        <div
+                            v-for="(
+                                service,
+                                index
+                            ) in services"
+                            :key="service.id"
+                            class="
+                                flex
+                                items-center
+                                gap-4
+                                border-b
+                                border-accent
+                                py-4
+                            "
+                        >
+                            <span
+                                class="
+                                    p
+                                    w-8
+                                    shrink-0
+                                    text-dark/35
+                                "
+                            >
+                                {{
+                                    String(
+                                        index + 1
+                                    ).padStart(2, '0')
+                                }}
+                            </span>
+
+                            <span
+                                class="
+                                    p
+                                    min-w-0
+                                    flex-1
+                                    text-dark
+                                "
+                            >
+                                {{ service.name }}
+                            </span>
+
+                            <button
+                                v-if="editable"
+                                type="button"
+                                class="
+                                    p
+                                    shrink-0
+                                    cursor-pointer
+                                    text-dark
+                                    transition-colors
+                                    duration-200
+                                    hover:text-accent
+                                    disabled:cursor-not-allowed
+                                    disabled:opacity-40
+                                "
+                                :disabled="
+                                    serviceDeletingId === service.id
+                                "
+                                :aria-label="
+                                    `Remove ${service.name}`
+                                "
+                                @click="
+                                    removeService(service)
+                                "
+                            >
+                                <i
+                                    class="
+                                        bi
+                                        bi-x-lg
+                                    "
+                                ></i>
+                            </button>
+                        </div>
+                    </div>
+
+                    <p
+                        v-else
+                        class="
+                            p
+                            text-dark/45
+                        "
+                    >
+                        No services have been added yet.
+                    </p>
+                </div>
             </section>
 
 

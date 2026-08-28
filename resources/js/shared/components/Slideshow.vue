@@ -10,7 +10,6 @@ import {
 
 import FormField from '@/shared/components/FormField.vue'
 
-
 const props = defineProps({
     images: {
         type: Array,
@@ -43,7 +42,6 @@ const props = defineProps({
     }
 })
 
-
 const emit = defineEmits([
     'update:images',
     'add',
@@ -53,13 +51,23 @@ const emit = defineEmits([
     'request-project-image-replace'
 ])
 
+/*
+|--------------------------------------------------------------------------
+| State
+|--------------------------------------------------------------------------
+*/
 
 const currentIndex = ref(0)
-const displayIndex = ref(0)
-
-const slideDirection = ref('next')
 
 const isLightboxOpen = ref(false)
+
+const isMainAnimating = ref(false)
+const mainDirection = ref('next')
+
+const isLightboxAnimating = ref(false)
+const lightboxDirection = ref('next')
+
+const lightboxIndex = ref(0)
 
 const fileInput = ref(null)
 const replaceInput = ref(null)
@@ -67,7 +75,8 @@ const replaceInput = ref(null)
 const editingIndex = ref(null)
 
 let timer = null
-
+let mainAnimationTimer = null
+let lightboxAnimationTimer = null
 
 /*
 |--------------------------------------------------------------------------
@@ -88,7 +97,6 @@ const editorImages = computed(() => {
     ]
 })
 
-
 const isAddSlide = computed(() => {
     return (
         props.editable &&
@@ -96,139 +104,224 @@ const isAddSlide = computed(() => {
     )
 })
 
-
 const currentImage = computed(() => {
     if (isAddSlide.value) {
         return null
     }
 
-    return (
-        props.images[currentIndex.value] || null
-    )
+    return props.images[currentIndex.value] || null
 })
-
 
 /*
 |--------------------------------------------------------------------------
-| Lightbox state
+| Index helpers
 |--------------------------------------------------------------------------
-|
-| IMPORTANT:
-| The lightbox only works with real images.
-| The editor's "+ add image" slide never enters the lightbox.
-|
+*/
+
+function getWrappedIndex(index, length) {
+    if (!length) {
+        return 0
+    }
+
+    return (
+        (index % length) +
+        length
+    ) % length
+}
+
+/*
+|--------------------------------------------------------------------------
+| Main carousel
+|--------------------------------------------------------------------------
+*/
+
+const mainPreviousImage = computed(() => {
+    const images = editorImages.value
+
+    if (images.length <= 1) {
+        return null
+    }
+
+    return images[
+        getWrappedIndex(
+            currentIndex.value - 1,
+            images.length
+        )
+    ]
+})
+
+const mainNextImage = computed(() => {
+    const images = editorImages.value
+
+    if (images.length <= 1) {
+        return null
+    }
+
+    return images[
+        getWrappedIndex(
+            currentIndex.value + 1,
+            images.length
+        )
+    ]
+})
+
+function next() {
+    if (
+        editorImages.value.length <= 1 ||
+        isMainAnimating.value
+    ) {
+        return
+    }
+
+    mainDirection.value = 'next'
+    isMainAnimating.value = true
+
+    clearMainAnimationTimer()
+
+    mainAnimationTimer = window.setTimeout(() => {
+        currentIndex.value = getWrappedIndex(
+            currentIndex.value + 1,
+            editorImages.value.length
+        )
+
+        isMainAnimating.value = false
+    }, 420)
+}
+
+function prev() {
+    if (
+        editorImages.value.length <= 1 ||
+        isMainAnimating.value
+    ) {
+        return
+    }
+
+    mainDirection.value = 'prev'
+    isMainAnimating.value = true
+
+    clearMainAnimationTimer()
+
+    mainAnimationTimer = window.setTimeout(() => {
+        currentIndex.value = getWrappedIndex(
+            currentIndex.value - 1,
+            editorImages.value.length
+        )
+
+        isMainAnimating.value = false
+    }, 420)
+}
+
+function clearMainAnimationTimer() {
+    if (mainAnimationTimer) {
+        clearTimeout(mainAnimationTimer)
+        mainAnimationTimer = null
+    }
+}
+
+/*
+|--------------------------------------------------------------------------
+| Lightbox / teleport
+|--------------------------------------------------------------------------
 */
 
 const displayImage = computed(() => {
-    return (
-        props.images[displayIndex.value] || null
-    )
+    return props.images[lightboxIndex.value] || null
 })
-
 
 const lightboxHasMultipleImages = computed(() => {
     return props.images.length > 1
 })
 
+const lightboxPreviousImage = computed(() => {
+    if (props.images.length <= 1) {
+        return null
+    }
 
-const transitionName = computed(() => {
-    return slideDirection.value === 'prev'
-        ? 'slide-right'
-        : 'slide-left'
+    return props.images[
+        getWrappedIndex(
+            lightboxIndex.value - 1,
+            props.images.length
+        )
+    ]
 })
 
-
-/*
-|--------------------------------------------------------------------------
-| Main slider navigation
-|--------------------------------------------------------------------------
-*/
-
-function next() {
-    if (!editorImages.value.length) {
-        return
+const lightboxNextImage = computed(() => {
+    if (props.images.length <= 1) {
+        return null
     }
 
-    slideDirection.value = 'next'
-
-    currentIndex.value =
-        (
-            currentIndex.value + 1
-        ) %
-        editorImages.value.length
-}
-
-
-function prev() {
-    if (!editorImages.value.length) {
-        return
-    }
-
-    slideDirection.value = 'prev'
-
-    currentIndex.value =
-        (
-            currentIndex.value -
-            1 +
-            editorImages.value.length
-        ) %
-        editorImages.value.length
-}
-
-
-/*
-|--------------------------------------------------------------------------
-| Lightbox navigation
-|--------------------------------------------------------------------------
-*/
+    return props.images[
+        getWrappedIndex(
+            lightboxIndex.value + 1,
+            props.images.length
+        )
+    ]
+})
 
 function nextLightbox() {
-    if (props.images.length <= 1) {
+    if (
+        props.images.length <= 1 ||
+        isLightboxAnimating.value
+    ) {
         return
     }
 
-    slideDirection.value = 'next'
+    lightboxDirection.value = 'next'
+    isLightboxAnimating.value = true
 
-    displayIndex.value =
-        (
-            displayIndex.value + 1
-        ) %
-        props.images.length
+    clearLightboxAnimationTimer()
 
-    currentIndex.value =
-        displayIndex.value
+    lightboxAnimationTimer = window.setTimeout(() => {
+        lightboxIndex.value = getWrappedIndex(
+            lightboxIndex.value + 1,
+            props.images.length
+        )
+
+        currentIndex.value = lightboxIndex.value
+
+        isLightboxAnimating.value = false
+    }, 460)
 }
-
 
 function prevLightbox() {
-    if (props.images.length <= 1) {
+    if (
+        props.images.length <= 1 ||
+        isLightboxAnimating.value
+    ) {
         return
     }
 
-    slideDirection.value = 'prev'
+    lightboxDirection.value = 'prev'
+    isLightboxAnimating.value = true
 
-    displayIndex.value =
-        (
-            displayIndex.value -
-            1 +
+    clearLightboxAnimationTimer()
+
+    lightboxAnimationTimer = window.setTimeout(() => {
+        lightboxIndex.value = getWrappedIndex(
+            lightboxIndex.value - 1,
             props.images.length
-        ) %
-        props.images.length
+        )
 
-    currentIndex.value =
-        displayIndex.value
+        currentIndex.value = lightboxIndex.value
+
+        isLightboxAnimating.value = false
+    }, 460)
 }
 
+function clearLightboxAnimationTimer() {
+    if (lightboxAnimationTimer) {
+        clearTimeout(lightboxAnimationTimer)
+        lightboxAnimationTimer = null
+    }
+}
 
 /*
 |--------------------------------------------------------------------------
-| Lightbox
+| Open / close teleport
 |--------------------------------------------------------------------------
 */
 
-function openLightbox(
-    index = currentIndex.value
-) {
+function openLightbox(index = currentIndex.value) {
     if (
         !props.images.length ||
         index < 0 ||
@@ -238,20 +331,26 @@ function openLightbox(
     }
 
     currentIndex.value = index
-    displayIndex.value = index
+    lightboxIndex.value = index
 
+    isLightboxAnimating.value = false
     isLightboxOpen.value = true
 
     document.body.style.overflow = 'hidden'
 }
 
-
 function closeLightbox() {
     isLightboxOpen.value = false
+    isLightboxAnimating.value = false
 
     document.body.style.overflow = ''
 }
 
+/*
+|--------------------------------------------------------------------------
+| Keyboard controls
+|--------------------------------------------------------------------------
+*/
 
 function handleKeydown(event) {
     if (!isLightboxOpen.value) {
@@ -273,7 +372,6 @@ function handleKeydown(event) {
     }
 }
 
-
 /*
 |--------------------------------------------------------------------------
 | Watchers
@@ -281,30 +379,11 @@ function handleKeydown(event) {
 */
 
 watch(
-    currentIndex,
-    () => {
-        if (isAddSlide.value) {
-            displayIndex.value =
-                Math.max(
-                    0,
-                    props.images.length - 1
-                )
-
-            return
-        }
-
-        displayIndex.value =
-            currentIndex.value
-    }
-)
-
-
-watch(
     () => props.images.length,
     length => {
         if (!length) {
             currentIndex.value = 0
-            displayIndex.value = 0
+            lightboxIndex.value = 0
 
             if (isLightboxOpen.value) {
                 closeLightbox()
@@ -313,27 +392,19 @@ watch(
             return
         }
 
-        const maxIndex =
-            props.editable
-                ? length
-                : length - 1
+        const maxIndex = props.editable
+            ? length
+            : length - 1
 
-        if (
-            currentIndex.value >
-            maxIndex
-        ) {
+        if (currentIndex.value > maxIndex) {
             currentIndex.value = maxIndex
         }
 
-        if (
-            displayIndex.value >= length
-        ) {
-            displayIndex.value =
-                length - 1
+        if (lightboxIndex.value >= length) {
+            lightboxIndex.value = length - 1
         }
     }
 )
-
 
 /*
 |--------------------------------------------------------------------------
@@ -355,17 +426,17 @@ function getImageSource(image) {
     )
 }
 
-
 function imageSource(image) {
     return getImageSource(image)
 }
 
-
 function getImageAlt(image) {
     return (
-        (props.language === 'sk'
-            ? image?.alt_sk
-            : image?.alt) ||
+        (
+            props.language === 'sk'
+                ? image?.alt_sk
+                : image?.alt
+        ) ||
         image?.alt ||
         image?.alt_sk ||
         image?.description ||
@@ -374,17 +445,17 @@ function getImageAlt(image) {
     )
 }
 
-
 function imageAlt(image) {
     return getImageAlt(image)
 }
 
-
 function getImageCaption(image) {
     return (
-        (props.language === 'sk'
-            ? image?.description_sk
-            : image?.description) ||
+        (
+            props.language === 'sk'
+                ? image?.description_sk
+                : image?.description
+        ) ||
         image?.caption ||
         image?.description ||
         image?.description_sk ||
@@ -394,6 +465,9 @@ function getImageCaption(image) {
     )
 }
 
+function imageCaption(image) {
+    return getImageCaption(image)
+}
 
 function localizedImageField(
     image,
@@ -406,22 +480,14 @@ function localizedImageField(
 
     if (props.language === 'sk') {
         return String(
-            image?.[slovakField] ||
-            ''
+            image?.[slovakField] || ''
         )
     }
 
     return String(
-        image?.[englishField] ||
-        ''
+        image?.[englishField] || ''
     )
 }
-
-
-function imageCaption(image) {
-    return getImageCaption(image)
-}
-
 
 /*
 |--------------------------------------------------------------------------
@@ -435,21 +501,16 @@ function openAddPicker() {
     }
 
     if (props.useProjectFilesPicker) {
-        emit(
-            'request-project-image-add'
-        )
-
+        emit('request-project-image-add')
         return
     }
 
     fileInput.value?.click()
 }
 
-
 function openFilePickerForAdd() {
     openAddPicker()
 }
-
 
 function openReplacePicker(index) {
     if (!props.editable) {
@@ -475,15 +536,12 @@ function openReplacePicker(index) {
     }
 
     editingIndex.value = index
-
     replaceInput.value?.click()
 }
-
 
 function openFilePickerForReplace(index) {
     openReplacePicker(index)
 }
-
 
 /*
 |--------------------------------------------------------------------------
@@ -492,10 +550,9 @@ function openFilePickerForReplace(index) {
 */
 
 function handleAddFile(event) {
-    const files =
-        Array.from(
-            event.target.files || []
-        )
+    const files = Array.from(
+        event.target.files || []
+    )
 
     event.target.value = ''
 
@@ -503,33 +560,30 @@ function handleAddFile(event) {
         return
     }
 
-    const imageFiles =
-        files.filter(file =>
-            file?.type?.startsWith('image/')
-        )
+    const imageFiles = files.filter(file =>
+        file?.type?.startsWith('image/')
+    )
 
     if (!imageFiles.length) {
         return
     }
 
-    const newImages =
-        imageFiles.map(file => {
-            const preview =
-                URL.createObjectURL(file)
+    const newImages = imageFiles.map(file => {
+        const preview = URL.createObjectURL(file)
 
-            return {
-                path: '',
-                existing_path: '',
-                src: preview,
-                preview,
-                description: '',
-                description_sk: '',
-                alt: '',
-                alt_sk: '',
-                caption: '',
-                file
-            }
-        })
+        return {
+            path: '',
+            existing_path: '',
+            src: preview,
+            preview,
+            description: '',
+            description_sk: '',
+            alt: '',
+            alt_sk: '',
+            caption: '',
+            file
+        }
+    })
 
     const updatedImages = [
         ...props.images,
@@ -543,25 +597,21 @@ function handleAddFile(event) {
 
     emit(
         'add',
-        newImages[
-            newImages.length - 1
-        ]
+        newImages[newImages.length - 1]
     )
 
     nextTick(() => {
         currentIndex.value =
             updatedImages.length - 1
 
-        displayIndex.value =
+        lightboxIndex.value =
             updatedImages.length - 1
     })
 }
 
-
 function handleFileChange(event) {
     handleAddFile(event)
 }
-
 
 /*
 |--------------------------------------------------------------------------
@@ -570,8 +620,7 @@ function handleFileChange(event) {
 */
 
 function handleReplaceFile(event) {
-    const file =
-        event.target.files?.[0]
+    const file = event.target.files?.[0]
 
     event.target.value = ''
 
@@ -582,40 +631,29 @@ function handleReplaceFile(event) {
         return
     }
 
-    if (
-        !file.type.startsWith('image/')
-    ) {
+    if (!file.type.startsWith('image/')) {
         return
     }
 
-    const index =
-        editingIndex.value
+    const index = editingIndex.value
+    const oldImage = props.images[index]
 
-    const oldImage =
-        props.images[index]
-
-    const preview =
-        URL.createObjectURL(file)
+    const preview = URL.createObjectURL(file)
 
     const updatedImage = {
         ...oldImage,
-
         file,
-
         src: preview,
-
         preview,
-
         path: '',
-
         existing_path: ''
     }
 
-    const updatedImages =
-        [...props.images]
+    const updatedImages = [
+        ...props.images
+    ]
 
-    updatedImages[index] =
-        updatedImage
+    updatedImages[index] = updatedImage
 
     emit(
         'update:images',
@@ -631,11 +669,10 @@ function handleReplaceFile(event) {
     )
 
     currentIndex.value = index
-    displayIndex.value = index
+    lightboxIndex.value = index
 
     editingIndex.value = null
 }
-
 
 /*
 |--------------------------------------------------------------------------
@@ -648,14 +685,12 @@ function removeImage(index) {
         return
     }
 
-    const image =
-        props.images[index]
+    const image = props.images[index]
 
-    const updatedImages =
-        props.images.filter(
-            (_, imageIndex) =>
-                imageIndex !== index
-        )
+    const updatedImages = props.images.filter(
+        (_, imageIndex) =>
+            imageIndex !== index
+    )
 
     emit(
         'update:images',
@@ -672,7 +707,7 @@ function removeImage(index) {
 
     if (!updatedImages.length) {
         currentIndex.value = 0
-        displayIndex.value = 0
+        lightboxIndex.value = 0
 
         closeLightbox()
 
@@ -687,13 +722,14 @@ function removeImage(index) {
             updatedImages.length - 1
     }
 
-    displayIndex.value =
-        Math.min(
-            displayIndex.value,
+    if (
+        lightboxIndex.value >=
+        updatedImages.length
+    ) {
+        lightboxIndex.value =
             updatedImages.length - 1
-        )
+    }
 }
-
 
 /*
 |--------------------------------------------------------------------------
@@ -710,28 +746,24 @@ function updateImageField(
         return
     }
 
-    const updatedImages =
-        props.images.map(
-            (image, imageIndex) => {
-                if (
-                    imageIndex !== index
-                ) {
-                    return image
-                }
-
-                return {
-                    ...image,
-                    [field]: value
-                }
+    const updatedImages = props.images.map(
+        (image, imageIndex) => {
+            if (imageIndex !== index) {
+                return image
             }
-        )
+
+            return {
+                ...image,
+                [field]: value
+            }
+        }
+    )
 
     emit(
         'update:images',
         updatedImages
     )
 }
-
 
 function updateDescription(value) {
     if (
@@ -750,7 +782,6 @@ function updateDescription(value) {
     )
 }
 
-
 function updateAlt(value) {
     if (
         currentIndex.value >=
@@ -767,7 +798,6 @@ function updateAlt(value) {
         String(value || '')
     )
 }
-
 
 /*
 |--------------------------------------------------------------------------
@@ -791,7 +821,6 @@ function startAutoplay() {
     }, props.interval)
 }
 
-
 function stopAutoplay() {
     if (timer) {
         clearInterval(timer)
@@ -799,16 +828,13 @@ function stopAutoplay() {
     }
 }
 
-
 function handleMouseEnter() {
     stopAutoplay()
 }
 
-
 function handleMouseLeave() {
     startAutoplay()
 }
-
 
 /*
 |--------------------------------------------------------------------------
@@ -825,7 +851,6 @@ onMounted(() => {
     startAutoplay()
 })
 
-
 onUnmounted(() => {
     window.removeEventListener(
         'keydown',
@@ -834,10 +859,12 @@ onUnmounted(() => {
 
     stopAutoplay()
 
+    clearMainAnimationTimer()
+    clearLightboxAnimationTimer()
+
     document.body.style.overflow = ''
 })
 </script>
-
 
 <template>
     <div
@@ -877,27 +904,22 @@ onUnmounted(() => {
                 aria-label="Previous image"
                 @click="prev"
             >
-                <i
-                    class="
-                        bi
-                        bi-arrow-left
-                    "
-                />
+                <i class="bi bi-arrow-left"></i>
             </button>
 
+            <!-- ================================================= -->
+            <!-- IMAGE STACK -->
+            <!-- ================================================= -->
 
-            <!-- Image -->
             <div
                 class="
                     relative
                     h-[350px]
                     w-[250px]
                     shrink-0
-                    overflow-hidden
-                    bg-accent/[0.04]
                 "
             >
-                <!-- Empty / add slide -->
+                <!-- ADD IMAGE -->
                 <button
                     v-if="
                         editable &&
@@ -919,7 +941,7 @@ onUnmounted(() => {
                         items-center
                         justify-center
                         gap-3
-                        bg-transparent
+                        bg-accent/[0.04]
                         text-accent
                         transition-colors
                         duration-200
@@ -928,17 +950,12 @@ onUnmounted(() => {
                     "
                     @click="openFilePickerForAdd"
                 >
-                    <span
-                        class="
-                            leading-none
-                        "
-                    >
-                        <i class="bi bi-plus-lg" />
+                    <span class="leading-none">
+                        <i class="bi bi-plus-lg"></i>
                     </span>
                 </button>
 
-
-                <!-- Public empty state -->
+                <!-- EMPTY PUBLIC STATE -->
                 <div
                     v-else-if="
                         !currentImage ||
@@ -952,6 +969,7 @@ onUnmounted(() => {
                         w-full
                         items-center
                         justify-center
+                        bg-accent/[0.04]
                         text-sm
                         text-dark/60
                     "
@@ -959,29 +977,104 @@ onUnmounted(() => {
                     No image available
                 </div>
 
+                <!-- IMAGE STACK -->
+                <template v-else>
+                    <!-- Previous -->
+                    <div
+                        v-if="
+                            mainPreviousImage &&
+                            imageSource(
+                                mainPreviousImage
+                            )
+                        "
+                        class="
+                            carousel-card
+                            carousel-card-previous
+                        "
+                        :class="{
+                            'carousel-main-previous':
+                                isMainAnimating &&
+                                mainDirection === 'prev'
+                        }"
+                    >
+                        <img
+                            :src="
+                                imageSource(
+                                    mainPreviousImage
+                                )
+                            "
+                            :alt="
+                                imageAlt(
+                                    mainPreviousImage
+                                )
+                            "
+                        />
+                    </div>
 
-                <!-- Image -->
-                <img
-                    v-else
-                    :src="
-                        imageSource(
-                            currentImage
-                        )
-                    "
-                    :alt="
-                        imageAlt(
-                            currentImage
-                        )
-                    "
-                    class="
-                        h-full
-                        w-full
-                        object-cover
-                    "
-                />
+                    <!-- Next -->
+                    <div
+                        v-if="
+                            mainNextImage &&
+                            imageSource(
+                                mainNextImage
+                            )
+                        "
+                        class="
+                            carousel-card
+                            carousel-card-next
+                        "
+                        :class="{
+                            'carousel-main-next':
+                                isMainAnimating &&
+                                mainDirection === 'next'
+                        }"
+                    >
+                        <img
+                            :src="
+                                imageSource(
+                                    mainNextImage
+                                )
+                            "
+                            :alt="
+                                imageAlt(
+                                    mainNextImage
+                                )
+                            "
+                        />
+                    </div>
 
+                    <!-- Current -->
+                    <div
+                        class="
+                            carousel-card
+                            carousel-card-current
+                        "
+                        :class="{
+                            'carousel-main-current-next':
+                                isMainAnimating &&
+                                mainDirection === 'next',
 
-                <!-- Image editing overlay -->
+                            'carousel-main-current-prev':
+                                isMainAnimating &&
+                                mainDirection === 'prev'
+                        }"
+                    >
+                        <img
+                            :src="
+                                imageSource(
+                                    currentImage
+                                )
+                            "
+                            :alt="
+                                imageAlt(
+                                    currentImage
+                                )
+                            "
+                        />
+                    </div>
+                </template>
+
+                <!-- EDITING OVERLAY -->
                 <div
                     v-if="
                         editable &&
@@ -994,7 +1087,7 @@ onUnmounted(() => {
                         absolute
                         inset-x-0
                         bottom-0
-                        z-10
+                        z-30
                         bg-[#f7f8fd]
                         px-3
                         py-3
@@ -1049,14 +1142,15 @@ onUnmounted(() => {
                                 flex
                                 items-center
                                 justify-end
-                                pt-2
                                 gap-2
+                                pt-2
                             "
                         >
                             <button
                                 type="button"
                                 class="
                                     p
+                                    cursor-pointer
                                     text-dark
                                     transition-colors
                                     hover:text-accent
@@ -1067,13 +1161,14 @@ onUnmounted(() => {
                                     )
                                 "
                             >
-                                <i class="bi bi-arrow-repeat" />
+                                <i class="bi bi-arrow-repeat"></i>
                             </button>
 
                             <button
                                 type="button"
                                 class="
                                     p
+                                    cursor-pointer
                                     text-dark
                                     transition-colors
                                     hover:text-accent
@@ -1084,13 +1179,12 @@ onUnmounted(() => {
                                     )
                                 "
                             >
-                                <i class="bi bi-eraser" />
+                                <i class="bi bi-eraser"></i>
                             </button>
                         </div>
                     </div>
                 </div>
             </div>
-
 
             <!-- Next -->
             <button
@@ -1105,15 +1199,9 @@ onUnmounted(() => {
                 aria-label="Next image"
                 @click="next"
             >
-                <i
-                    class="
-                        bi
-                        bi-arrow-right
-                    "
-                />
+                <i class="bi bi-arrow-right"></i>
             </button>
         </div>
-
 
         <!-- ===================================================== -->
         <!-- EXPAND -->
@@ -1145,9 +1233,8 @@ onUnmounted(() => {
                     bi-arrows-angle-expand
                     adaptive-text
                 "
-            />
+            ></i>
         </button>
-
 
         <!-- ===================================================== -->
         <!-- FILE INPUTS -->
@@ -1163,7 +1250,6 @@ onUnmounted(() => {
             @change="handleFileChange"
         />
 
-
         <input
             v-if="editable"
             ref="replaceInput"
@@ -1174,54 +1260,47 @@ onUnmounted(() => {
         />
     </div>
 
-
     <!-- ========================================================= -->
-    <!-- LIGHTBOX / TELEPORT -->
+    <!-- FULLSCREEN TELEPORT -->
     <!-- ========================================================= -->
 
     <Teleport to="body">
-        <transition name="fade">
+        <Transition name="slideshow-teleport">
             <div
                 v-if="isLightboxOpen"
                 class="
-                    fixed
-                    inset-0
-                    z-[2100]
-                    flex
-                    items-center
-                    justify-center
-                    bg-dark/90
-                    p-4
+                    slideshow-teleport
                 "
-                @click.self="closeLightbox"
             >
-                <!-- Close -->
+                <!-- BACKGROUND -->
+                <div
+                    class="
+                        slideshow-teleport-background
+                    "
+                    @click.self="closeLightbox"
+                ></div>
+
+                <!-- CLOSE -->
                 <button
                     type="button"
                     class="
-                        absolute
-                        right-4
-                        top-4
-                        z-20
-                        cursor-pointer
-                        text-2xl
-                        text-light
-                        transition-colors
-                        hover:text-accent
+                        slideshow-close
                     "
                     aria-label="Close image preview"
+                    title="Close"
                     @click="closeLightbox"
                 >
-                    <i
+                    <span
                         class="
-                            bi
-                            bi-x-lg
+                            slideshow-close-icon
                         "
-                    />
+                    >
+                        <span></span>
+                        <span></span>
+                    </span>
                 </button>
 
-
-                <!-- Previous -->
+                <!-- PREVIOUS -->
                 <button
                     v-if="
                         showArrows &&
@@ -1229,15 +1308,8 @@ onUnmounted(() => {
                     "
                     type="button"
                     class="
-                        absolute
-                        left-4
-                        top-1/2
-                        z-20
-                        -translate-y-1/2
-                        cursor-pointer
-                        text-light
-                        transition-colors
-                        hover:text-accent
+                        slideshow-arrow
+                        slideshow-arrow-prev
                     "
                     aria-label="Previous image"
                     @click="prevLightbox"
@@ -1246,31 +1318,89 @@ onUnmounted(() => {
                         class="
                             bi
                             bi-arrow-left
-                            text-3xl
                         "
-                    />
+                    ></i>
                 </button>
 
-
                 <!-- ================================================= -->
-                <!-- IMAGE CONTENT -->
+                <!-- CENTER CONTENT -->
                 <!-- ================================================= -->
 
                 <div
                     class="
-                        relative
-                        flex
-                        max-h-full
-                        max-w-[92vw]
-                        flex-col
-                        items-center
-                        gap-3
+                        slideshow-teleport-content
                     "
                 >
-                    <transition
-                        :name="transitionName"
-                        mode="out-in"
+                    <div
+                        class="
+                            lightbox-carousel
+                        "
                     >
+                        <!-- PREVIOUS -->
+                        <div
+                            v-if="
+                                lightboxPreviousImage &&
+                                imageSource(
+                                    lightboxPreviousImage
+                                )
+                            "
+                            class="
+                                lightbox-card
+                                lightbox-card-previous
+                            "
+                            :class="{
+                                'lightbox-previous-prev':
+                                    isLightboxAnimating &&
+                                    lightboxDirection === 'prev'
+                            }"
+                        >
+                            <img
+                                :src="
+                                    imageSource(
+                                        lightboxPreviousImage
+                                    )
+                                "
+                                :alt="
+                                    imageAlt(
+                                        lightboxPreviousImage
+                                    )
+                                "
+                            />
+                        </div>
+
+                        <!-- NEXT -->
+                        <div
+                            v-if="
+                                lightboxNextImage &&
+                                imageSource(
+                                    lightboxNextImage
+                                )
+                            "
+                            class="
+                                lightbox-card
+                                lightbox-card-next
+                            "
+                            :class="{
+                                'lightbox-next-next':
+                                    isLightboxAnimating &&
+                                    lightboxDirection === 'next'
+                            }"
+                        >
+                            <img
+                                :src="
+                                    imageSource(
+                                        lightboxNextImage
+                                    )
+                                "
+                                :alt="
+                                    imageAlt(
+                                        lightboxNextImage
+                                    )
+                                "
+                            />
+                        </div>
+
+                        <!-- CURRENT -->
                         <div
                             v-if="
                                 displayImage &&
@@ -1278,19 +1408,20 @@ onUnmounted(() => {
                                     displayImage
                                 )
                             "
-                            :key="
-                                `${displayIndex}-${imageSource(displayImage)}`
-                            "
                             class="
-                                relative
-                                flex
-                                max-h-[80vh]
-                                max-w-[92vw]
-                                items-center
-                                justify-center
+                                lightbox-card
+                                lightbox-card-current
                             "
+                            :class="{
+                                'lightbox-current-next':
+                                    isLightboxAnimating &&
+                                    lightboxDirection === 'next',
+
+                                'lightbox-current-prev':
+                                    isLightboxAnimating &&
+                                    lightboxDirection === 'prev'
+                            }"
                         >
-                            <!-- Image -->
                             <img
                                 :src="
                                     imageSource(
@@ -1302,17 +1433,11 @@ onUnmounted(() => {
                                         displayImage
                                     )
                                 "
-                                class="
-                                    max-h-[80vh]
-                                    max-w-[92vw]
-                                    object-contain
-                                "
                             />
                         </div>
-                    </transition>
+                    </div>
 
-
-                    <!-- Caption -->
+                    <!-- CAPTION -->
                     <p
                         v-if="
                             displayImage &&
@@ -1321,9 +1446,7 @@ onUnmounted(() => {
                             )
                         "
                         class="
-                            text-center
-                            text-sm
-                            text-light/90
+                            slideshow-caption
                         "
                     >
                         {{
@@ -1334,8 +1457,7 @@ onUnmounted(() => {
                     </p>
                 </div>
 
-
-                <!-- Next -->
+                <!-- NEXT -->
                 <button
                     v-if="
                         showArrows &&
@@ -1343,15 +1465,8 @@ onUnmounted(() => {
                     "
                     type="button"
                     class="
-                        absolute
-                        right-4
-                        top-1/2
-                        z-20
-                        -translate-y-1/2
-                        cursor-pointer
-                        text-light
-                        transition-colors
-                        hover:text-accent
+                        slideshow-arrow
+                        slideshow-arrow-next
                     "
                     aria-label="Next image"
                     @click="nextLightbox"
@@ -1360,64 +1475,671 @@ onUnmounted(() => {
                         class="
                             bi
                             bi-arrow-right
-                            text-3xl
                         "
-                    />
+                    ></i>
                 </button>
             </div>
-        </transition>
+        </Transition>
     </Teleport>
 </template>
 
-
 <style scoped>
-.fade-enter-active,
-.fade-leave-active {
-    transition:
-        opacity 0.25s ease;
+/*
+|--------------------------------------------------------------------------
+| Main carousel
+|--------------------------------------------------------------------------
+*/
+
+.carousel-card {
+    position: absolute;
+
+    inset: 0;
+
+    width: 100%;
+    height: 100%;
+
+    overflow: hidden;
+
+    background: #f7f8fd;
+
+    transform-origin: center bottom;
+
+    will-change:
+        transform,
+        opacity;
 }
 
-.fade-enter-from,
-.fade-leave-to {
+.carousel-card img {
+    display: block;
+
+    width: 100%;
+    height: 100%;
+
+    object-fit: cover;
+
+    user-select: none;
+    pointer-events: none;
+}
+
+.carousel-card-previous {
+    z-index: 1;
+
+    transform:
+        translateY(-10px)
+        scale(0.94);
+
+    opacity: 0.5;
+}
+
+.carousel-card-next {
+    z-index: 2;
+
+    transform:
+        translateY(10px)
+        scale(0.94);
+
+    opacity: 0.7;
+}
+
+.carousel-card-current {
+    z-index: 10;
+
+    transform:
+        translateY(0)
+        scale(1);
+
+    opacity: 1;
+
+    transition:
+        transform 420ms
+        cubic-bezier(
+            0.16,
+            1,
+            0.3,
+            1
+        ),
+        opacity 420ms
+        cubic-bezier(
+            0.16,
+            1,
+            0.3,
+            1
+        );
+}
+
+/*
+|--------------------------------------------------------------------------
+| Main - next
+|--------------------------------------------------------------------------
+*/
+
+.carousel-main-current-next {
+    transform:
+        translateY(-110%)
+        scale(0.96);
+
     opacity: 0;
 }
 
+.carousel-main-next {
+    animation:
+        mainNextCard
+        420ms
+        cubic-bezier(
+            0.16,
+            1,
+            0.3,
+            1
+        )
+        forwards;
+}
 
-.slide-left-enter-active,
-.slide-right-enter-active {
+@keyframes mainNextCard {
+    from {
+        transform:
+            translateY(10px)
+            scale(0.94);
+
+        opacity: 0.7;
+    }
+
+    to {
+        transform:
+            translateY(0)
+            scale(1);
+
+        opacity: 1;
+    }
+}
+
+/*
+|--------------------------------------------------------------------------
+| Main - previous
+|--------------------------------------------------------------------------
+*/
+
+.carousel-main-current-prev {
+    transform:
+        translateY(110%)
+        scale(0.96);
+
+    opacity: 0;
+}
+
+.carousel-main-previous {
+    animation:
+        mainPreviousCard
+        420ms
+        cubic-bezier(
+            0.16,
+            1,
+            0.3,
+            1
+        )
+        forwards;
+}
+
+@keyframes mainPreviousCard {
+    from {
+        transform:
+            translateY(-10px)
+            scale(0.94);
+
+        opacity: 0.5;
+    }
+
+    to {
+        transform:
+            translateY(0)
+            scale(1);
+
+        opacity: 1;
+    }
+}
+
+/*
+|--------------------------------------------------------------------------
+| FULLSCREEN TELEPORT
+|--------------------------------------------------------------------------
+*/
+
+.slideshow-teleport {
+    position: fixed;
+
+    inset: 0;
+
+    z-index: 2100;
+
+    width: 100%;
+    height: 100%;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    background: #000;
+
+    overflow: hidden;
+}
+
+.slideshow-teleport-background {
+    position: absolute;
+
+    inset: 0;
+
+    z-index: 1;
+
+    background: #000;
+}
+
+/*
+|--------------------------------------------------------------------------
+| Center content
+|--------------------------------------------------------------------------
+*/
+
+.slideshow-teleport-content {
+    position: relative;
+
+    z-index: 10;
+
+    width: min(
+        92vw,
+        900px
+    );
+
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+
+    gap: 16px;
+}
+
+/*
+|--------------------------------------------------------------------------
+| Lightbox carousel
+|--------------------------------------------------------------------------
+*/
+
+.lightbox-carousel {
+    position: relative;
+
+    width: 100%;
+    height: 78vh;
+
+    overflow: visible;
+}
+
+/*
+|--------------------------------------------------------------------------
+| Lightbox cards
+|--------------------------------------------------------------------------
+*/
+
+.lightbox-card {
+    position: absolute;
+
+    inset: 0;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    will-change:
+        transform,
+        opacity;
+}
+
+.lightbox-card img {
+    display: block;
+
+    max-width: 100%;
+    max-height: 100%;
+
+    object-fit: contain;
+
+    user-select: none;
+    pointer-events: none;
+}
+
+/*
+|--------------------------------------------------------------------------
+| Previous image underneath
+|--------------------------------------------------------------------------
+*/
+
+.lightbox-card-previous {
+    z-index: 1;
+
+    transform:
+        translateY(-28px)
+        scale(0.92);
+
+    opacity: 0.35;
+
+    filter: brightness(0.65);
+}
+
+/*
+|--------------------------------------------------------------------------
+| Next image underneath
+|--------------------------------------------------------------------------
+*/
+
+.lightbox-card-next {
     z-index: 2;
 
+    transform:
+        translateY(28px)
+        scale(0.92);
+
+    opacity: 0.45;
+
+    filter: brightness(0.7);
+}
+
+/*
+|--------------------------------------------------------------------------
+| Current image
+|--------------------------------------------------------------------------
+*/
+
+.lightbox-card-current {
+    z-index: 10;
+
+    transform:
+        translateY(0)
+        scale(1);
+
+    opacity: 1;
+
     transition:
-        transform 0.35s ease;
+        transform 460ms
+        cubic-bezier(
+            0.16,
+            1,
+            0.3,
+            1
+        ),
+        opacity 460ms
+        cubic-bezier(
+            0.16,
+            1,
+            0.3,
+            1
+        );
 }
 
+/*
+|--------------------------------------------------------------------------
+| Next animation
+|--------------------------------------------------------------------------
+*/
 
-.slide-left-leave-active,
-.slide-right-leave-active {
-    z-index: 1;
-}
-
-
-.slide-left-enter-from {
+.lightbox-current-next {
     transform:
-        translateX(100%);
+        translateY(-110%)
+        scale(0.96);
+
+    opacity: 0;
 }
 
-
-.slide-left-enter-to {
-    transform:
-        translateX(0);
+.lightbox-next-next {
+    animation:
+        lightboxNextCard
+        460ms
+        cubic-bezier(
+            0.16,
+            1,
+            0.3,
+            1
+        )
+        forwards;
 }
 
+@keyframes lightboxNextCard {
+    from {
+        transform:
+            translateY(28px)
+            scale(0.92);
 
-.slide-right-enter-from {
-    transform:
-        translateX(-100%);
+        opacity: 0.45;
+    }
+
+    to {
+        transform:
+            translateY(0)
+            scale(1);
+
+        opacity: 1;
+    }
 }
 
+/*
+|--------------------------------------------------------------------------
+| Previous animation
+|--------------------------------------------------------------------------
+*/
 
-.slide-right-enter-to {
+.lightbox-current-prev {
     transform:
-        translateX(0);
+        translateY(110%)
+        scale(0.96);
+
+    opacity: 0;
+}
+
+.lightbox-previous-prev {
+    animation:
+        lightboxPreviousCard
+        460ms
+        cubic-bezier(
+            0.16,
+            1,
+            0.3,
+            1
+        )
+        forwards;
+}
+
+@keyframes lightboxPreviousCard {
+    from {
+        transform:
+            translateY(-28px)
+            scale(0.92);
+
+        opacity: 0.35;
+    }
+
+    to {
+        transform:
+            translateY(0)
+            scale(1);
+
+        opacity: 1;
+    }
+}
+
+/*
+|--------------------------------------------------------------------------
+| CLOSE BUTTON
+|--------------------------------------------------------------------------
+|
+| Same 24px control and 18px two-line geometry as the
+| navigation menu/X.
+|
+*/
+
+.slideshow-close {
+    position: absolute;
+
+    top: 24px;
+    right: 24px;
+
+    z-index: 100;
+
+    width: 24px;
+    height: 24px;
+
+    padding: 0;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    color: white;
+
+    background: transparent;
+    border: 0;
+
+    cursor: pointer;
+
+    transition:
+        transform 220ms
+        cubic-bezier(
+            0.16,
+            1,
+            0.3,
+            1
+        ),
+        color 220ms ease;
+}
+
+.slideshow-close:hover {
+    color: var(--color-accent);
+
+    transform: scale(1.05);
+}
+
+.slideshow-close:active {
+    transform: scale(0.95);
+}
+
+.slideshow-close-icon {
+    position: relative;
+
+    width: 18px;
+    height: 14px;
+
+    display: block;
+
+    pointer-events: none;
+}
+
+.slideshow-close-icon span {
+    position: absolute;
+
+    left: 0;
+    top: 6.5px;
+
+    width: 18px;
+    height: 1px;
+
+    background: currentColor;
+
+    transform-origin: center;
+}
+
+.slideshow-close-icon span:first-child {
+    transform: rotate(45deg);
+}
+
+.slideshow-close-icon span:last-child {
+    transform: rotate(-45deg);
+}
+
+/*
+|--------------------------------------------------------------------------
+| Arrows
+|--------------------------------------------------------------------------
+*/
+
+.slideshow-arrow {
+    position: absolute;
+
+    top: 50%;
+
+    z-index: 50;
+
+    width: 24px;
+    height: 24px;
+
+    padding: 0;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    color: white;
+
+    background: transparent;
+    border: 0;
+
+    cursor: pointer;
+
+    transform: translateY(-50%);
+
+    transition:
+        transform 220ms
+        cubic-bezier(
+            0.16,
+            1,
+            0.3,
+            1
+        ),
+        color 220ms ease;
+}
+
+.slideshow-arrow:hover {
+    color: var(--color-accent);
+
+    transform:
+        translateY(-50%)
+        scale(1.05);
+}
+
+.slideshow-arrow:active {
+    transform:
+        translateY(-50%)
+        scale(0.95);
+}
+
+.slideshow-arrow-prev {
+    left: 24px;
+}
+
+.slideshow-arrow-next {
+    right: 24px;
+}
+
+/*
+|--------------------------------------------------------------------------
+| Caption
+|--------------------------------------------------------------------------
+*/
+
+.slideshow-caption {
+    position: relative;
+
+    z-index: 40;
+
+    max-width: 90%;
+
+    margin: 0;
+
+    text-align: center;
+
+    font-size: 0.875rem;
+    line-height: 1.4;
+
+    color: rgba(
+        255,
+        255,
+        255,
+        0.9
+    );
+}
+
+/*
+|--------------------------------------------------------------------------
+| Teleport entrance
+|--------------------------------------------------------------------------
+*/
+
+.slideshow-teleport-enter-active,
+.slideshow-teleport-leave-active {
+    transition:
+        opacity 350ms ease;
+}
+
+.slideshow-teleport-enter-from,
+.slideshow-teleport-leave-to {
+    opacity: 0;
+}
+
+/*
+|--------------------------------------------------------------------------
+| Reduced motion
+|--------------------------------------------------------------------------
+*/
+
+@media (
+    prefers-reduced-motion: reduce
+) {
+    .carousel-card,
+    .carousel-card-current,
+    .lightbox-card,
+    .lightbox-card-current,
+    .slideshow-close,
+    .slideshow-arrow {
+        transition: none;
+    }
+
+    .carousel-main-next,
+    .carousel-main-previous,
+    .lightbox-next-next,
+    .lightbox-previous-prev {
+        animation: none;
+    }
 }
 </style>

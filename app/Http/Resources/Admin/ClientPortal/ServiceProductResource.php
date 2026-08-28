@@ -16,8 +16,20 @@ class ServiceProductResource extends JsonResource
             'description' => $this->description,
             'active' => $this->active,
             'sort_order' => $this->sort_order,
-            'projects_count' => $this->whenCounted('projects'),
-            'updated_at' => $this->updated_at?->toIso8601String(),
+
+            'projects_count' =>
+                $this->whenCounted('projects'),
+
+            'services' =>
+                ServiceResource::collection(
+                    $this->whenLoaded('services')
+                ),
+
+            'services_count' =>
+                $this->whenCounted('services'),
+
+            'updated_at' =>
+                $this->updated_at?->toIso8601String(),
         ];
     }
 }
