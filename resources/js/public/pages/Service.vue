@@ -119,7 +119,7 @@ watch(
     <main
         class="
             min-h-screen
-            py-5
+            py-10
             flex
             flex-col
             gap-24
@@ -234,51 +234,15 @@ watch(
                 <div
                     class="
                         flex
-                        items-start
-                        justify-between
-                        gap-8
-                    "
-                >
-                    <span
-                        class="
-                            p
-                            text-light
-                            opacity-40
-                        "
-                    >
-                        {{
-                            String(
-                                service.id
-                            ).padStart(
-                                2,
-                                '0'
-                            )
-                        }}
-                    </span>
-
-                    <span
-                        class="
-                            p
-                            text-light
-                            opacity-40
-                            text-right
-                        "
-                    >
-                        {{ service.slug }}
-                    </span>
-                </div>
-
-                <div
-                    class="
-                        flex
                         flex-col
                         gap-8
-                        max-w-6xl
+                        justify-center
+                        items-center
                     "
                 >
                     <h1
                         class="
-                            h1
+                            h2
                             text-light
                         "
                     >
@@ -292,10 +256,9 @@ watch(
                         class="
                             p
                             text-light
-                            opacity-80
+                            uppercase
+                            text-center
                             max-w-3xl
-                            whitespace-pre-line
-                            leading-7
                         "
                     >
                         {{
@@ -304,20 +267,6 @@ watch(
                     </p>
                 </div>
             </section>
-
-            <!--
-            |--------------------------------------------------------------------------
-            | DIVIDER
-            |--------------------------------------------------------------------------
-            -->
-
-            <div
-                class="
-                    mx-6
-                    border-t
-                    border-light/20
-                "
-            ></div>
 
             <!--
             |--------------------------------------------------------------------------
@@ -343,21 +292,10 @@ watch(
                         gap-4
                     "
                 >
-                    <p
-                        class="
-                            p
-                            text-light
-                            opacity-40
-                            uppercase
-                        "
-                    >
-                        {{ service.services.length }}
-                    </p>
-
                     <h2
                         class="
                             h2
-                            text-light
+                            text-accent
                         "
                     >
                         {{
@@ -386,45 +324,22 @@ watch(
                         class="
                             group
                             px-6
-                            py-6
+                            py-4
                             border-t
-                            border-light/20
+                            border-light
                             flex
                             items-start
                             gap-6
                             transition-colors
                             duration-300
-                            hover:bg-light
-                            hover:text-dark
+                            hover:bg-accent
                         "
                     >
-                        <!-- Number -->
-                        <span
-                            class="
-                                p
-                                text-light
-                                opacity-40
-                                shrink-0
-                                w-8
-                                group-hover:text-dark
-                            "
-                        >
-                            {{
-                                String(
-                                    index + 1
-                                ).padStart(
-                                    2,
-                                    '0'
-                                )
-                            }}
-                        </span>
-
                         <!-- Name -->
                         <h3
                             class="
                                 h3
                                 text-light
-                                group-hover:text-dark
                                 transition-colors
                                 duration-300
                             "
@@ -433,27 +348,12 @@ watch(
                                 item.name
                             }}
                         </h3>
-
-                        <!-- Arrow -->
-                        <span
-                            class="
-                                ml-auto
-                                p
-                                text-light
-                                opacity-40
-                                group-hover:text-dark
-                                transition-all
-                                duration-300
-                            "
-                        >
-                            →
-                        </span>
                     </article>
 
                     <div
                         class="
                             border-t
-                            border-light/20
+                            border-light
                         "
                     ></div>
                 </div>
@@ -495,38 +395,21 @@ watch(
                     flex-col
                     gap-8
                 "
-            >
-                <div
+            >   
+                <p
                     class="
-                        flex
-                        flex-col
-                        gap-4
+                        p
+                        text-light
+                        uppercase
+                        text-center
                     "
                 >
-                    <p
-                        class="
-                            p
-                            text-light
-                            opacity-40
-                        "
-                    >
-                        {{ service.name }}
-                    </p>
-
-                    <h2
-                        class="
-                            h2
-                            text-light
-                            max-w-3xl
-                        "
-                    >
-                        {{
-                            t(
-                                'services.contact'
-                            )
-                        }}
-                    </h2>
-                </div>
+                    {{
+                        t(
+                            'services.reassure'
+                        )
+                    }}
+                </p>
 
                 <Button
                     :text="

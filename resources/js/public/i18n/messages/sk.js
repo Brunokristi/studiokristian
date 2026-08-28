@@ -2,35 +2,86 @@ import { viewDepthKey } from "vue-router";
 
 export default {
     home: {
-        title: 'Pomáham mladým biznisom dať veci dokopy.',
-        description: 'Pomáham mladým biznisom rozbehnúť sa, rásť a fungovať lepšie pomocou brandingu, marketingu, technológií a systémov.',
+        title: 'Pomáham rozbehnúť a posúvať podnikanie.',
+
+        description:
+            'Pomáham podnikateľom dostať ich nápady do sveta, nájsť si zákazníkov a nastaviť systémy tak, aby ich podnik fungoval lepšie.',
+
         callToAction: 'Poďme na to',
 
-        subtitle1: 'Začnime nápadom.',
-        description1: 'Nemusíš mať všetko premyslené. Spoločne môžeme nastaviť značku, digitálnu prezentáciu aj smer, ktorým sa máš vydať. Potom postavíme to, čo tvoj biznis naozaj potrebuje.',
+        subtitle1:
+            'Nemusíš presne vedieť, čo potrebuješ.',
 
-        subtitle2: 'Nech tvoj biznis funguje lepšie.',
-        description2: 'Od webov a digitálnych produktov až po marketing, automatizáciu a vlastné systémy. Cieľ je jednoduchý. Získať viac zákazníkov, ušetriť čas a zjednodušiť každodenné fungovanie.',
-        workflow: 'Od nápadu k niečomu reálnemu',
+        description1:
+            'Možno máš zatiaľ len nápad. Možno už máš biznis, ale web, značka alebo spôsob, akým funguje, ti prestali stačiť. Ty mi povieš, kam sa chceš dostať. Spolu vymyslíme ako.',
 
-        recentProjects: 'ďalšie projekty',
+        services: {
+            title: 'S čím ti viem pomôcť?',
 
-        quote: 'Pravdepodobne nepotrebuješ viac technológií. Potrebuješ tie správne.',
+            description:
+                'Od brandingu a marketingu až po weby, digitálne produkty a systémy, ktoré ti uľahčia život. Nemusíme robiť všetko. Vyberieme to, čo dáva zmysel práve pre tvoj biznis.',
 
-        contact: 'Poďme sa porozprávať',
-        vcard: 'Uložiť kontakt',
+            viewAll: 'Všetky služby',
+        },
+
+        projects: {
+            title: 'Tá zábavnejšia časť...',
+
+            description:
+                'Pár vecí, na ktorých som robil. Branding, weby, marketing, digitálne produkty aj systémy.',
+
+        },
+
+        subtitle2:
+            'Technológie sú super. Vedieť, kedy ich nepoužiť, ešte viac.',
+
+        description2:
+            'Budovať komplikované projekty ma baví. Ale nemyslím si, že všetko musí byť komplikované.',
+
+        workflow:
+            'Ako pracujem',
+
+        recentProjects:
+            'Všetky projekty',
+
+        quote:
+            'Pravdepodobne nepotrebuješ viac technológií. Potrebuješ tie správne.',
+
+        quoteText:
+            'Nejde o to pridať do biznisu ďalších desať nástrojov. Ide o to, aby správne veci fungovali jednoduchšie, rýchlejšie a bez zbytočného chaosu.',
+
+        contact:
+            'Poďme sa porozprávať',
 
         about: {
-            title: 'Ahoj, som Bruno.',
-            intro: 'FIIT STU • Developer • Designer • Entrepreneur • Bratislava',
-            text: 'Pracoval som na webových aplikáciách a business systémoch, ale aj na brandingu, digitálnych produktoch a marketingu. Dnes najradšej pomáham ľuďom, ktorí budujú niečo vlastné, zorientovať sa v digitálnej stránke ich biznisu.',
-            closing: 'Stále na tom všetkom pracujem aj ja. Len som možno o pár krokov vpredu.',
+            title: 'Ahoj, volám sa Bruno',
+
+            intro:
+                'fiit stu • developer • designer • occasional genius',
+
+            text:
+                'Pohybujem sa niekde medzi dizajnom, technológiami a biznisom. Raz riešim značku, inokedy web, systém alebo marketing. V podstate pomáham poskladať digitálnu stránku biznisu tak, aby dávala zmysel a hlavne fungovala.',
+
+            closing:
+                'A nemusíš mať všetko vymyslené ešte predtým, ako sa ozveš. Veď práve preto som tu.',
+        },
+
+        final: {
+            title:
+                'Čo buduješ?',
+
+            description:
+                'Povedz mi, čo máš rozbehnuté, kam sa chceš dostať a čo ti momentálne nejde podľa predstáv. Zvyšok môžeme vymyslieť spolu.',
+
+            cta:
+                'Poďme sa porozprávať',
         },
     },
 
     navigation: {
         home: 'Domov',
         portfolio: 'Projekty',
+        services: 'Služby',
         workflow: 'Proces',
         contact: 'Kontakt',
     },
@@ -38,7 +89,10 @@ export default {
     portfolio: {
         contact: 'Máš nápad? Poďme sa porozprávať',
         loading: 'Načítavam projekty...',
-        viewLive: 'Zobraziť naživo',
+        viewLive: 'Pozrieť naživo',
+        title: 'Pár vecí, na ktorých som robil.',
+        description:
+            'Branding, weby, marketing, systémy a podozrivo veľa času stráveného nad detailmi, ktoré nikto nevidí.',
     },
 
     footer: {
@@ -47,11 +101,13 @@ export default {
         workflow: 'Proces',
         privacy: 'Ochrana súkromia',
         email: 'Email',
-        copyright: 'studio kristian. Všetky práva vyhradené.',
+        copyright: 'Všetky práva vyhradené.',
         facebook: 'Facebook',
         instagram: 'Instagram',
         home: 'Domov',
-        cookies: 'Cookies'
+        cookies: 'Cookies',
+        company: 'kstdio, s.r.o.',
+        location: 'Základňa v Bratislave. Geografia nie je problém.',
     },
 
     contact: {
@@ -65,66 +121,105 @@ export default {
     contactPage: {
         title: 'SK headquarters',
         callEnded: 'Hovor ukončený ({time})',
-        dragToCall: 'Kontaktuj potiahnutím',
+        dragToCall: 'Potiahni a kontaktuj ma',
 
-        transcript: `Ahoj, vďaka, že si sa ozval. Ak buduješ biznis, spúšťaš niečo nové alebo máš pocit, že by digitálna stránka tvojho biznisu mohla fungovať oveľa lepšie, si tu správne. Pomáham mladým biznisom zistiť, čo vlastne potrebujú. Môže to byť branding a marketing, web, digitálny produkt, systém alebo automatizácia. Nemusíš mať všetko premyslené ešte predtým, ako sa ozveš. Možno máš zatiaľ len nápad. Možno už máš fungujúci biznis, ktorý prerástol spôsob, akým momentálne funguje. V oboch prípadoch sa na to môžeme pozrieť spolu a zistiť, čo by ti reálne pomohlo posunúť sa ďalej.`,
+        transcript: `Ahoj, vďaka, že si sa ozval. Ak buduješ biznis, spúšťaš niečo nové alebo máš pocit, že by niektoré veci mohli fungovať lepšie, môžeme sa na to pozrieť spolu. Pomáham podnikateľom dostať ich nápady do sveta a dať dokopy digitálnu stránku ich biznisu. Niekedy to znamená branding a marketing. Inokedy web, digitálny produkt, automatizáciu alebo celý systém. Nemusíš presne vedieť, čo potrebuješ. Stačí mi povedať, čo chceš dosiahnuť alebo čo ti momentálne nefunguje. Potom už vymyslíme zvyšok.`,
 
         items: [
             {
                 heading: 'S čím mi vlastne vieš pomôcť?',
-                text: 'Pomáham mladým biznisom premeniť nápady na niečo, čo ľudia nájdu, pochopia a používajú. Môže ísť o vytvorenie značky, marketing, web, digitálny produkt, systém alebo lepšie využitie technológií v biznise.',
+                text: 'S vecami okolo digitálnej stránky biznisu. Môžeme riešiť branding, marketing, web, digitálny produkt, systém alebo technológie. Záleží na tom, čo práve potrebuješ.',
             },
             {
-                heading: 'Mám nápad, ale neviem, kde začať.',
-                text: 'To je úplne v pohode. Nemusíš mať perfektný plán ani dokonale napísané zadanie. Povedz mi, čo chceš vytvoriť a kam sa chceš dostať. Spoločne zistíme, čo má zmysel riešiť ako prvé.',
+                heading: 'Mám nápad, ale vôbec neviem, kde začať.',
+                text: 'To je úplne v pohode. Nemusíš mať hotový business plán ani dokonale spísané zadanie. Povedz mi, čo chceš vytvoriť a čo chceš dosiahnuť. Od toho sa odrazíme.',
             },
             {
-                heading: 'Vieš mi pomôcť rozbehnúť biznis digitálne?',
-                text: 'Áno. Môžeme spolu nastaviť digitálnu stránku tvojho biznisu od brandingu a vizuálnej identity cez web a marketing až po systémy, ktoré budú fungovať v pozadí. Cieľom je vytvoriť dobrý základ bez zbytočnej komplikácie.',
+                heading: 'Vieš mi pomôcť rozbehnúť biznis online?',
+                text: 'Jasné. Môžeme spolu dať dokopy značku, web, marketing aj všetko, čo bude fungovať v pozadí. Cieľom je mať pevný základ, nie postaviť zbytočne komplikovaný technologický vesmír.',
             },
             {
-                heading: 'Robíš iba webstránky?',
-                text: 'Nie. Web je často len jedna časť celého obrazu. Robím aj branding, marketing, digitálne produkty, automatizáciu a vlastné business systémy. To, na čom budeme pracovať, závisí od toho, čo tvoj biznis skutočne potrebuje.',
+                heading: 'Robíš iba weby?',
+                text: 'Nie. Web je často iba jedna časť celého príbehu. Robím aj branding, marketing, digitálne produkty, automatizáciu a vlastné business systémy. Pozrieme sa na to, čo tvoj biznis potrebuje, a podľa toho sa rozhodneme.',
             },
             {
                 heading: 'Už mám fungujúci biznis. Vieš mi aj tak pomôcť?',
-                text: 'Jasné. Nemusíš začínať od nuly. Možno tvoja značka už nefunguje tak ako kedysi, web neprináša dosť zákazníkov, marketing nemá jasný smer alebo tráviš príliš veľa času manuálnou prácou. Pozrieme sa, kde má tvoj biznis najväčší priestor na zlepšenie.',
+                text: 'Určite. Možno ti už nefunguje značka tak ako kedysi, web neprináša dosť zákazníkov alebo tráviš polovicu dňa vecami, ktoré by sa dali vyriešiť jednoduchšie. Aj s tým sa dá niečo robiť.',
             },
             {
                 heading: 'Používaš aj AI?',
-                text: 'Keď to dáva zmysel. Viac ma zaujíma vyriešiť správnu vec než pridať AI len preto, že je to práve trendy. Niekedy je AI alebo automatizácia super riešenie. Niekedy je oveľa lepšie spraviť niečo jednoduchšie.',
+                text: 'Keď to dáva zmysel. Nechcem dávať AI všade len preto, že sa to momentálne dobre predáva. Ak ti AI alebo automatizácia ušetrí čas alebo vyrieši konkrétnu vec, super. Ak nie, nájdeme jednoduchšie riešenie.',
             },
             {
                 heading: 'Koľko to stojí?',
-                text: 'Záleží na tom, čo spolu chceme vyriešiť. Každý biznis je trochu iný, preto najskôr potrebujem pochopiť, čo potrebuješ. Potom nastavíme rozsah projektu a cenu podľa toho. Žiadne náhodné balíčky len preto, že ich mám v cenníku.',
+                text: 'Záleží na tom, čo spolu ideme riešiť. Najprv si povieme, čo potrebuješ, a potom nastavíme rozsah aj cenu. Nemám záujem predávať ti niečo, čo nepotrebuješ.',
             },
             {
                 heading: 'Čo ak ani neviem, čo vlastne potrebujem?',
-                text: 'Úplne v pohode. Nemusíš poznať odpoveď ešte predtým, ako sa ozveš. Povedz mi, čo buduješ, čo nefunguje alebo čo by si chcel zlepšiť. Zvyšok môžeme vyriešiť spolu.',
+                text: 'O to lepšie. Nemusíš prísť s hotovým riešením. Povedz mi, čo buduješ, čo nefunguje alebo kam sa chceš dostať. Spolu zistíme, čo s tým.',
             }
         ],
     },
 
+    services: {
+        title: 'S čím ti viem pomôcť.',
+        description:
+            'Od prvého nápadu až po web, marketing, branding alebo systém, ktorý drží veci pokope.',
+        loading:
+            'Načítavam služby...',
+        reassure:
+            'Toto nie je pevný zoznam ani menu, z ktorého si musíš vybrať. Tvoj projekt môže potrebovať všetko, iba niečo z toho alebo niečo úplne iné. Poskladáme to podľa toho, čo dáva zmysel.',
+        contact:
+            'Máš nápad? Poďme sa porozprávať',
+        included:
+            'Oblasti, ktorým sa môžeme venovať',
+        notFound:
+            'Služba sa nenašla',
+        notFoundDescription:
+            'Táto služba neexistuje alebo už nie je dostupná.',
+    },
+
     seo: {
         home: {
-            title: 'studio kristian | Digitálna pomoc pre mladé biznisy',
-            description: 'studio kristian pomáha mladým biznisom rozbehnúť sa, rásť a fungovať lepšie pomocou brandingu, marketingu, technológií a digitálnych systémov.',
+            title: 'studio kristian | Pomoc s digitálnou stránkou biznisu',
+            description:
+                'studio kristian pomáha podnikateľom s brandingom, marketingom, webmi, technológiami a systémami, ktoré pomáhajú biznisu fungovať lepšie.',
         },
+
         portfolio: {
             title: 'Projekty | studio kristian',
-            description: 'Pozrite si vybrané projekty studio kristian z oblasti brandingu, marketingu, webov, digitálnych produktov a business systémov.',
+            description:
+                'Pozrite si projekty zo sveta brandingu, marketingu, webov, digitálnych produktov a business systémov.',
         },
+
         project: {
             title: 'Projekt | studio kristian',
-            description: 'Pozrite si myšlienky, dizajn a digitálnu prácu, ktoré stoja za vybranými projektmi studio kristian.',
+            description:
+                'Pozrite si, ako vznikol tento projekt, čo sme riešili a čo za ním stojí.',
         },
+
         workflow: {
             title: 'Proces | Od nápadu k niečomu reálnemu | studio kristian',
-            description: 'Pozrite sa, ako studio kristian pomáha meniť podnikateľské nápady na značky, digitálne produkty, weby a systémy cez praktický a spolupracujúci proces.',
+            description:
+                'Pozrite sa, ako spolu môžeme premeniť nápad na značku, web, digitálny produkt alebo systém, ktorý funguje.',
         },
+
         contact: {
             title: 'Kontakt | studio kristian',
-            description: 'Máš podnikateľský nápad, projekt alebo niečo, čo by mohlo fungovať lepšie? Ozvi sa studio kristian a spoločne zistíme, čo by ti reálne pomohlo.',
+            description:
+                'Máš nápad, rozbehnutý biznis alebo niečo, čo by mohlo fungovať lepšie? Ozvi sa a pozrieme sa na to spolu.',
+        },
+
+        services: {
+            title: 'Služby | studio kristian',
+            description:
+                'Branding, marketing, weby, digitálne produkty a business systémy pre ľudí, ktorí niečo budujú.',
+        },
+
+        service: {
+            title: 'Služba | studio kristian',
+            description:
+                'Pozrite sa, s čím vám môže studio kristian pomôcť a čo všetko môže daná služba zahŕňať.',
         },
     },
 
@@ -132,72 +227,84 @@ export default {
         title: 'Ochrana súkromia',
         lastUpdated: 'Naposledy aktualizované: 29. marec 2026',
         sectionOverviewTitle: 'Prehľad',
-        sectionOverviewText: 'Táto webstránka je prevádzkovaná studio kristian. Rešpektujeme tvoje súkromie a zhromažďujeme len minimálne údaje potrebné na fungovanie stránky.',
+        sectionOverviewText:
+            'Táto webstránka je prevádzkovaná spoločnosťou studio kristian. Rešpektujeme tvoje súkromie a zhromažďujeme len údaje, ktoré potrebujeme na fungovanie a zlepšovanie stránky.',
         sectionCookiesTitle: 'Cookies',
-        sectionCookiesText: 'Táto stránka používa cookies. Niektoré sú nevyhnutné pre fungovanie, iné nám pomáhajú zlepšovať obsah a výkon stránky.',
+        sectionCookiesText:
+            'Táto stránka používa cookies. Niektoré sú potrebné na jej fungovanie, iné nám pomáhajú pochopiť, ako ju ľudia používajú.',
         sectionAnalyticsTitle: 'Google Analytics',
-        sectionAnalyticsText: 'Používame Google Analytics na meranie návštevnosti a správania používateľov. Dáta sú agregované a neslúžia na vašu identifikáciu.',
-        sectionControlTitle: 'Vaše možnosti',
-        sectionControlText: 'Cookies môžeš spravovať alebo vymazať v nastaveniach prehliadača. Môžeš tiež blokovať analytiku pomocou rozšírení.',
+        sectionAnalyticsText:
+            'Používame Google Analytics na sledovanie návštevnosti a spôsobu, akým ľudia používajú stránku. Tieto údaje nám pomáhajú stránku zlepšovať.',
+        sectionControlTitle: 'Tvoje možnosti',
+        sectionControlText:
+            'Cookies môžeš spravovať alebo vymazať v nastaveniach svojho prehliadača. Analytické cookies môžeš tiež zablokovať.',
+        sectionContactTitle: 'Kontakt',
+        sectionContactText:
+            'Ak máš otázky týkajúce sa súkromia alebo svojich údajov, ozvi sa nám cez kontaktnú stránku.',
     },
 
     cookies: {
         title: 'Cookies a analytika',
-        text: 'Stránka používa cookies a Google Analytics na zlepšovanie. Môžeš ich prijať alebo odmietnuť.',
-        learnMore: 'Zobraziť zásady ochrany súkromia',
+        text:
+            'Používame cookies a Google Analytics, aby sme vedeli, čo na stránke funguje a čo môžeme zlepšiť. Analytické cookies môžeš prijať alebo odmietnuť.',
+        learnMore: 'Viac o súkromí',
         reject: 'Odmietnuť',
         accept: 'Prijať všetko',
+
         policy: {
-            title: "Nastavenia cookies",
-            necessary: "Nevyhnutné cookies",
-            necessaryDesc: "Potrebné pre fungovanie stránky.",
-            necessaryList: "Session cookies, CSRF ochrana, preferencie",
-            analytics: "Analytické cookies",
-            analyticsDesc: "Pomáhajú zlepšiť používateľský zážitok.",
-            analyticsList: "Google Analytics, zobrazenia stránok, správanie používateľov",
-            marketing: "Marketingové cookies",
-            marketingDesc: "Používajú sa na zobrazovanie relevantnej reklamy.",
-            marketingList: "Konverzie, segmentácia publika, remarketing",
-            always: "Vždy zapnuté",
-            allowed: "Povolené",
-            notAllowed: "Nepovolené",
-            canChangeAnytime: "Nastavenia môžete kedykoľvek zmeniť.",
-            rejectAll: "Odmietnuť všetko",
-            acceptAll: "Prijať všetko",
-            save: "Uložiť nastavenia",
-            cancel: "Zrušiť"
+            title: 'Nastavenia cookies',
+            necessary: 'Nevyhnutné cookies',
+            necessaryDesc: 'Potrebné na fungovanie stránky. Tieto cookies nie je možné vypnúť.',
+            necessaryList: 'Session cookies, CSRF ochrana, používateľské nastavenia',
+
+            analytics: 'Analytické cookies',
+            analyticsDesc: 'Pomáhajú nám pochopiť, ako ľudia používajú stránku, aby sme ju mohli zlepšovať.',
+            analyticsList: 'Google Analytics, návštevy stránok, správanie používateľov',
+
+            marketing: 'Marketingové cookies',
+            marketingDesc: 'Používajú sa na sledovanie záujmov a zobrazovanie relevantného obsahu.',
+            marketingList: 'Sledovanie konverzií, segmentácia publika, remarketing',
+
+            always: 'Vždy zapnuté',
+            allowed: 'Povolené',
+            notAllowed: 'Nepovolené',
+            canChangeAnytime: 'Nastavenia môžeš kedykoľvek zmeniť.',
+            rejectAll: 'Odmietnuť všetko',
+            acceptAll: 'Prijať všetko',
+            save: 'Uložiť nastavenia',
+            cancel: 'Zrušiť'
         }
     },
 
     workflowPage: {
         steps: [
             {
-                heading: '1. Začneme rozhovorom',
-                text: 'Povieš mi, čo buduješ, kam sa chceš dostať alebo čo ťa momentálne najviac trápi. Nepotrebuješ mať pripravené dokonalé zadanie.',
+                heading: '1. Najprv sa porozprávame',
+                text: 'Povieš mi, čo buduješ, kam sa chceš dostať alebo čo ti momentálne nejde podľa predstáv. Nemusíš mať pripravené dokonalé zadanie.',
             },
             {
-                heading: '2. Zistíme, čo má naozaj zmysel',
-                text: 'Pozrieme sa na tvoj biznis, zákazníkov a ciele. Potom spolu zistíme, čo by ti reálne pomohlo. Môže to byť branding, marketing, web, nový produkt alebo lepší systém.',
+                heading: '2. Zistíme, čo vlastne potrebuješ',
+                text: 'Pozrieme sa na tvoj biznis, zákazníkov a ciele. Potom spolu vyberieme, čo má zmysel riešiť a čo môže pokojne počkať.',
             },
             {
-                heading: '3. Dáme nápadu smer',
-                text: 'Zhrubého nápadu vytvoríme jasný smer. Prejdeme si značku, štruktúru, používateľský zážitok, obsah a funkcie ešte predtým, ako sa pustíme naplno do tvorby.',
+                heading: '3. Dáme tomu smer',
+                text: 'Z nápadu spravíme konkrétnejšiu predstavu. Branding, štruktúra, používateľský zážitok, obsah, funkcie. To, čo bude treba.',
             },
             {
-                heading: '4. Postavíme to, čo treba',
-                text: 'Zvolený smer premeníme na niečo reálne. Môže to byť značka, web, digitálny produkt, marketingová kampaň, automatizácia alebo vlastný systém. Záleží na tom, čo tvoj biznis potrebuje.',
+                heading: '4. Začneme stavať',
+                text: 'Potom to premeníme na niečo reálne. Web, značka, digitálny produkt, kampaň, automatizácia alebo systém. Podľa toho, čo sme spolu vymysleli.',
             },
             {
-                heading: '5. Spustíme to',
-                text: 'Všetko pripravíme a pustíme do sveta. Cieľom nie je len projekt dokončiť. Chceme, aby bol pripravený na reálne používanie a aby ho ľudia pochopili.',
+                heading: '5. Pustíme to von',
+                text: 'Všetko pripravíme a spustíme. Nie preto, aby sme mohli povedať, že projekt je hotový, ale aby ho mohli začať používať skutoční ľudia.',
             },
             {
-                heading: '6. Pozrieme sa, čo funguje',
-                text: 'Keď je projekt vonku, začneme vidieť, čo funguje, čo nie a kde sa ľudia zasekávajú. Reálne dáta a spätná väzba sú väčšinou lepšie ako hádanie.',
+                heading: '6. Pozrieme sa, čo sa deje',
+                text: 'Keď je projekt vonku, začneme vidieť, čo funguje a čo nie. Reálne dáta a spätná väzba sú celkom užitočná vec.',
             },
             {
-                heading: '7. Budeme to zlepšovať',
-                text: 'Biznis sa mení. Menia sa aj zákazníci. Preto môžeme postupne zlepšovať značku, produkt, marketing alebo systémy podľa toho, ako bude tvoj biznis rásť.',
+                heading: '7. A potom to môžeme vylepšovať',
+                text: 'Biznis sa mení. Preto nemusíme všetko vyriešiť naraz. Keď bude treba, budeme postupne zlepšovať značku, produkt, marketing aj systémy.',
             },
         ],
 
@@ -208,7 +315,7 @@ export default {
             },
             {
                 alt: 'Dizajn značky a digitálneho produktu',
-                caption: 'Dáme nápadu podobu, ktorú ľudia dokážu pochopiť a používať',
+                caption: 'Dáme nápadu podobu, ktorá dáva zmysel',
             },
             {
                 alt: 'Vývoj webstránky a digitálneho produktu',
@@ -220,10 +327,10 @@ export default {
             },
             {
                 alt: 'Analytika a zlepšovanie projektu',
-                caption: 'Sledujeme, učíme sa a posúvame to ďalej',
+                caption: 'Pozrieme sa, čo funguje, a ideme ďalej',
             },
         ],
 
-        callToAction: 'Projekty',
+        callToAction: 'Pozrieť projekty',
     },
 }

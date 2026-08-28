@@ -19,7 +19,7 @@ useSeoMeta({
     description: () => t('seo.contact.description'),
 })
 
-const callerSrc = '/assets/portrait.png'
+const callerSrc = '/assets/calling.png'
 
 const seconds = ref(0)
 const transcriptSource = computed(() =>
@@ -340,7 +340,7 @@ onUnmounted(() => {
                             }"
                         >
                             <i
-                                class="bi bi-envelope text-accent"
+                                class="bi bi-arrow-up-right text-accent"
                             ></i>
                         </div>
                     </div>

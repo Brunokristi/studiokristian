@@ -89,6 +89,8 @@ export default {
         contact: 'Have an idea? Let’s talk',
         loading: 'Loading projects...',
         viewLive: 'View live',
+        title: 'A few things I’ve worked on.',
+        description: 'Brands, websites, marketing, systems and a questionable amount of time spent making things work.',
     },
 
     footer: {
@@ -97,11 +99,14 @@ export default {
         workflow: 'Process',
         privacy: 'Privacy Policy',
         email: 'Email',
-        copyright: 'studio kristian. All rights reserved.',
+        copyright: 'All rights reserved.',
         facebook: 'Facebook',
         instagram: 'Instagram',
         home: 'Home',
-        cookies: 'Cookies'
+        cookies: 'Cookies',
+        company: 'kstdio, s.r.o.',
+        location: 'From Bratislava. Not limited by geography.',
+        
     },
 
     contact: {
@@ -156,15 +161,17 @@ export default {
     },
 
     services: {
-        title: 'Services',
+        title: 'The things I can help you with.',
         description:
-            'From branding and marketing to websites, digital products and business systems.',
+            'From your first idea to getting the business out into the world and making it work.',
         loading:
             'Loading services...',
+        reassure:
+            'Your project might need all of this, some of it, or something completely different. We’ll figure it out together.',
         contact:
             'Have an idea? Let’s talk',
         included:
-            'What is included',
+            'Things we can work on',
         notFound:
             'Service not found',
         notFoundDescription:

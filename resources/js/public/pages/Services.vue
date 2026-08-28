@@ -133,7 +133,7 @@ watch(
 <template>
     <main
         class="
-            py-5
+            py-10
             flex
             flex-col
             gap-20
@@ -149,11 +149,11 @@ watch(
                 gap-4
             "
         >
-            <h1 class="h1">
+            <h1 class="h2 text-accent">
                 {{ t('services.title') }}
             </h1>
 
-            <p class="p max-w-2xl">
+            <p class="p uppercase text-center">
                 {{
                     t(
                         'services.description'

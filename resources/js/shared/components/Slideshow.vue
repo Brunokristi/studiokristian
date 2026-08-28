@@ -1587,7 +1587,7 @@ onUnmounted(() => {
                         shrink-0
                         flex-col
                         items-center
-                        gap-3
+                        gap-6
                         px-6
                         pb-6
                     "
@@ -1606,9 +1606,8 @@ onUnmounted(() => {
                             m-0
                             max-w-2xl
                             text-center
-                            text-sm
-                            leading-relaxed
-                            text-white/80
+                            p
+                            text-light
                         "
                     >
                         {{
@@ -1642,7 +1641,7 @@ onUnmounted(() => {
                         <i
                             class="
                                 bi
-                                bi-x-lg
+                                bi-arrows-angle-contract
                                 text-xl
                             "
                         ></i>

@@ -80,7 +80,13 @@ const date = new Date().getFullYear()
           </div>
         </div>
 
-        <p class="p text-light uppercase w-full text-center md:text-end"> © {{ date }} {{ t('footer.copyright') }}</p>
+        <div class="flex flex-col gap-2 items-start md:items-end">
+          <p class="p text-light uppercase w-full text-center md:text-end"> © {{ date }} {{ t('footer.copyright') }}</p>
+
+          <p class="p text-light uppercase w-full text-center md:text-end">{{ t('footer.company') }}</p>
+
+          <p class="p text-light uppercase w-full text-center md:text-end">{{ t('footer.location') }}</p>
+        </div>
       </div>
     </div>
 
