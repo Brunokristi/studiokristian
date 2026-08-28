@@ -10,7 +10,9 @@ class Service extends Model
     protected $fillable = [
         'service_product_id',
         'name',
+        'name_translations',
         'description',
+        'description_translations',
         'active',
         'sort_order',
     ];
@@ -19,6 +21,8 @@ class Service extends Model
     {
         return [
             'active' => 'boolean',
+            'name_translations' => 'array',
+            'description_translations' => 'array',
         ];
     }
 

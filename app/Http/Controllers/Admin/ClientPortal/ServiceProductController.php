@@ -12,9 +12,8 @@ use Illuminate\Support\Str;
 
 class ServiceProductController extends Controller
 {
-    public function index(
-        Request $request
-    ): AnonymousResourceCollection {
+    public function index(Request $request): AnonymousResourceCollection
+    {
         $sort = in_array(
             $request->string('sort')->toString(),
             [
@@ -105,36 +104,33 @@ class ServiceProductController extends Controller
                     $data['name'] ?? ''
                 );
 
+        $data['name_translations'] =
+            $this->translationArray(
+                $data['name'] ?? null,
+                $data['name_sk'] ?? null
+            );
+
+        $data['description_translations'] =
+            $this->translationArray(
+                $data['description'] ?? null,
+                $data['description_sk'] ?? null
+            );
+
+        unset(
+            $data['name_sk'],
+            $data['description_sk']
+        );
+
         $serviceProduct =
             ServiceProduct::query()->create($data);
 
-        return ServiceProductResource::make(
-            $serviceProduct
-                ->loadCount([
-                    'projects',
-                    'services',
-                ])
-                ->load([
-                    'services' => fn ($query) =>
-                        $query->orderBy('sort_order'),
-                ])
-        );
+        return $this->resource($serviceProduct);
     }
 
     public function show(
         ServiceProduct $serviceProduct
     ): ServiceProductResource {
-        return ServiceProductResource::make(
-            $serviceProduct
-                ->loadCount([
-                    'projects',
-                    'services',
-                ])
-                ->load([
-                    'services' => fn ($query) =>
-                        $query->orderBy('sort_order'),
-                ])
-        );
+        return $this->resource($serviceProduct);
     }
 
     public function update(
@@ -150,19 +146,69 @@ class ServiceProductController extends Controller
                         ?? $serviceProduct->name
                 );
 
+        $existingNameTranslations =
+            is_array($serviceProduct->name_translations)
+                ? $serviceProduct->name_translations
+                : [];
+
+        $existingDescriptionTranslations =
+            is_array($serviceProduct->description_translations)
+                ? $serviceProduct->description_translations
+                : [];
+
+        if (array_key_exists('name', $data)) {
+            $existingNameTranslations['en'] =
+                $data['name'];
+        }
+
+        if (array_key_exists('name_sk', $data)) {
+            if (
+                $data['name_sk'] !== null &&
+                trim($data['name_sk']) !== ''
+            ) {
+                $existingNameTranslations['sk'] =
+                    trim($data['name_sk']);
+            } else {
+                unset($existingNameTranslations['sk']);
+            }
+        }
+
+        if (array_key_exists('description', $data)) {
+            $existingDescriptionTranslations['en'] =
+                $data['description'];
+        }
+
+        if (array_key_exists('description_sk', $data)) {
+            if (
+                $data['description_sk'] !== null &&
+                trim($data['description_sk']) !== ''
+            ) {
+                $existingDescriptionTranslations['sk'] =
+                    trim($data['description_sk']);
+            } else {
+                unset($existingDescriptionTranslations['sk']);
+            }
+        }
+
+        $data['name_translations'] =
+            $existingNameTranslations === []
+                ? null
+                : $existingNameTranslations;
+
+        $data['description_translations'] =
+            $existingDescriptionTranslations === []
+                ? null
+                : $existingDescriptionTranslations;
+
+        unset(
+            $data['name_sk'],
+            $data['description_sk']
+        );
+
         $serviceProduct->update($data);
 
-        return ServiceProductResource::make(
-            $serviceProduct
-                ->fresh()
-                ->loadCount([
-                    'projects',
-                    'services',
-                ])
-                ->load([
-                    'services' => fn ($query) =>
-                        $query->orderBy('sort_order'),
-                ])
+        return $this->resource(
+            $serviceProduct->fresh()
         );
     }
 
@@ -173,9 +219,24 @@ class ServiceProductController extends Controller
             'active' => false,
         ]);
 
+        return $this->resource(
+            $serviceProduct->fresh()
+        );
+    }
+
+    public function destroy(
+        ServiceProduct $serviceProduct
+    ): \Illuminate\Http\Response {
+        $serviceProduct->delete();
+
+        return response()->noContent();
+    }
+
+    private function resource(
+        ServiceProduct $serviceProduct
+    ): ServiceProductResource {
         return ServiceProductResource::make(
             $serviceProduct
-                ->fresh()
                 ->loadCount([
                     'projects',
                     'services',
@@ -187,11 +248,28 @@ class ServiceProductController extends Controller
         );
     }
 
-    public function destroy(
-        ServiceProduct $serviceProduct
-    ): \Illuminate\Http\Response {
-        $serviceProduct->delete();
+    private function translationArray(
+        mixed $en,
+        mixed $sk
+    ): ?array {
+        $translations = [];
 
-        return response()->noContent();
+        if (
+            is_string($en) &&
+            trim($en) !== ''
+        ) {
+            $translations['en'] = trim($en);
+        }
+
+        if (
+            is_string($sk) &&
+            trim($sk) !== ''
+        ) {
+            $translations['sk'] = trim($sk);
+        }
+
+        return $translations === []
+            ? null
+            : $translations;
     }
 }

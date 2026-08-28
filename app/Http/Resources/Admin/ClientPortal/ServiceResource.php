@@ -13,7 +13,17 @@ class ServiceResource extends JsonResource
             'id' => $this->id,
             'service_product_id' => $this->service_product_id,
             'name' => $this->name,
+            'name_sk' => data_get(
+                $this->name_translations,
+                'sk',
+                ''
+            ),
             'description' => $this->description,
+            'description_sk' => data_get(
+                $this->description_translations,
+                'sk',
+                ''
+            ),
             'active' => $this->active,
             'sort_order' => $this->sort_order,
             'updated_at' => $this->updated_at?->toIso8601String(),

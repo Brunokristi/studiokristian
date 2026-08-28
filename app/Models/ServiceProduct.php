@@ -13,6 +13,8 @@ class ServiceProduct extends Model
         'name',
         'slug',
         'description',
+        'name_translations',
+        'description_translations',
         'active',
         'sort_order',
         'default_contract_template_id',
@@ -24,6 +26,8 @@ class ServiceProduct extends Model
         return [
             'active' => 'boolean',
             'recommended_document_type_ids' => 'array',
+            'name_translations' => 'array',
+            'description_translations' => 'array',
         ];
     }
 

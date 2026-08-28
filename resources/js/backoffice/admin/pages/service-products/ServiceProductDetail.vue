@@ -31,6 +31,7 @@ import DocumentEditor
 
 import Button from '@shared/components/Button.vue'
 import FormField from '@shared/components/FormField.vue'
+import LanguageToggle from '@shared/components/LanguageToggle.vue'
 import Tag from '@shared/components/Tag.vue'
 import Toast from '@shared/components/Toast.vue'
 import useAutosavePolicy from '../../composables/useAutosavePolicy'
@@ -165,13 +166,47 @@ const blueprintSaveTimer =
     ref(null)
 
 
+const language = ref('en')
+
 const productForm =
     reactive({
         name: '',
+        name_sk: '',
         description: '',
+        description_sk: '',
         active: true
     })
 
+
+const productName = computed({
+    get() {
+        return language.value === 'sk'
+            ? productForm.name_sk
+            : productForm.name
+    },
+    set(value) {
+        if (language.value === 'sk') {
+            productForm.name_sk = value
+        } else {
+            productForm.name = value
+        }
+    }
+})
+
+const productDescription = computed({
+    get() {
+        return language.value === 'sk'
+            ? productForm.description_sk
+            : productForm.description
+    },
+    set(value) {
+        if (language.value === 'sk') {
+            productForm.description_sk = value
+        } else {
+            productForm.description = value
+        }
+    }
+})
 
 /*
 |--------------------------------------------------------------------------
@@ -185,6 +220,7 @@ const serviceCreating = ref(false)
 const serviceDeletingId = ref(null)
 const serviceSearch = ref('')
 const serviceErrors = ref({})
+const serviceSavingId = ref(null)
 
 const serviceOptions = computed(() => {
     const query = String(
@@ -204,7 +240,10 @@ const serviceOptions = computed(() => {
                 .includes(query.toLowerCase())
         })
         .map(service => ({
-            label: service.name,
+            label:
+                language.value === 'sk'
+                    ? (service.name_sk || service.name)
+                    : service.name,
             value: service.id,
             existing: true
         }))
@@ -351,6 +390,9 @@ async function handleServiceSelect(option) {
             `/service-products/${productId}/services`,
             {
                 name,
+                name_sk: '',
+                description: '',
+                description_sk: '',
                 active: true
             }
         )
@@ -387,6 +429,98 @@ async function handleServiceSelect(option) {
     } finally {
         serviceCreating.value = false
     }
+}
+
+function serviceField(service, field) {
+    if (!service) {
+        return ''
+    }
+
+    if (language.value === 'sk') {
+        return String(service[`${field}_sk`] || '')
+    }
+
+    return String(service[field] || '')
+}
+
+function setServiceField(service, field, value) {
+    if (!service || !editable.value) {
+        return
+    }
+
+    const key =
+        language.value === 'sk'
+            ? `${field}_sk`
+            : field
+
+    service[key] = String(value || '')
+}
+
+async function saveService(service) {
+    if (
+        !service?.id ||
+        !editable.value ||
+        serviceSavingId.value
+    ) {
+        return
+    }
+
+    serviceSavingId.value = service.id
+
+    try {
+        const response = await api.put(
+            `/services/${service.id}`,
+            {
+                name: service.name || '',
+                name_sk: service.name_sk || '',
+                description: service.description || '',
+                description_sk: service.description_sk || '',
+                active: service.active ?? true
+            }
+        )
+
+        const saved =
+            response.data?.data ||
+            response.data?.service ||
+            response.data
+
+        services.value = services.value.map(item =>
+            String(item.id) === String(service.id)
+                ? { ...item, ...saved }
+                : item
+        )
+    } catch (exception) {
+        serviceErrors.value = validationErrors(exception)
+
+        showError(
+            Object.values(serviceErrors.value).flat()[0] ||
+            errorMessage(exception)
+        )
+    } finally {
+        serviceSavingId.value = null
+    }
+}
+
+function serviceDisplayName(service) {
+    if (!service) {
+        return ''
+    }
+
+    return language.value === 'sk'
+        ? (
+            service.name_sk ||
+            service.name ||
+            ''
+        )
+        : (
+            service.name ||
+            ''
+        )
+}
+
+
+function changeLanguage(value) {
+    language.value = value === 'sk' ? 'sk' : 'en'
 }
 
 async function removeService(service) {
@@ -714,7 +848,9 @@ async function resolveDocumentFolderId(
 function blankProduct() {
     return {
         name: '',
+        name_sk: '',
         description: '',
+        description_sk: '',
         active: true
     }
 }
@@ -740,8 +876,16 @@ function prepareProduct(
                 product?.name ||
                 '',
 
+            name_sk:
+                product?.name_sk ||
+                '',
+
             description:
                 product?.description ||
+                '',
+
+            description_sk:
+                product?.description_sk ||
                 '',
 
             active:
@@ -772,8 +916,14 @@ function getAutosaveSnapshot() {
         name:
             productForm.name,
 
+        name_sk:
+            productForm.name_sk,
+
         description:
             productForm.description,
+
+        description_sk:
+            productForm.description_sk,
 
         active:
             productForm.active,
@@ -827,14 +977,33 @@ async function load(
         }
 
 
-        const response =
-            await api.get(
-                `/service-products/${productId}/blueprint`
-            )
+        const [blueprintResponse, productResponse] =
+            await Promise.all([
+                api.get(
+                    `/service-products/${productId}/blueprint`
+                ),
+                api.get(
+                    `/service-products/${productId}`
+                )
+            ])
 
 
         data.value =
-            response.data
+            blueprintResponse.data
+
+
+        const productFromApi =
+            productResponse.data?.data ||
+            productResponse.data?.product ||
+            productResponse.data
+
+
+        if (productFromApi?.id) {
+            data.value.product = {
+                ...(data.value.product || {}),
+                ...productFromApi
+            }
+        }
 
 
         prepareProduct(
@@ -918,8 +1087,14 @@ async function saveProduct() {
             name:
                 productForm.name,
 
+            name_sk:
+                productForm.name_sk,
+
             description:
                 productForm.description,
+
+            description_sk:
+                productForm.description_sk,
 
             active:
                 Boolean(
@@ -962,8 +1137,12 @@ async function saveProduct() {
                     id: createdId,
                     name:
                         productForm.name,
+                    name_sk:
+                        productForm.name_sk,
                     description:
                         productForm.description,
+                    description_sk:
+                        productForm.description_sk,
                     active:
                         Boolean(
                             productForm.active
@@ -2182,7 +2361,9 @@ function formatStatus(
 watch(
     () => [
         productForm.name,
+        productForm.name_sk,
         productForm.description,
+        productForm.description_sk,
         productForm.active
     ],
     () => {
@@ -2286,6 +2467,13 @@ useAdminPageHeader({
                 lg:space-y-20
             "
         >
+            <LanguageToggle
+                :model-value="language"
+                class="fixed top-11 right-1 z-50"
+                @update:model-value="changeLanguage"
+            />
+
+
             <Toast
                 v-model="
                     showErrorToast
@@ -2361,16 +2549,20 @@ useAdminPageHeader({
                     >
                         <FormField
                             id="service-name"
-                            v-model="
-                                productForm.name
-                            "
+                            v-model="productName"
                             name="name"
                             type="text"
-                            label="Name"
-                            placeholder="Website development"
-                            :disabled="
-                                saving
+                            :label="
+                                language === 'sk'
+                                    ? 'Názov'
+                                    : 'Name'
                             "
+                            :placeholder="
+                                language === 'sk'
+                                    ? 'Názov služby'
+                                    : 'Website development'
+                            "
+                            :disabled="saving"
                             :error="
                                 errors.name?.[0] ||
                                 errors.slug?.[0] ||
@@ -2383,16 +2575,20 @@ useAdminPageHeader({
 
                         <FormField
                             id="service-description"
-                            v-model="
-                                productForm.description
-                            "
+                            v-model="productDescription"
                             name="description"
                             type="textarea"
-                            label="Description"
-                            placeholder="Describe what this service includes."
-                            :disabled="
-                                saving
+                            :label="
+                                language === 'sk'
+                                    ? 'Popis'
+                                    : 'Description'
                             "
+                            :placeholder="
+                                language === 'sk'
+                                    ? 'Popíšte, čo táto služba zahŕňa.'
+                                    : 'Describe what this service includes.'
+                            "
+                            :disabled="saving"
                             :error="
                                 errors.description?.[0] ||
                                 ''
@@ -2560,71 +2756,81 @@ useAdminPageHeader({
                             ) in services"
                             :key="service.id"
                             class="
-                                flex
-                                items-center
-                                gap-4
                                 border-b
                                 border-accent
-                                py-4
+                                py-5
                             "
                         >
-                            <span
+                            <div
                                 class="
-                                    p
-                                    w-8
-                                    shrink-0
-                                    text-dark/35
+                                    flex
+                                    items-start
+                                    gap-4
                                 "
                             >
-                                {{
-                                    String(
-                                        index + 1
-                                    ).padStart(2, '0')
-                                }}
-                            </span>
-
-                            <span
-                                class="
-                                    p
-                                    min-w-0
-                                    flex-1
-                                    text-dark
-                                "
-                            >
-                                {{ service.name }}
-                            </span>
-
-                            <button
-                                v-if="editable"
-                                type="button"
-                                class="
-                                    p
-                                    shrink-0
-                                    cursor-pointer
-                                    text-dark
-                                    transition-colors
-                                    duration-200
-                                    hover:text-accent
-                                    disabled:cursor-not-allowed
-                                    disabled:opacity-40
-                                "
-                                :disabled="
-                                    serviceDeletingId === service.id
-                                "
-                                :aria-label="
-                                    `Remove ${service.name}`
-                                "
-                                @click="
-                                    removeService(service)
-                                "
-                            >
-                                <i
+                                <span
                                     class="
-                                        bi
-                                        bi-x-lg
+                                        p
+                                        w-8
+                                        shrink-0
+                                        pt-2
+                                        text-dark/35
                                     "
-                                ></i>
-                            </button>
+                                >
+                                    {{
+                                        String(index + 1).padStart(2, '0')
+                                    }}
+                                </span>
+
+                                <div
+                                    class="
+                                        min-w-0
+                                        flex-1
+                                        space-y-4
+                                    "
+                                >
+                                    <FormField
+                                        :id="`service-name-${service.id}`"
+                                        :model-value="serviceField(service, 'name')"
+                                        type="text"
+                                        :label="language === 'sk' ? 'Názov' : 'Name'"
+                                        :disabled="serviceSavingId === service.id || !editable"
+                                        @update:model-value="value => setServiceField(service, 'name', value)"
+                                        @blur="saveService(service)"
+                                    />
+
+                                    <FormField
+                                        :id="`service-description-${service.id}`"
+                                        :model-value="serviceField(service, 'description')"
+                                        type="textarea"
+                                        :label="language === 'sk' ? 'Popis' : 'Description'"
+                                        :disabled="serviceSavingId === service.id || !editable"
+                                        @update:model-value="value => setServiceField(service, 'description', value)"
+                                        @blur="saveService(service)"
+                                    />
+                                </div>
+
+                                <button
+                                    v-if="editable"
+                                    type="button"
+                                    class="
+                                        shrink-0
+                                        cursor-pointer
+                                        pt-2
+                                        text-dark
+                                        transition-colors
+                                        duration-200
+                                        hover:text-accent
+                                        disabled:cursor-not-allowed
+                                        disabled:opacity-40
+                                    "
+                                    :disabled="serviceDeletingId === service.id || serviceSavingId === service.id"
+                                    :aria-label="`Remove ${serviceDisplayName(service)}`"
+                                    @click="removeService(service)"
+                                >
+                                    <i class="bi bi-x-lg"></i>
+                                </button>
+                            </div>
                         </div>
                     </div>
 

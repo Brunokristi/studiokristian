@@ -11,7 +11,6 @@ class ServiceController extends Controller
     public function index(Request $request): JsonResponse
     {
         $locale = $this->resolveLocale($request);
-
         $limit = $request->integer('limit');
 
         $query = ServiceProduct::query()
@@ -36,42 +35,35 @@ class ServiceController extends Controller
                 ServiceProduct $serviceProduct
             ) use ($locale) {
                 return [
-                    'id' =>
-                        $serviceProduct->id,
-
-                    'name' =>
-                        $this->localizedValue(
-                            $serviceProduct->name_translations,
-                            $serviceProduct->name,
-                            $locale
-                        ),
-
-                    'slug' =>
-                        $serviceProduct->slug,
-
-                    'description' =>
-                        $this->localizedValue(
-                            $serviceProduct->description_translations,
-                            $serviceProduct->description,
-                            $locale
-                        ),
-
-                    'services' =>
-                        $serviceProduct->services
-                            ->map(
-                                fn ($service) => [
-                                    'id' =>
-                                        $service->id,
-
-                                    'name' =>
-                                        $this->localizedValue(
-                                            $service->name_translations,
-                                            $service->name,
-                                            $locale
-                                        ),
-                                ]
-                            )
-                            ->values(),
+                    'id' => $serviceProduct->id,
+                    'name' => $this->localizedValue(
+                        $serviceProduct->name_translations,
+                        $serviceProduct->name,
+                        $locale
+                    ),
+                    'slug' => $serviceProduct->slug,
+                    'description' => $this->localizedValue(
+                        $serviceProduct->description_translations,
+                        $serviceProduct->description,
+                        $locale
+                    ),
+                    'services' => $serviceProduct->services
+                        ->map(
+                            fn ($service) => [
+                                'id' => $service->id,
+                                'name' => $this->localizedValue(
+                                    $service->name_translations,
+                                    $service->name,
+                                    $locale
+                                ),
+                                'description' => $this->localizedValue(
+                                    $service->description_translations,
+                                    $service->description,
+                                    $locale
+                                ),
+                            ]
+                        )
+                        ->values(),
                 ];
             })
             ->values();
@@ -109,42 +101,35 @@ class ServiceController extends Controller
         }
 
         return response()->json([
-            'id' =>
-                $serviceProduct->id,
-
-            'name' =>
-                $this->localizedValue(
-                    $serviceProduct->name_translations,
-                    $serviceProduct->name,
-                    $locale
-                ),
-
-            'slug' =>
-                $serviceProduct->slug,
-
-            'description' =>
-                $this->localizedValue(
-                    $serviceProduct->description_translations,
-                    $serviceProduct->description,
-                    $locale
-                ),
-
-            'services' =>
-                $serviceProduct->services
-                    ->map(
-                        fn ($service) => [
-                            'id' =>
-                                $service->id,
-
-                            'name' =>
-                                $this->localizedValue(
-                                    $service->name_translations,
-                                    $service->name,
-                                    $locale
-                                ),
-                        ]
-                    )
-                    ->values(),
+            'id' => $serviceProduct->id,
+            'name' => $this->localizedValue(
+                $serviceProduct->name_translations,
+                $serviceProduct->name,
+                $locale
+            ),
+            'slug' => $serviceProduct->slug,
+            'description' => $this->localizedValue(
+                $serviceProduct->description_translations,
+                $serviceProduct->description,
+                $locale
+            ),
+            'services' => $serviceProduct->services
+                ->map(
+                    fn ($service) => [
+                        'id' => $service->id,
+                        'name' => $this->localizedValue(
+                            $service->name_translations,
+                            $service->name,
+                            $locale
+                        ),
+                        'description' => $this->localizedValue(
+                            $service->description_translations,
+                            $service->description,
+                            $locale
+                        ),
+                    ]
+                )
+                ->values(),
         ]);
     }
 

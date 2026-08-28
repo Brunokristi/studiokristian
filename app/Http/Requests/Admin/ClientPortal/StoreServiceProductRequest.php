@@ -10,7 +10,11 @@ class StoreServiceProductRequest extends AdminClientPortalRequest
     protected function prepareForValidation(): void
     {
         if (! $this->filled('slug') && $this->filled('name')) {
-            $this->merge(['slug' => Str::slug($this->string('name')->toString())]);
+            $this->merge([
+                'slug' => Str::slug(
+                    $this->string('name')->toString()
+                ),
+            ]);
         }
     }
 
@@ -19,9 +23,19 @@ class StoreServiceProductRequest extends AdminClientPortalRequest
         $productId = $this->route('serviceProduct')?->getKey();
 
         return [
-            'name' => ['nullable', 'string', 'max:255'],
-            'slug' => ['nullable', 'alpha_dash:ascii', 'max:255', Rule::unique('service_products', 'slug')->ignore($productId)],
+            'name' => ['required', 'string', 'max:255'],
+            'name_sk' => ['nullable', 'string', 'max:255'],
+            'slug' => [
+                'nullable',
+                'alpha_dash:ascii',
+                'max:255',
+                Rule::unique(
+                    'service_products',
+                    'slug'
+                )->ignore($productId),
+            ],
             'description' => ['nullable', 'string', 'max:5000'],
+            'description_sk' => ['nullable', 'string', 'max:5000'],
             'active' => ['nullable', 'boolean'],
             'sort_order' => ['nullable', 'integer', 'min:0', 'max:65535'],
         ];

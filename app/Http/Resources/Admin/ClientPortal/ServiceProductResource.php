@@ -12,8 +12,18 @@ class ServiceProductResource extends JsonResource
         return [
             'id' => $this->id,
             'name' => $this->name,
+            'name_sk' => data_get(
+                $this->name_translations,
+                'sk',
+                ''
+            ),
             'slug' => $this->slug,
             'description' => $this->description,
+            'description_sk' => data_get(
+                $this->description_translations,
+                'sk',
+                ''
+            ),
             'active' => $this->active,
             'sort_order' => $this->sort_order,
 
