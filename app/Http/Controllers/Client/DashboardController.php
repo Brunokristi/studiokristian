@@ -14,26 +14,35 @@ class DashboardController extends Controller
         Request $request,
         ClientPortalViewData $viewData,
         ClientDocumentSignatureService $signatures
-    ): View
-    {
-        $contact = $request->user();
+    ): View {
+        $contact = $request->user('client');
+
         $projects = $contact->projects()
             ->where('projects.company_id', $contact->company_id)
-            ->whereHas('company', fn ($query) => $query->where('status', 'active'))
+            ->whereHas(
+                'company',
+                fn ($query) => $query->where('status', 'active')
+            )
             ->whereNull('archived_at')
-            ->with('serviceProduct')
-            ->with(['folders' => fn ($query) => $query->orderBy('sort_order')])
-            ->withCount([
-                'contracts as pending_contracts_count' => fn ($query) => $query->whereIn('status', ['sent', 'viewed']),
-                'priceOffers as pending_offers_count' => fn ($query) => $query->whereIn('status', ['sent', 'viewed']),
-            ])->get();
+            ->with([
+                'serviceProduct',
+            ])
+            ->get();
 
         $projects->each(function ($project) use ($contact, $signatures) {
-            $project->pending_signatures_count = $signatures->pendingSignatureCount($project, $contact);
+            $project->pending_signatures_count =
+                $signatures->pendingSignatureCount(
+                    $project,
+                    $contact
+                );
         });
 
         return view('apps.client', [
-            'clientPage' => $viewData->dashboard($request, $contact, $projects),
+            'clientPage' => $viewData->dashboard(
+                $request,
+                $contact,
+                $projects
+            ),
         ]);
     }
 }

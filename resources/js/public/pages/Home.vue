@@ -11,7 +11,7 @@ import { useI18n } from 'vue-i18n'
 
 const { t, locale } = useI18n()
 
-import Button from '@shared/components/Button.vue'
+import Button from '../../shared/components/Button.vue'
 import GridLayout from '../components/GridLayout.vue'
 
 import {

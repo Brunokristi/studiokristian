@@ -11,15 +11,14 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Str;
+use App\Http\Requests\Client\StoreProjectTicketRequest;
 
 class ProjectTicketController extends Controller
 {
-    public function store(Project $project, Request $request): RedirectResponse|JsonResponse
+    public function store(Project $project, StoreProjectTicketRequest $request): RedirectResponse|JsonResponse
     {
         abort_unless($request->user('client')->projects()->whereKey($project->id)->exists(), 403);
-        $data = $request->validate([
-            'description' => ['required', 'string', 'max:10000'],
-        ]);
+        $data = $request->validated();
 
         $title = $this->buildTicketTitle($data['description']);
 

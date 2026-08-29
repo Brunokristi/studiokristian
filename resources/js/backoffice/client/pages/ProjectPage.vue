@@ -136,35 +136,17 @@ const copy =
                 pendingSignatures:
                     'Čakajúce podpisy',
 
-                contracts:
-                    'Zmluvy',
-
-                offers:
-                    'Ponuky',
-
                 files:
                     'Súbory',
 
                 documents:
                     'Dokumenty',
 
-                services:
-                    'Služby a účty',
-
-                noContracts:
-                    'Nie sú dostupné žiadne zmluvy.',
-
-                noOffers:
-                    'Nie sú dostupné žiadne ponuky.',
-
                 noFiles:
                     'Nie sú dostupné žiadne klientske súbory.',
 
                 noDocuments:
                     'Nie sú dostupné žiadne dokumenty.',
-
-                noServices:
-                    'Nie sú dostupné žiadne služby.',
 
                 readOnly:
                     'Len na čítanie',
@@ -214,9 +196,6 @@ const copy =
                 sendRequest:
                     'Odoslať požiadavku',
 
-                version:
-                    'Verzia',
-
                 view:
                     'zobraziť',
 
@@ -260,35 +239,17 @@ const copy =
             pendingSignatures:
                 'Pending signatures',
 
-            contracts:
-                'Contracts',
-
-            offers:
-                'Offers',
-
             files:
                 'Files',
 
             documents:
                 'Documents',
 
-            services:
-                'Services and accounts',
-
-            noContracts:
-                'No contracts are available.',
-
-            noOffers:
-                'No offers are available.',
-
             noFiles:
                 'No client files are available.',
 
             noDocuments:
                 'No documents are available.',
-
-            noServices:
-                'No services are available.',
 
             readOnly:
                 'Read only',
@@ -337,9 +298,6 @@ const copy =
 
             sendRequest:
                 'Send request',
-
-            version:
-                'Version',
 
             view:
                 'view',
@@ -1330,6 +1288,42 @@ function openProjectFile(
 
 /*
 |--------------------------------------------------------------------------
+| Service Product
+|--------------------------------------------------------------------------
+*/
+
+const serviceProduct =
+    computed(() => {
+        const product =
+            props.data.project?.service_product ||
+            null
+
+        if (!product) {
+            return null
+        }
+
+        return {
+            id:
+                product.id || null,
+
+            name:
+                product.name ||
+                '',
+
+            description:
+                product.description ||
+                '',
+
+            services:
+                Array.isArray(product.services)
+                    ? product.services
+                    : []
+        }
+    })
+
+
+/*
+|--------------------------------------------------------------------------
 | Project details
 |--------------------------------------------------------------------------
 */
@@ -1573,7 +1567,7 @@ onMounted(() => {
 
 useClientPageHeader({
     title: computed(() => props.data.project?.name || ''),
-    eyebrow: computed(() => props.data.project?.service_name || ''),
+    eyebrow: computed(() => serviceProduct.value?.name || props.data.project?.service_name || ''),
     homeUrl: computed(() => props.data.urls.dashboard),
     breadcrumbs: computed(() => [
         {
@@ -1736,6 +1730,87 @@ useClientPageHeader({
                         False
                     "
                 />
+            </div>
+        </section>
+
+
+        <!--
+        |--------------------------------------------------------------------------
+        | Service Product
+        |--------------------------------------------------------------------------
+        -->
+
+        <section
+            v-if="serviceProduct"
+        >
+            <h2
+                class="
+                    h2
+                    text-accent
+                    text-left
+                "
+            >
+                {{
+                    serviceProduct.name
+                }}
+            </h2>
+
+            <p
+                v-if="serviceProduct.description"
+                class="
+                    p
+                    mt-4
+                    max-w-3xl
+                    text-dark/70
+                "
+            >
+                {{
+                    serviceProduct.description
+                }}
+            </p>
+
+            <div
+                v-if="serviceProduct.services.length"
+                class="
+                    mt-6
+                    grid
+                    gap-3
+                "
+            >
+                <article
+                    v-for="service in serviceProduct.services"
+                    :key="service.id"
+                    class="
+                        border
+                        border-accent
+                        bg-light
+                        p-4
+                    "
+                >
+                    <h3
+                        class="
+                            h3
+                            uppercase
+                        "
+                    >
+                        {{
+                            service.name
+                        }}
+                    </h3>
+
+                    <p
+                        v-if="service.description"
+                        class="
+                            p
+                            mt-2
+                            text-dark/60
+                        "
+                    >
+                        {{
+                            service.description
+                        }}
+                    </p>
+                </article>
             </div>
         </section>
 

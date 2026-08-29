@@ -15,7 +15,7 @@ import {
     useSeoMeta,
 } from '../composables/useSeoMeta'
 
-import Button from '@shared/components/Button.vue'
+import Button from '../../shared/components/Button.vue'
 import GridLayout from '../components/GridLayout.vue'
 
 const {

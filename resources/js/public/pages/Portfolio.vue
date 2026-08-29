@@ -9,7 +9,7 @@ import { useGlobalActions } from '../composables/useGlobalActions'
 import { useI18n } from 'vue-i18n'
 import { useSeoMeta } from '../composables/useSeoMeta'
 
-import Button from '@shared/components/Button.vue'
+import Button from '../../shared/components/Button.vue'
 import GridLayout from '../components/GridLayout.vue'
 
 const {

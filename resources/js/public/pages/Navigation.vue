@@ -8,7 +8,7 @@ import {
 import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
 
-import Button from '@shared/components/Button.vue'
+import Button from '../../shared/components/Button.vue'
 
 import {
     useGlobalActions,

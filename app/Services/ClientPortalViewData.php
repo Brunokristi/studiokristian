@@ -3,15 +3,11 @@
 namespace App\Services;
 
 use App\Models\ClientContact;
-use App\Models\ContractInstance;
-use App\Models\PriceOffer;
 use App\Models\Project;
 use App\Models\ProjectFile;
 use App\Models\ProjectFolder;
-use App\Services\ClientDocumentSignatureService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
-use Illuminate\Support\Str;
 
 class ClientPortalViewData
 {
@@ -20,193 +16,262 @@ class ClientPortalViewData
     ) {
     }
 
-    public function dashboard(Request $request, ClientContact $contact, Collection $projects): array
-    {
-        return $this->page($request, 'dashboard', 'Projects', $contact, [
-            'company_name' => $contact->company->name,
-            'projects' => $projects->map(fn (Project $project) => [
-                'id' => $project->id,
-                'name' => $project->name,
-                'service_name' => $project->serviceProduct?->name ?? 'Project',
-                'status' => $project->portal_status,
-                'pending_signatures_count' => (int) ($project->pending_signatures_count ?? 0),
-                'action_count' =>
-                    $project->pending_contracts_count +
-                    $project->pending_offers_count +
-                    (int) ($project->pending_signatures_count ?? 0),
-                'url' => route('client.projects.show', $project),
-            ])->values(),
-        ]);
+    public function dashboard(
+        Request $request,
+        ClientContact $contact,
+        Collection $projects
+    ): array {
+        return $this->page(
+            $request,
+            'dashboard',
+            'Projects',
+            $contact,
+            [
+                'company_name' => $contact->company->name,
+
+                'projects' => $projects
+                    ->map(fn (Project $project) => [
+                        'id' => $project->id,
+                        'name' => $project->name,
+
+                        'service_name' =>
+                            $project->serviceProduct?->name ?? 'Project',
+
+                        'status' => $project->portal_status,
+
+                        'pending_signatures_count' => (int) (
+                            $project->pending_signatures_count ?? 0
+                        ),
+
+                        'action_count' => (int) (
+                            $project->pending_signatures_count ?? 0
+                        ),
+
+                        'url' => route(
+                            'client.projects.show',
+                            $project
+                        ),
+                    ])
+                    ->values(),
+            ]
+        );
     }
 
-    public function project(Request $request, ClientContact $contact, Project $project): array
-    {
-        $signatureUserId = $this->signatures->signatureUser($contact)->id;
-        $documents = $this->signatures->visibleDocuments($project);
-        $signedFolderIds = $this->signatures->signedFolderIds($project, $signatureUserId);
+    public function project(
+        Request $request,
+        ClientContact $contact,
+        Project $project
+    ): array {
+        $signatureUserId = $this->signatures
+            ->signatureUser($contact)
+            ->id;
 
-        $documentPayload = $documents->map(function (ProjectFolder $document) use ($project, $contact, $signedFolderIds) {
-            $isSigned = $signedFolderIds->contains((int) $document->id);
+        $documents = $this->signatures
+            ->visibleDocuments($project);
 
-            return [
-                'id' => $document->id,
-                'name' => $document->name,
-                'content' => $document->content,
-                'requires_signature' => (bool) $document->requires_client_signature,
-                'signed' => $isSigned,
-                'can_sign' =>
-                    (bool) $contact->can_accept_documents &&
-                    (bool) $document->requires_client_signature &&
-                    ! $isSigned,
-                'sign_url' => route('client.projects.documents.sign', [$project, $document]),
-                'open_url' => $this->projectDocumentOpenUrl($project, $document),
-            ];
-        })->values();
+        $signedFolderIds = $this->signatures
+            ->signedFolderIds(
+                $project,
+                $signatureUserId
+            );
 
-        $todoSignatures = $documentPayload
-            ->filter(fn ($document) => $document['requires_signature'] && ! $document['signed'])
+        $documentPayload = $documents
+            ->map(
+                function (ProjectFolder $document) use (
+                    $project,
+                    $contact,
+                    $signedFolderIds
+                ) {
+                    $isSigned = $signedFolderIds->contains(
+                        (int) $document->id
+                    );
+
+                    return [
+                        'id' => $document->id,
+                        'name' => $document->name,
+                        'content' => $document->content,
+
+                        'requires_signature' => (bool) (
+                            $document->requires_client_signature
+                        ),
+
+                        'signed' => $isSigned,
+
+                        'can_sign' =>
+                            (bool) $contact->can_accept_documents &&
+                            (bool) $document->requires_client_signature &&
+                            ! $isSigned,
+
+                        'sign_url' => route(
+                            'client.projects.documents.sign',
+                            [$project, $document]
+                        ),
+
+                        'open_url' => $this->projectDocumentOpenUrl(
+                            $project,
+                            $document
+                        ),
+                    ];
+                }
+            )
             ->values();
 
-        $visibleStructure = $this->visibleStructure($project, $contact, $signedFolderIds);
+        $todoSignatures = $documentPayload
+            ->filter(
+                fn ($document) =>
+                    $document['requires_signature'] &&
+                    ! $document['signed']
+            )
+            ->values();
 
-        return $this->page($request, 'project', $project->name, $contact, [
-            'project' => [
-                'id' => $project->id,
-                'name' => $project->name,
-                'service_name' => $project->serviceProduct?->name ?? 'Project',
-                'status' => $project->portal_status,
-                'ticket_url' => route('client.tickets.store', $project),
-                'pending_signatures_count' => $todoSignatures->count(),
-                'contracts' => $project->contracts->map(fn ($contract) => [
-                    'id' => $contract->id,
-                    'title' => $contract->title,
-                    'version' => $contract->version,
-                    'status' => $contract->status,
-                    'accepted_at' => $contract->accepted_at?->toIso8601String(),
-                    'url' => route('client.contracts.show', $contract),
-                ])->values(),
-                'offers' => $project->priceOffers->map(fn ($offer) => [
-                    'id' => $offer->id,
-                    'number' => $offer->number,
-                    'version' => $offer->version,
-                    'status' => $offer->status,
-                    'total' => $offer->total,
-                    'currency' => $offer->currency,
-                    'url' => route('client.offers.show', $offer),
-                ])->values(),
-                'files' => $project->files->map(fn ($file) => [
-                    'id' => $file->id,
-                    'display_name' => $file->display_name,
-                    'size' => $file->size,
-                    'url' => route('client.files.download', $file),
-                ])->values(),
-                'document_structure' => $visibleStructure,
-                'documents' => $documentPayload,
-                'todo_signatures' => $todoSignatures,
-                'services' => $project->serviceAccounts->map(fn ($account) => [
-                    'id' => $account->id,
-                    'name' => $account->service_name,
-                    'account_owner' => $account->account_owner,
-                    'billing_owner' => $account->billing_owner,
-                    'renewal_responsibility' => $account->renewal_responsibility,
-                    'login_url' => $account->login_url,
-                    'access_instructions' => $account->credential?->access_instructions,
-                ])->values(),
-                'tickets' => $project->tickets->map(fn ($ticket) => [
-                    'id' => $ticket->id,
-                    'title' => $ticket->title,
-                    'description' => $ticket->description,
-                    'priority' => $ticket->priority,
-                    'status' => $ticket->status,
-                ])->values(),
-            ],
-        ]);
-    }
+        $visibleStructure = $this->visibleStructure(
+            $project,
+            $contact,
+            $signedFolderIds
+        );
 
-    public function contract(Request $request, ClientContact $contact, ContractInstance $contract): array
-    {
-        return $this->page($request, 'contract', $contract->title, $contact, [
-            'contract' => [
-                'id' => $contract->id,
-                'title' => $contract->title,
-                'version' => $contract->version,
-                'status' => $contract->status,
-                'rendered_content' => $contract->rendered_content,
-                'accepted_at' => $contract->accepted_at?->toIso8601String(),
-                'download_url' => route('client.contracts.download', $contract),
-                'accept_url' => route('client.contracts.accept', $contract),
-                'request_identifier' => (string) Str::uuid(),
+        return $this->page(
+            $request,
+            'project',
+            $project->name,
+            $contact,
+            [
                 'project' => [
-                    'name' => $contract->project->name,
-                    'url' => route('client.projects.show', $contract->project),
-                    'company_name' => $contract->project->company->name,
+                    'id' => $project->id,
+                    'name' => $project->name,
+
+                    /*
+                     * Service Product
+                     */
+                    'service_product' => $project->serviceProduct
+                        ? [
+                            'id' => $project->serviceProduct->id,
+                            'name' => $project->serviceProduct->name,
+                            'description' =>
+                                $project->serviceProduct->description,
+
+                            'services' => $project
+                                ->serviceProduct
+                                ->services
+                                ->map(fn ($service) => [
+                                    'id' => $service->id,
+                                    'name' => $service->name,
+                                    'description' =>
+                                        $service->description,
+                                ])
+                                ->values(),
+                        ]
+                        : null,
+
+                    'status' => $project->portal_status,
+
+                    /*
+                     * Tickets
+                     */
+                    'ticket_url' => route(
+                        'client.tickets.store',
+                        $project
+                    ),
+
+                    /*
+                     * Signatures
+                     */
+                    'pending_signatures_count' =>
+                        $todoSignatures->count(),
+
+                    /*
+                     * Project Files
+                     */
+                    'files' => $project->files
+                        ->map(fn (ProjectFile $file) => [
+                            'id' => $file->id,
+                            'display_name' => $file->display_name,
+                            'size' => $file->size,
+
+                            'url' => route(
+                                'client.files.download',
+                                $file
+                            ),
+                        ])
+                        ->values(),
+
+                    /*
+                     * Project Documents
+                     */
+                    'document_structure' =>
+                        $visibleStructure,
+
+                    'documents' =>
+                        $documentPayload,
+
+                    'todo_signatures' =>
+                        $todoSignatures,
+
+                    /*
+                     * Project Tickets
+                     */
+                    'tickets' => $project->tickets
+                        ->map(fn ($ticket) => [
+                            'id' => $ticket->id,
+                            'title' => $ticket->title,
+                            'description' => $ticket->description,
+                            'priority' => $ticket->priority,
+                            'status' => $ticket->status,
+                        ])
+                        ->values(),
                 ],
-                'acceptance' => $contract->acceptance ? [
-                    'signer_name' => $contract->acceptance->signer_name,
-                ] : null,
-            ],
-        ]);
+            ]
+        );
     }
 
-    public function offer(Request $request, ClientContact $contact, PriceOffer $offer): array
-    {
-        return $this->page($request, 'offer', 'Offer '.$offer->number, $contact, [
-            'offer' => [
-                'id' => $offer->id,
-                'number' => $offer->number,
-                'version' => $offer->version,
-                'status' => $offer->status,
-                'total' => $offer->total,
-                'currency' => $offer->currency,
-                'accepted_at' => $offer->accepted_at?->toIso8601String(),
-                'download_url' => ($offer->pdf_path || $offer->final_pdf_path)
-                    ? route('client.offers.download', $offer)
-                    : null,
-                'accept_url' => route('client.offers.accept', $offer),
-                'request_identifier' => (string) Str::uuid(),
-                'project' => [
-                    'name' => $offer->project->name,
-                    'url' => route('client.projects.show', $offer->project),
-                    'company_name' => $offer->project->company->name,
-                ],
-                'items' => $offer->items->map(fn ($item) => [
-                    'id' => $item->id,
-                    'name' => $item->name,
-                    'description' => $item->description,
-                    'quantity' => $item->quantity,
-                    'unit' => $item->unit,
-                    'total' => $item->total,
-                ])->values(),
-                'acceptance' => $offer->acceptance ? [
-                    'signer_name' => $offer->acceptance->signer_name,
-                ] : null,
-            ],
-        ]);
-    }
-
-    private function page(Request $request, string $page, string $title, ClientContact $contact, array $data): array
-    {
+    private function page(
+        Request $request,
+        string $page,
+        string $title,
+        ClientContact $contact,
+        array $data
+    ): array {
         return [
             'page' => $page,
             'title' => $title,
-            'status' => $request->session()->get('status'),
-            'error' => $request->session()->get('errors')?->first(),
+
+            'status' => $request
+                ->session()
+                ->get('status'),
+
+            'error' => $request
+                ->session()
+                ->get('errors')
+                ?->first(),
+
             'contact' => [
                 'first_name' => $contact->first_name,
                 'last_name' => $contact->last_name,
                 'company_name' => $contact->company->name,
-                'can_accept_documents' => $contact->can_accept_documents,
+
+                'can_accept_documents' =>
+                    (bool) $contact->can_accept_documents,
             ],
+
             'urls' => [
-                'dashboard' => route('client.dashboard'),
-                'logout' => route('client.logout'),
+                'dashboard' => route(
+                    'client.dashboard'
+                ),
+
+                'logout' => route(
+                    'client.logout'
+                ),
             ],
+
             ...$data,
         ];
     }
 
-    private function visibleStructure(Project $project, ClientContact $contact, Collection $signedFolderIds): Collection
-    {
+    private function visibleStructure(
+        Project $project,
+        ClientContact $contact,
+        Collection $signedFolderIds
+    ): Collection {
         $folders = $project->relationLoaded('folders')
             ? $project->folders
             : $project->folders()->get();
@@ -216,12 +281,24 @@ class ClientPortalViewData
             : $project->files()->get();
 
         $visibleFolders = $folders
-            ->filter(fn (ProjectFolder $folder) => $folder->isEffectivelyClientVisible())
-            ->keyBy(fn (ProjectFolder $folder) => (int) $folder->id);
+            ->filter(
+                fn (ProjectFolder $folder) =>
+                    $folder->isEffectivelyClientVisible()
+            )
+            ->keyBy(
+                fn (ProjectFolder $folder) =>
+                    (int) $folder->id
+            );
 
+        /*
+         * Normal folders
+         */
         $folderItems = $visibleFolders
             ->values()
-            ->filter(fn (ProjectFolder $folder) => $folder->type === 'folder')
+            ->filter(
+                fn (ProjectFolder $folder) =>
+                    $folder->type === 'folder'
+            )
             ->map(fn (ProjectFolder $folder) => [
                 'id' => $folder->id,
                 'parent_id' => $folder->parent_id,
@@ -230,52 +307,106 @@ class ClientPortalViewData
                 'resource_type' => 'folder',
             ]);
 
+        /*
+         * Documents
+         */
         $documentItems = $visibleFolders
             ->values()
-            ->filter(fn (ProjectFolder $folder) => $folder->type === 'file')
-            ->filter(fn (ProjectFolder $folder) => $folder->resource_type === 'document')
-            ->map(function (ProjectFolder $folder) use ($project, $contact, $signedFolderIds) {
-                $signed = $signedFolderIds->contains((int) $folder->id);
+            ->filter(
+                fn (ProjectFolder $folder) =>
+                    $folder->type === 'file'
+            )
+            ->filter(
+                fn (ProjectFolder $folder) =>
+                    $folder->resource_type === 'document'
+            )
+            ->map(
+                function (ProjectFolder $folder) use (
+                    $project,
+                    $contact,
+                    $signedFolderIds
+                ) {
+                    $signed = $signedFolderIds->contains(
+                        (int) $folder->id
+                    );
 
-                return [
-                    'id' => $folder->id,
-                    'parent_id' => $folder->parent_id,
-                    'type' => 'file',
-                    'name' => $folder->name,
-                    'resource_type' => 'document',
-                    'content' => $folder->content,
-                    'requires_client_signature' => (bool) $folder->requires_client_signature,
-                    'requires_signature' => (bool) $folder->requires_client_signature,
-                    'signed' => $signed,
-                    'can_sign' =>
-                        (bool) $contact->can_accept_documents &&
-                        (bool) $folder->requires_client_signature &&
-                        ! $signed,
-                    'sign_url' => route('client.projects.documents.sign', [$project, $folder]),
-                    'open_url' => $this->projectDocumentOpenUrl($project, $folder),
-                    'requirement_level' => $folder->requirement_level,
-                ];
-            });
+                    return [
+                        'id' => $folder->id,
+                        'parent_id' => $folder->parent_id,
+                        'type' => 'file',
+                        'name' => $folder->name,
+                        'resource_type' => 'document',
+                        'content' => $folder->content,
 
-        $binaryFiles = $files
-            ->filter(fn (ProjectFile $file) => $file->isEffectivelyClientVisible())
-            ->filter(function (ProjectFile $file) use ($visibleFolders) {
-                if (! $file->project_folder_id) {
-                    return true;
+                        'requires_client_signature' =>
+                            (bool) $folder->requires_client_signature,
+
+                        'requires_signature' =>
+                            (bool) $folder->requires_client_signature,
+
+                        'signed' => $signed,
+
+                        'can_sign' =>
+                            (bool) $contact->can_accept_documents &&
+                            (bool) $folder->requires_client_signature &&
+                            ! $signed,
+
+                        'sign_url' => route(
+                            'client.projects.documents.sign',
+                            [$project, $folder]
+                        ),
+
+                        'open_url' =>
+                            $this->projectDocumentOpenUrl(
+                                $project,
+                                $folder
+                            ),
+
+                        'requirement_level' =>
+                            $folder->requirement_level,
+                    ];
                 }
+            );
 
-                return $visibleFolders->has((int) $file->project_folder_id);
-            })
+        /*
+         * Uploaded files
+         */
+        $binaryFiles = $files
+            ->filter(
+                fn (ProjectFile $file) =>
+                    $file->isEffectivelyClientVisible()
+            )
+            ->filter(
+                function (ProjectFile $file) use (
+                    $visibleFolders
+                ) {
+                    if (! $file->project_folder_id) {
+                        return true;
+                    }
+
+                    return $visibleFolders->has(
+                        (int) $file->project_folder_id
+                    );
+                }
+            )
             ->map(fn (ProjectFile $file) => [
-                'id' => 'project-file-'.$file->id,
+                'id' => 'project-file-' . $file->id,
                 'parent_id' => $file->project_folder_id,
                 'type' => 'file',
                 'name' => $file->display_name,
                 'resource_type' => 'file',
                 'size' => $file->size,
                 'mime_type' => $file->mime_type,
-                'open_url' => route('client.files.open', $file),
-                'download_url' => route('client.files.download', $file),
+
+                'open_url' => route(
+                    'client.files.open',
+                    $file
+                ),
+
+                'download_url' => route(
+                    'client.files.download',
+                    $file
+                ),
             ]);
 
         return $folderItems
@@ -284,10 +415,15 @@ class ClientPortalViewData
             ->values();
     }
 
-    private function projectDocumentOpenUrl(Project $project, ProjectFolder $document): string
-    {
-        return route('client.projects.show', $project)
-            .'?document='.$document->id
-            .'#client-project-documents';
+    private function projectDocumentOpenUrl(
+        Project $project,
+        ProjectFolder $document
+    ): string {
+        return route(
+            'client.projects.show',
+            $project
+        )
+            . '?document=' . $document->id
+            . '#client-project-documents';
     }
 }

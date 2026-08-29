@@ -10,19 +10,25 @@ use Illuminate\View\View;
 
 class ProjectController extends Controller
 {
-    public function show(Request $request, Project $project, ClientPortalViewData $viewData): View
-    {
+    public function show(
+        Request $request,
+        Project $project,
+        ClientPortalViewData $viewData
+    ): View {
+        $contact = $request->user('client');
+
         $this->authorize('view', $project);
+
         $project->load([
-            'company', 'serviceProduct',
-            'contracts' => fn ($query) => $query->whereIn('status', ['sent', 'viewed', 'accepted', 'superseded'])->latest(),
-            'priceOffers' => fn ($query) => $query->whereIn('status', ['sent', 'viewed', 'accepted'])->latest(),
+            'company',
+
             /*
-             * Only preload root-level client files.
-             *
-             * Nested project files are loaded lazily by the client
-             * ProjectPage through /client/projects/{project}/files.
-             * This keeps the initial HTML/Inertia payload small.
+             * Service Product
+             */
+            'serviceProduct.services',
+
+            /*
+             * Root-level client files
              */
             'files' => fn ($query) => $query
                 ->select([
@@ -39,22 +45,34 @@ class ProjectController extends Controller
                     'created_at',
                     'updated_at',
                 ])
-                ->where(
-                    'visibility',
-                    'client'
-                )
-                ->whereNull(
-                    'project_folder_id'
-                )
+                ->where('visibility', 'client')
+                ->whereNull('project_folder_id')
                 ->latest(),
-            'folders' => fn ($query) => $query->orderBy('sort_order'),
-            'guides' => fn ($query) => $query->where('client_visible', true)->orderBy('sort_order'),
-            'serviceAccounts' => fn ($query) => $query->where('client_visible', true)->with('credential')->orderBy('service_name'),
-            'tickets' => fn ($query) => $query->where('created_by_client_contact_id', auth('client')->id())->latest(),
+
+            /*
+             * Project folders / documents
+             */
+            'folders' => fn ($query) =>
+                $query->orderBy('sort_order'),
+
+            /*
+             * Client's own tickets
+             */
+            'tickets' => fn ($query) =>
+                $query
+                    ->where(
+                        'created_by_client_contact_id',
+                        $contact->id
+                    )
+                    ->latest(),
         ]);
 
         return view('apps.client', [
-            'clientPage' => $viewData->project($request, $request->user(), $project),
+            'clientPage' => $viewData->project(
+                $request,
+                $contact,
+                $project
+            ),
         ]);
     }
 }

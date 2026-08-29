@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted } from 'vue'
-import Button from '@shared/components/Button.vue'
-import Info from '@shared/components/Info.vue'
+import Button from '../../shared/components/Button.vue'
+import Info from '../../shared/components/Info.vue'
 
 import { useI18n } from 'vue-i18n'
 const { t, tm } = useI18n()

@@ -17,7 +17,7 @@ import {
     useSeoMeta,
 } from '../composables/useSeoMeta'
 
-import Button from '@shared/components/Button.vue'
+import Button from '../../shared/components/Button.vue'
 
 const route = useRoute()
 
