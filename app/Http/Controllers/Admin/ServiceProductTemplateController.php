@@ -5,11 +5,13 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\ServiceProduct;
 use App\Models\ServiceProductTemplateFolder;
+use Illuminate\Filesystem\FilesystemAdapter;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
+use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class ServiceProductTemplateController extends Controller
@@ -712,7 +714,7 @@ class ServiceProductTemplateController extends Controller
     public function open(
         ServiceProduct $serviceProduct,
         ServiceProductTemplateFolder $folder
-    ): StreamedResponse {
+    ): Response {
         $this->assertOwnership(
             $serviceProduct,
             $folder
@@ -738,10 +740,10 @@ class ServiceProductTemplateController extends Controller
             404
         );
 
-        $disk =
-            Storage::disk(
-                $folder->disk ?: 'local'
-            );
+        /** @var FilesystemAdapter $disk */
+        $disk = Storage::disk(
+            $folder->disk ?: 'local'
+        );
 
         abort_unless(
             $disk->exists(
@@ -791,10 +793,10 @@ class ServiceProductTemplateController extends Controller
             404
         );
 
-        $disk =
-            Storage::disk(
-                $folder->disk ?: 'local'
-            );
+        /** @var FilesystemAdapter $disk */
+        $disk = Storage::disk(
+            $folder->disk ?: 'local'
+        );
 
         abort_unless(
             $disk->exists(
