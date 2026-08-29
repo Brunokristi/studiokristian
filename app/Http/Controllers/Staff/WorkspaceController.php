@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Http\Controllers\Admin;
+namespace App\Http\Controllers\Staff;
 
 use App\Http\Controllers\Controller;
 use App\Models\Project;
@@ -14,11 +14,17 @@ use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 class WorkspaceController extends Controller
 {
-    public function index(Request $request): View
+    /**
+     * Show the Staff Workspace application.
+     */
+    public function index(): View
     {
         return view('apps.staff');
     }
 
+    /**
+     * Return projects available to the authenticated staff member.
+     */
     public function projects(Request $request): JsonResponse
     {
         $projects = $request->user()
@@ -39,7 +45,9 @@ class WorkspaceController extends Controller
                     'name' => $project->name,
                     'project_code' => $project->project_code,
                     'status' => $project->portal_status,
+
                     'tickets' => $project->tickets,
+
                     'files' => $project->files->map(
                         fn (ProjectFile $file) => [
                             'id' => $file->id,
@@ -48,7 +56,8 @@ class WorkspaceController extends Controller
                             'mime_type' => $file->mime_type,
                             'size' => $file->size,
                             'visibility' => $file->visibility,
-                            'created_at' => $file->created_at?->toIso8601String(),
+                            'created_at' =>
+                                $file->created_at?->toIso8601String(),
                         ]
                     ),
                 ]
@@ -56,11 +65,17 @@ class WorkspaceController extends Controller
         );
     }
 
+    /**
+     * Create a ticket for a project.
+     */
     public function storeTicket(
         Project $project,
         Request $request
     ): JsonResponse {
-        $this->authorizeProject($project, $request);
+        $this->authorizeProject(
+            $project,
+            $request
+        );
 
         $data = $request->validate([
             'title' => [
@@ -79,21 +94,30 @@ class WorkspaceController extends Controller
             ],
         ]);
 
-        $ticket = $project->tickets()->create(
-            $data + [
-                'created_by_user_id' => $request->user()->id,
-            ]
-        );
+        $ticket = $project->tickets()->create([
+            ...$data,
+            'created_by_user_id' =>
+                $request->user()->id,
+        ]);
 
-        return response()->json($ticket, 201);
+        return response()->json(
+            $ticket,
+            201
+        );
     }
 
+    /**
+     * Update the status of a project ticket.
+     */
     public function updateTicket(
         Project $project,
         ProjectTicket $ticket,
         Request $request
     ): JsonResponse {
-        $this->authorizeProject($project, $request);
+        $this->authorizeProject(
+            $project,
+            $request
+        );
 
         abort_unless(
             $ticket->project_id === $project->id,
@@ -108,10 +132,11 @@ class WorkspaceController extends Controller
         ]);
 
         $ticket->update([
-            ...$data,
-            'finished_at' => $data['status'] === 'finished'
-                ? now()
-                : null,
+            'status' => $data['status'],
+            'finished_at' =>
+                $data['status'] === 'finished'
+                    ? now()
+                    : null,
         ]);
 
         return response()->json(
@@ -123,12 +148,18 @@ class WorkspaceController extends Controller
         );
     }
 
+    /**
+     * Open or download a project file.
+     */
     public function file(
         Project $project,
         ProjectFile $file,
         Request $request
     ): BinaryFileResponse {
-        $this->authorizeProject($project, $request);
+        $this->authorizeProject(
+            $project,
+            $request
+        );
 
         abort_unless(
             $file->project_id === $project->id,
@@ -142,10 +173,15 @@ class WorkspaceController extends Controller
             404
         );
 
-        $path = $disk->path($file->storage_path);
+        $path = $disk->path(
+            $file->storage_path
+        );
 
         $previewable =
-            str_starts_with($file->mime_type, 'image/')
+            str_starts_with(
+                $file->mime_type,
+                'image/'
+            )
             || in_array(
                 $file->mime_type,
                 [
@@ -159,11 +195,18 @@ class WorkspaceController extends Controller
             return response()->file(
                 $path,
                 [
-                    'Content-Type' => $file->mime_type,
-                    'Content-Disposition' => 'inline; filename="' .
-                        addslashes($file->original_filename) .
+                    'Content-Type' =>
+                        $file->mime_type,
+
+                    'Content-Disposition' =>
+                        'inline; filename="' .
+                        addslashes(
+                            $file->original_filename
+                        ) .
                         '"',
-                    'X-Content-Type-Options' => 'nosniff',
+
+                    'X-Content-Type-Options' =>
+                        'nosniff',
                 ]
             );
         }
@@ -174,6 +217,9 @@ class WorkspaceController extends Controller
         );
     }
 
+    /**
+     * Ensure the authenticated staff member belongs to the project.
+     */
     private function authorizeProject(
         Project $project,
         Request $request
@@ -181,7 +227,9 @@ class WorkspaceController extends Controller
         abort_unless(
             $project
                 ->coworkers()
-                ->whereKey($request->user()->id)
+                ->whereKey(
+                    $request->user()->id
+                )
                 ->exists(),
             403
         );

@@ -3,7 +3,7 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
-use App\Http\Resources\Admin\ClientPortal\ServiceResource;
+use App\Http\Resources\Admin\ServiceResource;
 use App\Models\Service;
 use App\Models\ServiceProduct;
 use Illuminate\Http\Request;

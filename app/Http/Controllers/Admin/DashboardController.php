@@ -3,8 +3,8 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
-use App\Http\Resources\Admin\ClientPortal\CompanyResource;
-use App\Http\Resources\Admin\ClientPortal\ProjectResource;
+use App\Http\Resources\Admin\CompanyResource;
+use App\Http\Resources\Admin\ProjectResource;
 use App\Models\ClientContact;
 use App\Models\Company;
 use App\Models\Project;

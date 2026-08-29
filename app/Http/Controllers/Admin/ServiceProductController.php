@@ -3,11 +3,12 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
-use App\Http\Requests\Admin\ClientPortal\StoreServiceProductRequest;
-use App\Http\Resources\Admin\ClientPortal\ServiceProductResource;
+use App\Http\Requests\Admin\StoreServiceProductRequest;
+use App\Http\Resources\Admin\ServiceProductResource;
 use App\Models\ServiceProduct;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
+use Illuminate\Http\Response;
 use Illuminate\Support\Str;
 
 class ServiceProductController extends Controller
@@ -124,13 +125,17 @@ class ServiceProductController extends Controller
         $serviceProduct =
             ServiceProduct::query()->create($data);
 
-        return $this->resource($serviceProduct);
+        return $this->resource(
+            $serviceProduct
+        );
     }
 
     public function show(
         ServiceProduct $serviceProduct
     ): ServiceProductResource {
-        return $this->resource($serviceProduct);
+        return $this->resource(
+            $serviceProduct
+        );
     }
 
     public function update(
@@ -147,12 +152,16 @@ class ServiceProductController extends Controller
                 );
 
         $existingNameTranslations =
-            is_array($serviceProduct->name_translations)
+            is_array(
+                $serviceProduct->name_translations
+            )
                 ? $serviceProduct->name_translations
                 : [];
 
         $existingDescriptionTranslations =
-            is_array($serviceProduct->description_translations)
+            is_array(
+                $serviceProduct->description_translations
+            )
                 ? $serviceProduct->description_translations
                 : [];
 
@@ -169,7 +178,9 @@ class ServiceProductController extends Controller
                 $existingNameTranslations['sk'] =
                     trim($data['name_sk']);
             } else {
-                unset($existingNameTranslations['sk']);
+                unset(
+                    $existingNameTranslations['sk']
+                );
             }
         }
 
@@ -186,7 +197,9 @@ class ServiceProductController extends Controller
                 $existingDescriptionTranslations['sk'] =
                     trim($data['description_sk']);
             } else {
-                unset($existingDescriptionTranslations['sk']);
+                unset(
+                    $existingDescriptionTranslations['sk']
+                );
             }
         }
 
@@ -226,7 +239,7 @@ class ServiceProductController extends Controller
 
     public function destroy(
         ServiceProduct $serviceProduct
-    ): \Illuminate\Http\Response {
+    ): Response {
         $serviceProduct->delete();
 
         return response()->noContent();
@@ -258,14 +271,16 @@ class ServiceProductController extends Controller
             is_string($en) &&
             trim($en) !== ''
         ) {
-            $translations['en'] = trim($en);
+            $translations['en'] =
+                trim($en);
         }
 
         if (
             is_string($sk) &&
             trim($sk) !== ''
         ) {
-            $translations['sk'] = trim($sk);
+            $translations['sk'] =
+                trim($sk);
         }
 
         return $translations === []

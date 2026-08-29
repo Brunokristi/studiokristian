@@ -20,7 +20,6 @@ class Project extends Model
     protected $fillable = [
         'company_id',
         'service_product_id',
-        'service_blueprint_version_id',
         'portal_status',
         'is_published',
         'project_code',
@@ -31,8 +30,6 @@ class Project extends Model
         'summary',
         'summary_translations',
         'internal_notes',
-        'configuration',
-        'contract_values',
         'started_at',
         'completed_at',
         'hex_color',
@@ -46,8 +43,6 @@ class Project extends Model
         'archived_at' => 'datetime',
         'started_at' => 'date',
         'completed_at' => 'date',
-        'configuration' => 'array',
-        'contract_values' => 'array',
         'is_published' => 'boolean',
     ];
 
@@ -61,20 +56,32 @@ class Project extends Model
         return $this->belongsTo(ServiceProduct::class);
     }
 
-    public function blueprintVersion(): BelongsTo { return $this->belongsTo(ServiceBlueprintVersion::class, 'service_blueprint_version_id'); }
-    public function deliverables(): HasMany { return $this->hasMany(ProjectDeliverable::class)->orderBy('sort_order'); }
-    public function folders(): HasMany { return $this->hasMany(ProjectFolder::class)->orderBy('sort_order'); }
+    public function folders(): HasMany
+    {
+        return $this->hasMany(
+            ProjectFolder::class
+        )->orderBy('sort_order');
+    }
 
     public function contacts(): BelongsToMany
     {
-        return $this->belongsToMany(ClientContact::class)->withTimestamps();
+        return $this->belongsToMany(
+            ClientContact::class
+        )->withTimestamps();
     }
 
     public function members(): BelongsToMany
     {
-        $relation = $this->belongsToMany(User::class)->withTimestamps();
+        $relation = $this->belongsToMany(
+            User::class
+        )->withTimestamps();
 
-        if (Schema::hasColumn('project_user', 'access_type')) {
+        if (
+            Schema::hasColumn(
+                'project_user',
+                'access_type'
+            )
+        ) {
             $relation->withPivot('access_type');
         }
 
@@ -83,15 +90,27 @@ class Project extends Model
 
     public function coworkers(): BelongsToMany
     {
-        $relation = $this->belongsToMany(User::class)->withTimestamps();
+        $relation = $this->belongsToMany(
+            User::class
+        )->withTimestamps();
 
-        if (Schema::hasColumn('project_user', 'access_type')) {
+        if (
+            Schema::hasColumn(
+                'project_user',
+                'access_type'
+            )
+        ) {
             $relation
                 ->withPivot('access_type')
                 ->where(function ($query) {
                     $query
-                        ->where('project_user.access_type', 'coworker')
-                        ->orWhereNull('project_user.access_type');
+                        ->where(
+                            'project_user.access_type',
+                            'coworker'
+                        )
+                        ->orWhereNull(
+                            'project_user.access_type'
+                        );
                 });
         }
 
@@ -100,12 +119,22 @@ class Project extends Model
 
     public function clients(): BelongsToMany
     {
-        $relation = $this->belongsToMany(User::class)->withTimestamps();
+        $relation = $this->belongsToMany(
+            User::class
+        )->withTimestamps();
 
-        if (Schema::hasColumn('project_user', 'access_type')) {
+        if (
+            Schema::hasColumn(
+                'project_user',
+                'access_type'
+            )
+        ) {
             $relation
                 ->withPivot('access_type')
-                ->wherePivot('access_type', 'client');
+                ->wherePivot(
+                    'access_type',
+                    'client'
+                );
         } else {
             $relation->whereRaw('1 = 0');
         }
@@ -115,46 +144,36 @@ class Project extends Model
 
     public function tickets(): HasMany
     {
-        return $this->hasMany(ProjectTicket::class);
+        return $this->hasMany(
+            ProjectTicket::class
+        );
     }
 
     public function images(): HasMany
     {
-        return $this->hasMany(ProjectImage::class)->orderBy('sort_order');
+        return $this->hasMany(
+            ProjectImage::class
+        )->orderBy('sort_order');
     }
 
     public function features(): HasMany
     {
-        return $this->hasMany(ProjectFeature::class)->orderBy('sort_order');
-    }
-
-    public function contracts(): HasMany
-    {
-        return $this->hasMany(ContractInstance::class);
-    }
-
-    public function priceOffers(): HasMany
-    {
-        return $this->hasMany(PriceOffer::class);
+        return $this->hasMany(
+            ProjectFeature::class
+        )->orderBy('sort_order');
     }
 
     public function files(): HasMany
     {
-        return $this->hasMany(ProjectFile::class);
-    }
-
-    public function guides(): HasMany
-    {
-        return $this->hasMany(Guide::class);
-    }
-
-    public function serviceAccounts(): HasMany
-    {
-        return $this->hasMany(ServiceAccount::class);
+        return $this->hasMany(
+            ProjectFile::class
+        );
     }
 
     public function documentSignatures(): HasMany
     {
-        return $this->hasMany(ProjectFolderSignature::class);
+        return $this->hasMany(
+            ProjectFolderSignature::class
+        );
     }
 }

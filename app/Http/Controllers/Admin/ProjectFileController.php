@@ -3,7 +3,7 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
-use App\Http\Requests\Admin\ClientPortal\UploadProjectFilesRequest;
+use App\Http\Requests\Admin\UploadProjectFilesRequest;
 use App\Models\Project;
 use App\Models\ProjectFile;
 use App\Models\ProjectFolder;

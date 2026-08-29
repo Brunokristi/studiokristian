@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Http\Resources\Admin\ClientPortal;
+namespace App\Http\Resources\Admin;
 
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
@@ -35,7 +35,7 @@ class ProjectResource extends JsonResource
                 'active' => $this->serviceProduct->active,
             ]),
             'contacts_count' => $this->whenCounted('contacts'),
-            'contacts' => ContactResource::collection($this->whenLoaded('contacts')),
+            'contacts' => \App\Http\Resources\Admin\ContactResource::collection($this->whenLoaded('contacts')),
             'coworkers' => $this->whenLoaded('coworkers', fn () => $this->coworkers->map(fn ($user) => ['id' => $user->id, 'name' => $user->name, 'email' => $user->email])),
             'current_user' => $request->user() ? [
                 'id' => $request->user()->id,

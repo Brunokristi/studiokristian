@@ -2,10 +2,11 @@
 
 namespace App\Services;
 
-use App\Models\Company;
 use App\Models\ClientContact;
+use App\Models\Company;
 use App\Models\Project;
 use App\Models\ServiceProduct;
+use App\Models\ServiceProductTemplateFolder;
 use App\Models\User;
 use App\Notifications\ProjectInvitationNotification;
 use Illuminate\Support\Facades\DB;
@@ -14,129 +15,487 @@ use InvalidArgumentException;
 
 class ProjectInstantiationService
 {
-    public function __construct(private readonly ServiceProductReadinessService $readiness, private readonly DynamicFieldValueValidator $fields, private readonly AuditLogger $audit) {}
+    public function __construct(
+        private readonly AuditLogger $audit
+    ) {}
 
-    public function create(array $data, User $actor): Project
-    {
-        $company = Company::query()->findOrFail($data['company_id']);
-        $product = ServiceProduct::query()->with(['blueprint.versions', 'defaultContractTemplate.versions'])->where('active', true)->findOrFail($data['service_product_id']);
-        $setup = $this->readiness->inspect($product);
-        $blueprintVersion = $setup['blueprintVersion'] ?? null;
+    public function create(
+        array $data,
+        User $actor
+    ): Project {
+        $company =
+            Company::query()
+                ->findOrFail(
+                    $data['company_id']
+                );
 
-        $configuration = $blueprintVersion
-            ? $this->fields->validate($blueprintVersion->fields()->get(), $data['configuration'] ?? [])
-            : ($data['configuration'] ?? []);
+        $product =
+            ServiceProduct::query()
+                ->where(
+                    'active',
+                    true
+                )
+                ->findOrFail(
+                    $data['service_product_id']
+                );
 
-        return DB::transaction(function () use ($data, $actor, $company, $product, $blueprintVersion, $configuration) {
-            $url = ($data['url'] ?? null) ?: $this->uniqueSlug($data['name']);
-            $name = (string) ($data['name'] ?? '');
-            $summary = (string) ($data['summary'] ?? '');
-            $project = Project::query()->create([
-                ...collect($data)->only(['name', 'url', 'project_code', 'summary', 'internal_notes', 'portal_status', 'started_at', 'completed_at'])->all(),
-                'url' => $url,
-                // Portfolio uses projects directly, so each created project must be portfolio-ready.
-                'name_translations' => ['en' => $name],
-                'summary_translations' => $summary !== '' ? ['en' => $summary] : null,
-                'is_published' => false,
-                'company_id' => $company->id, 'service_product_id' => $product->id,
-                'service_blueprint_version_id' => $blueprintVersion?->id,
-                'configuration' => $configuration,
-            ]);
+        return DB::transaction(
+            function () use (
+                $data,
+                $actor,
+                $company,
+                $product
+            ) {
+                $url =
+                    ($data['url'] ?? null)
+                    ?: $this->uniqueSlug(
+                        (string) (
+                            $data['name'] ?? ''
+                        )
+                    );
 
-            if ($blueprintVersion) {
-                $map = [];
-                $pending = $blueprintVersion->folders()->get();
-                while ($pending->isNotEmpty()) {
-                    $progress = false;
-                    foreach ($pending as $index => $definition) {
-                        if ($definition->parent_id && ! isset($map[$definition->parent_id])) continue;
-                        $folder = $project->folders()->create([
-                            'parent_id' => $definition->parent_id ? $map[$definition->parent_id] : null,
-                            'source_blueprint_folder_id' => $definition->id,
-                            'type' => $definition->type ?? 'folder',
-                            'name' => $definition->name,
-                            'resource_type' => $definition->resource_type,
-                            'requirement_level' => $definition->requirement_level,
-                            'requires_client_signature' => $definition->requires_client_signature,
-                            'template_name' => $definition->template_name,
-                            'content' => $definition->content,
-                            'url' => $definition->url,
-                            'client_visible' => $definition->client_visible,
-                            'sort_order' => $definition->sort_order,
-                            'created_by' => $actor->id,
+                $name =
+                    (string) (
+                        $data['name'] ?? ''
+                    );
+
+                $summary =
+                    (string) (
+                        $data['summary'] ?? ''
+                    );
+
+                $project =
+                    Project::query()->create([
+                        ...collect($data)
+                            ->only([
+                                'name',
+                                'project_code',
+                                'summary',
+                                'internal_notes',
+                                'portal_status',
+                                'started_at',
+                                'completed_at',
+                                'live_url',
+                                'hex_color',
+                                'logo_path',
+                            ])
+                            ->all(),
+
+                        'url' =>
+                            $url,
+
+                        'name_translations' =>
+                            [
+                                'en' =>
+                                    $name,
+                            ],
+
+                        'summary_translations' =>
+                            $summary !== ''
+                                ? [
+                                    'en' =>
+                                        $summary,
+                                ]
+                                : null,
+
+                        'is_published' =>
+                            false,
+
+                        'company_id' =>
+                            $company->id,
+
+                        'service_product_id' =>
+                            $product->id,
+                    ]);
+
+                $this->copyTemplateStructure(
+                    $product,
+                    $project,
+                    $actor
+                );
+
+                $contactIds =
+                    collect(
+                        $data['contact_ids'] ?? []
+                    )
+                        ->map(
+                            fn ($id) =>
+                                (int) $id
+                        )
+                        ->filter(
+                            fn ($id) =>
+                                $id > 0
+                        )
+                        ->unique()
+                        ->values()
+                        ->all();
+
+                $coworkerIds =
+                    collect(
+                        $data['coworker_ids'] ?? []
+                    )
+                        ->map(
+                            fn ($id) =>
+                                (int) $id
+                        )
+                        ->filter(
+                            fn ($id) =>
+                                $id > 0
+                        )
+                        ->unique()
+                        ->values()
+                        ->all();
+
+                if (
+                    $actor->is_admin
+                ) {
+                    $coworkerIds =
+                        collect(
+                            $coworkerIds
+                        )
+                            ->push(
+                                $actor->id
+                            )
+                            ->unique()
+                            ->values()
+                            ->all();
+                }
+
+                $project->contacts()->sync(
+                    $contactIds
+                );
+
+                if (
+                    User::hasProjectUserAccessTypeColumn()
+                ) {
+                    $project
+                        ->coworkers()
+                        ->sync(
+                            $this->syncCoworkerMap(
+                                $coworkerIds
+                            )
+                        );
+                } else {
+                    $project
+                        ->coworkers()
+                        ->sync(
+                            $coworkerIds
+                        );
+                }
+
+                if (
+                    ! empty($contactIds)
+                ) {
+                    ClientContact::query()
+                        ->whereIn(
+                            'id',
+                            $contactIds
+                        )
+                        ->update([
+                            'active' =>
+                                true,
+
+                            'can_access_portal' =>
+                                true,
+
+                            'access_revoked_at' =>
+                                null,
                         ]);
-                        $map[$definition->id] = $folder->id; $pending->forget($index); $progress = true;
-                    }
-                    if (! $progress) throw new InvalidArgumentException('Blueprint folder tree is invalid.');
-                }
-            }
-
-            $contactIds = collect($data['contact_ids'] ?? [])->map(fn ($id) => (int) $id)->all();
-            $coworkerIds = collect($data['coworker_ids'] ?? [])->map(fn ($id) => (int) $id)->filter(fn ($id) => $id > 0)->unique()->values()->all();
-
-            if ($actor->is_admin) {
-                $coworkerIds = collect($coworkerIds)->push($actor->id)->unique()->values()->all();
-            }
-
-            $project->contacts()->sync($contactIds);
-            if (User::hasProjectUserAccessTypeColumn()) {
-                $project->coworkers()->sync($this->syncCoworkerMap($coworkerIds));
-            } else {
-                $project->coworkers()->sync($coworkerIds);
-            }
-
-            if (! empty($contactIds)) {
-                ClientContact::query()->whereIn('id', $contactIds)->update([
-                    'active' => true,
-                    'can_access_portal' => true,
-                    'access_revoked_at' => null,
-                ]);
-            }
-
-            DB::afterCommit(function () use ($project, $contactIds, $coworkerIds) {
-                if (! empty($contactIds)) {
-                    $contacts = ClientContact::query()->whereIn('id', $contactIds)->get();
-                    foreach ($contacts as $contact) {
-                        $contact->notify(new ProjectInvitationNotification($project, route('client.login')));
-                    }
                 }
 
-                if (! empty($coworkerIds)) {
-                    $coworkers = User::query()
-                        ->whereIn('id', $coworkerIds)
-                        ->where('is_admin', false);
+                DB::afterCommit(
+                    function () use (
+                        $project,
+                        $contactIds,
+                        $coworkerIds
+                    ) {
+                        if (
+                            ! empty(
+                                $contactIds
+                            )
+                        ) {
+                            $contacts =
+                                ClientContact::query()
+                                    ->whereIn(
+                                        'id',
+                                        $contactIds
+                                    )
+                                    ->get();
 
-                    if (User::hasRoleColumn()) {
-                        $coworkers->where('role', 'coworker');
+                            foreach (
+                                $contacts
+                                as $contact
+                            ) {
+                                $contact->notify(
+                                    new ProjectInvitationNotification(
+                                        $project,
+                                        route(
+                                            'client.login'
+                                        )
+                                    )
+                                );
+                            }
+                        }
+
+                        if (
+                            ! empty(
+                                $coworkerIds
+                            )
+                        ) {
+                            $coworkers =
+                                User::query()
+                                    ->whereIn(
+                                        'id',
+                                        $coworkerIds
+                                    )
+                                    ->where(
+                                        'is_admin',
+                                        false
+                                    );
+
+                            if (
+                                User::hasRoleColumn()
+                            ) {
+                                $coworkers->where(
+                                    'role',
+                                    'coworker'
+                                );
+                            }
+
+                            foreach (
+                                $coworkers->get()
+                                as $coworker
+                            ) {
+                                $coworker->notify(
+                                    new ProjectInvitationNotification(
+                                        $project,
+                                        route(
+                                            'login'
+                                        )
+                                    )
+                                );
+                            }
+                        }
                     }
+                );
 
-                    $coworkers = $coworkers->get();
-                    foreach ($coworkers as $coworker) {
-                        $coworker->notify(new ProjectInvitationNotification($project, route('login')));
-                    }
-                }
-            });
+                $this->audit->record(
+                    'project_created_from_service_product',
+                    $actor,
+                    $project,
+                    $company->id,
+                    $project->id
+                );
 
-            $this->audit->record('project_created_from_blueprint', $actor, $project, $company->id, $project->id, [
-                'blueprint_version' => $blueprintVersion?->version,
-            ]);
-            return $project->fresh();
-        });
+                return $project->fresh();
+            }
+        );
     }
 
-    private function uniqueSlug(string $name): string
-    {
-        $base = Str::slug($name) ?: 'project'; $slug = $base; $suffix = 2;
-        while (Project::query()->where('url', $slug)->exists()) $slug = $base.'-'.$suffix++;
+    private function copyTemplateStructure(
+        ServiceProduct $product,
+        Project $project,
+        User $actor
+    ): void {
+        $templates =
+            ServiceProductTemplateFolder::query()
+                ->where(
+                    'service_product_id',
+                    $product->id
+                )
+                ->orderBy(
+                    'sort_order'
+                )
+                ->get();
+
+        $map = [];
+
+        /*
+         * We copy parentless records first and then
+         * recursively copy their descendants.
+         */
+        $roots =
+            $templates
+                ->filter(
+                    fn ($template) =>
+                        $template->parent_id === null
+                )
+                ->sortBy(
+                    'sort_order'
+                );
+
+        foreach (
+            $roots as $template
+        ) {
+            $this->copyTemplateFolder(
+                $template,
+                $templates,
+                $project,
+                $actor,
+                $map
+            );
+        }
+
+        /*
+         * Defensive validation:
+         *
+         * If anything was left disconnected from the tree,
+         * don't silently create an incomplete project.
+         */
+        if (
+            $templates->isNotEmpty() &&
+            count($map) !==
+                $templates->count()
+        ) {
+            throw new InvalidArgumentException(
+                'Service Product template folder tree is invalid.'
+            );
+        }
+    }
+
+    private function copyTemplateFolder(
+        ServiceProductTemplateFolder $template,
+        $templates,
+        Project $project,
+        User $actor,
+        array &$map
+    ): void {
+        $parentId = null;
+
+        if (
+            $template->parent_id !== null
+        ) {
+            $parentId =
+                $map[
+                    $template->parent_id
+                ] ?? null;
+
+            if (
+                $parentId === null
+            ) {
+                throw new InvalidArgumentException(
+                    'Service Product template folder tree is invalid.'
+                );
+            }
+        }
+
+        $folder =
+            $project->folders()->create([
+                'parent_id' =>
+                    $parentId,
+
+                'type' =>
+                    $template->type
+                    ?: 'folder',
+
+                'name' =>
+                    $template->name,
+
+                'resource_type' =>
+                    $template->resource_type,
+
+                'requirement_level' =>
+                    $template->requirement_level,
+
+                'requires_client_signature' =>
+                    $template
+                        ->requires_client_signature,
+
+                'template_name' =>
+                    $template->template_name,
+
+                'content' =>
+                    $template->content,
+
+                'url' =>
+                    $template->url,
+
+                'client_visible' =>
+                    $template->client_visible,
+
+                'sort_order' =>
+                    $template->sort_order,
+
+                'created_by' =>
+                    $actor->id,
+            ]);
+
+        $map[
+            $template->id
+        ] = $folder->id;
+
+        $children =
+            $templates
+                ->filter(
+                    fn (
+                        ServiceProductTemplateFolder $candidate
+                    ) =>
+                        (int) (
+                            $candidate->parent_id
+                            ?? 0
+                        ) ===
+                        (int) $template->id
+                )
+                ->sortBy(
+                    'sort_order'
+                );
+
+        foreach (
+            $children as $child
+        ) {
+            $this->copyTemplateFolder(
+                $child,
+                $templates,
+                $project,
+                $actor,
+                $map
+            );
+        }
+    }
+
+    private function uniqueSlug(
+        string $name
+    ): string {
+        $base =
+            Str::slug($name)
+            ?: 'project';
+
+        $slug =
+            $base;
+
+        $suffix = 2;
+
+        while (
+            Project::query()
+                ->where(
+                    'url',
+                    $slug
+                )
+                ->exists()
+        ) {
+            $slug =
+                $base
+                . '-'
+                . $suffix++;
+        }
+
         return $slug;
     }
 
-    private function syncCoworkerMap(array $userIds): array
-    {
+    private function syncCoworkerMap(
+        array $userIds
+    ): array {
         $map = [];
 
-        foreach ($userIds as $userId) {
-            $map[(int) $userId] = ['access_type' => 'coworker'];
+        foreach (
+            $userIds as $userId
+        ) {
+            $map[
+                (int) $userId
+            ] = [
+                'access_type' =>
+                    'coworker',
+            ];
         }
 
         return $map;

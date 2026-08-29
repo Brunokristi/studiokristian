@@ -5,7 +5,6 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
-use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class ServiceProduct extends Model
 {
@@ -13,37 +12,29 @@ class ServiceProduct extends Model
         'name',
         'slug',
         'description',
-        'name_translations',
-        'description_translations',
         'active',
         'sort_order',
         'default_contract_template_id',
         'recommended_document_type_ids',
+        'name_translations',
+        'description_translations',
     ];
 
     protected function casts(): array
     {
         return [
-            'active' => 'boolean',
-            'recommended_document_type_ids' => 'array',
-            'name_translations' => 'array',
-            'description_translations' => 'array',
+            'active' =>
+                'boolean',
+
+            'recommended_document_type_ids' =>
+                'array',
+
+            'name_translations' =>
+                'array',
+
+            'description_translations' =>
+                'array',
         ];
-    }
-
-    public function contractTemplates(): HasMany
-    {
-        return $this->hasMany(
-            ContractTemplate::class
-        );
-    }
-
-    public function defaultContractTemplate(): BelongsTo
-    {
-        return $this->belongsTo(
-            ContractTemplate::class,
-            'default_contract_template_id'
-        );
     }
 
     public function projects(): HasMany
@@ -53,17 +44,26 @@ class ServiceProduct extends Model
         );
     }
 
-    public function blueprint(): HasOne
-    {
-        return $this->hasOne(
-            ServiceBlueprint::class
-        );
-    }
-
     public function services(): HasMany
     {
         return $this->hasMany(
             Service::class
         )->orderBy('sort_order');
+    }
+
+    public function templateFolders(): HasMany
+    {
+        return $this->hasMany(
+            ServiceProductTemplateFolder::class
+        )
+            ->whereNull('parent_id')
+            ->orderBy('sort_order');
+    }
+
+    public function allTemplateFolders(): HasMany
+    {
+        return $this->hasMany(
+            ServiceProductTemplateFolder::class
+        );
     }
 }

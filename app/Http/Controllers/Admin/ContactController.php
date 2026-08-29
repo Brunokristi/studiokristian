@@ -3,8 +3,8 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
-use App\Http\Requests\Admin\ClientPortal\StoreContactRequest;
-use App\Http\Resources\Admin\ClientPortal\ContactResource;
+use App\Http\Requests\Admin\StoreContactRequest;
+use App\Http\Resources\Admin\ContactResource;
 use App\Models\ClientContact;
 use App\Models\Company;
 use App\Notifications\ClientContactInvitationNotification;

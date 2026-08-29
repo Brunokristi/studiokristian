@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Http\Requests\Admin\ClientPortal;
+namespace App\Http\Requests\Admin;
 
 use App\Models\ClientContact;
 use Illuminate\Validation\Rule;
