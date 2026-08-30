@@ -1835,6 +1835,13 @@ useAdminPageHeader({
             :duration="4000"
         />
 
+        <Teleport to="#admin-page-language-toggle">
+            <LanguageToggle
+                :model-value="language"
+                @update:model-value="changeLanguage"
+            />
+        </Teleport>
+
 
         <main
             class="
@@ -1865,12 +1872,6 @@ useAdminPageHeader({
                     >
                         Preview
                     </h2>
-
-                    <LanguageToggle
-                        :model-value="language"
-                        class="fixed top-11 right-1 z-50"
-                        @update:model-value="changeLanguage"
-                    />
 
                     <div class="border border-accent py-10 space-y-20">
                         <Slideshow

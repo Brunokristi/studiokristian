@@ -298,6 +298,16 @@ watch(
                 "
             >
 
+                <!-- Language -->
+
+                <div
+                    id="admin-page-language-toggle"
+                    class="
+                        flex
+                        items-center
+                    "
+                ></div>
+
                 <!-- Autosave -->
 
                 <div
@@ -359,38 +369,7 @@ watch(
                         toggleMenu
                     "
                 >
-
-                    <span
-                        class="
-                            menu-icon
-                            relative
-                            block
-                            h-4
-                            w-5
-                        "
-                        :class="{
-                            'is-open':
-                                menuOpen
-                        }"
-                        aria-hidden="true"
-                    >
-
-                        <span
-                            class="
-                                menu-line
-                                menu-line-top
-                            "
-                        ></span>
-
-                        <span
-                            class="
-                                menu-line
-                                menu-line-bottom
-                            "
-                        ></span>
-
-                    </span>
-
+                    ...
                 </button>
 
             </div>

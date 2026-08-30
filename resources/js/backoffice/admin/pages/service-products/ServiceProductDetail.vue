@@ -3541,18 +3541,12 @@ useAdminPageHeader({
             "
         >
 
-            <LanguageToggle
-                :model-value="language"
-                class="
-                    fixed
-                    top-11
-                    right-1
-                    z-50
-                "
-                @update:model-value="
-                    changeLanguage
-                "
-            />
+            <Teleport to="#admin-page-language-toggle">
+                <LanguageToggle
+                    :model-value="language"
+                    @update:model-value="changeLanguage"
+                />
+            </Teleport>
 
 
             <Toast
