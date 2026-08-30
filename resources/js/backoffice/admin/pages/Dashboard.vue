@@ -31,7 +31,7 @@ const router =
 const data =
     ref({
         counts: {},
-        recent_projects: [],
+        active_projects: [],
         recent_clients: []
     })
 
@@ -136,12 +136,12 @@ const filteredProjects =
 
         if (!query) {
             return data.value
-                .recent_projects
+                .active_projects
         }
 
 
         return data.value
-            .recent_projects
+            .active_projects
             .filter(
                 project => {
                     const values = [
@@ -377,7 +377,7 @@ useAdminPageHeader({
             v-model:search="
                 projectSearch
             "
-            title="Recent projects"
+            title="Active projects"
             search-placeholder="Search projects"
             :columns="
                 projectColumns

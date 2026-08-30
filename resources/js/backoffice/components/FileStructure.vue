@@ -34,6 +34,11 @@ const props =
             default: null
         },
 
+
+        templateDeleteUrl: {
+            type: String,
+            default: null
+        },
         initialFolderId: {
             type: [String, Number, null],
             default: null
@@ -852,88 +857,6 @@ function downloadFile(
 }
 
 
-function extensionFromName(
-    value
-) {
-    const name =
-        String(
-            value ||
-            ''
-        )
-
-    const parts =
-        name.split('.')
-
-    return parts.length > 1
-        ? String(
-            parts.pop()
-        ).toLowerCase()
-        : ''
-}
-
-
-function normalizeUploadedResourceType(
-    file
-) {
-    const mime =
-        String(
-            file?.type ||
-            ''
-        ).toLowerCase()
-
-    const extension =
-        extensionFromName(
-            file?.name
-        )
-
-    if (
-        mime ===
-        'application/pdf' ||
-        mime.startsWith(
-            'image/'
-        ) ||
-        mime.startsWith(
-            'audio/'
-        ) ||
-        mime.startsWith(
-            'video/'
-        )
-    ) {
-        return 'file'
-    }
-
-    if (
-        [
-            'txt',
-            'md',
-            'json',
-            'xml',
-            'csv',
-            'js',
-            'ts',
-            'vue',
-            'php',
-            'py',
-            'java',
-            'c',
-            'cpp',
-            'h',
-            'sql',
-            'sh',
-            'yaml',
-            'yml',
-            'css',
-            'html',
-            'svg'
-        ].includes(
-            extension
-        )
-    ) {
-        return 'file'
-    }
-
-    return 'file'
-}
 
 
 function humanFileType(
@@ -2207,75 +2130,6 @@ function parentMetadata() {
 }
 
 
-function createUploadedFileItems(
-    filesList
-) {
-    const files =
-        Array.from(
-            filesList || []
-        )
-
-    if (!files.length) {
-        return
-    }
-
-    const {
-        parentId,
-        parentClientKey
-    } = parentMetadata()
-
-    const newItems =
-        files.map(
-            file => {
-                const fileId =
-                    `file_${Date.now()}_${Math.random()
-                        .toString(36)
-                        .slice(2, 8)}`
-
-                return {
-                    id: fileId,
-                    client_key: fileId,
-                    type: 'file',
-                    name: file.name,
-                    resource_type:
-                        normalizeUploadedResourceType(
-                            file
-                        ),
-                    requirement_level:
-                        props.allowMetadataEditing
-                            ? 'recommended'
-                            : null,
-                    requires_client_signature:
-                        props.allowMetadataEditing
-                            ? false
-                            : false,
-                    client_visible: true,
-                    template_name: file.name,
-                    content: '',
-                    url: '',
-                    mime_type: file.type || 'application/octet-stream',
-                    extension: extensionFromName(file.name),
-                    size: Number(file.size || 0),
-                    parent_id: parentId,
-                    parent_client_key: parentClientKey
-                }
-            }
-        )
-
-    update([
-        ...props.modelValue,
-        ...newItems
-    ])
-
-    const last =
-        newItems[
-            newItems.length - 1
-        ]
-
-    selectedItem.value =
-        last?.id ||
-        null
-}
 
 
 function handleUploadChange(
@@ -2595,7 +2449,35 @@ async function confirmDelete() {
         const target =
             deleteTarget.value
 
-        if (target.__uploaded_file) {
+        const ids =
+            new Set([
+                target.id
+            ])
+
+        if (
+            target.type ===
+            'folder'
+        ) {
+            collectDescendants(
+                target.id,
+                ids
+            )
+        }
+
+        /*
+         * Template entries belong to the service product,
+         * so they must use the template API rather than the
+         * Project Files API.
+         */
+        if (
+            props.templateDeleteUrl
+        ) {
+            await api.delete(
+                `${props.templateDeleteUrl}/${target.id}`
+            )
+        } else if (
+            target.__uploaded_file
+        ) {
             const fileId =
                 String(
                     target.id
@@ -2620,18 +2502,6 @@ async function confirmDelete() {
             )
         }
 
-        const ids =
-            new Set([
-                target.id
-            ])
-
-        if (target.type === 'folder') {
-            collectDescendants(
-                target.id,
-                ids
-            )
-        }
-
         update(
             props.modelValue.filter(
                 item =>
@@ -2641,12 +2511,20 @@ async function confirmDelete() {
             )
         )
 
-        if (ids.has(selectedItem.value)) {
+        if (
+            ids.has(
+                selectedItem.value
+            )
+        ) {
             selectedItem.value =
                 null
         }
 
-        if (ids.has(currentFolder.value)) {
+        if (
+            ids.has(
+                currentFolder.value
+            )
+        ) {
             openRoot()
         }
 
@@ -3097,7 +2975,7 @@ watch(
                         :title="
                             allowUploadControl
                                 ? 'Upload'
-                                : 'Upload is disabled in blueprint structure. Use Project Files workspace.'
+                                : 'Upload is disabled in this template structure.'
                         "
                         :disabled="
                             !allowUploadControl

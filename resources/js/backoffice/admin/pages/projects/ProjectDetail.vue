@@ -1,4 +1,5 @@
 <script setup>
+
 import {
     computed,
     nextTick,
@@ -22,20 +23,35 @@ import api, {
 } from '../../composables/useAdminApi'
 
 
-import useAutosavePolicy from '../../composables/useAutosavePolicy'
+import useAutosavePolicy
+    from '../../composables/useAutosavePolicy'
 
 
-import AdminConfirmDialog from '../../../../shared/components/ConfirmDialog.vue'
-import DocumentEditor from '../../../components/DocumentEditor.vue'
-import FileStructure from '../../../components/FileStructure.vue'
-import ProjectTicket from '@shared/components/Ticket.vue'
+import AdminConfirmDialog
+    from '../../../../shared/components/ConfirmDialog.vue'
+
+import DocumentEditor
+    from '../../../components/DocumentEditor.vue'
+
+import FileStructure
+    from '../../../components/FileStructure.vue'
+
+import ProjectTicket
+    from '@shared/components/Ticket.vue'
 
 
+import Button
+    from '@shared/components/Button.vue'
 
-import Button from '@shared/components/Button.vue'
-import FormField from '@shared/components/FormField.vue'
-import Toast from '@shared/components/Toast.vue'
-import { useAdminPageHeader } from '../../composables/useAdminPageHeader'
+import FormField
+    from '@shared/components/FormField.vue'
+
+import Toast
+    from '@shared/components/Toast.vue'
+
+import {
+    useAdminPageHeader
+} from '../../composables/useAdminPageHeader'
 
 
 const props =
@@ -105,6 +121,53 @@ const tickets =
     ref([])
 
 
+const ticketTags =
+    ref([])
+
+
+const ticketTagSearch =
+    ref('')
+
+
+const ticketTagCreating =
+    ref(false)
+
+
+const ticketFilters =
+    reactive({
+        assignee: '',
+        priority: '',
+        deadline: 'nearest'
+    })
+
+
+const ticketPagination =
+    reactive({
+        new: {
+            page: 0,
+            last_page: 1,
+            total: 0
+        },
+        in_progress: {
+            page: 0,
+            last_page: 1,
+            total: 0
+        },
+        finished: {
+            page: 0,
+            last_page: 1,
+            total: 0
+        }
+    })
+
+
+const ticketLoading =
+    reactive({
+        new: false,
+        in_progress: false,
+        finished: false
+    })
+
 
 const contactOptions =
     ref([])
@@ -126,17 +189,26 @@ const currentUser =
 
 
 function currentAdminShellUser() {
+
     try {
+
         const raw =
             document.querySelector(
                 '#client-portal-admin-user'
             )?.textContent ||
             '{}'
 
-        return JSON.parse(raw)
+
+        return JSON.parse(
+            raw
+        )
+
     } catch {
+
         return {}
+
     }
+
 }
 
 
@@ -156,7 +228,9 @@ const ticketForm =
         title: '',
         description: '',
         priority: 'normal',
-        assignees: []
+        deadline: '',
+        assignees: [],
+        tag_ids: []
     })
 
 
@@ -223,6 +297,7 @@ const projectFilesFolderKey =
 
 const projectFilesInitialFolderId =
     computed(() => {
+
         if (
             projectFilesFolderKey.value ===
             null ||
@@ -233,7 +308,9 @@ const projectFilesInitialFolderId =
             ).trim() ===
             ''
         ) {
+
             return null
+
         }
 
 
@@ -267,6 +344,7 @@ const projectFilesInitialFolderId =
 
         return folder?.id ??
             null
+
     })
 
 
@@ -331,47 +409,58 @@ const dragOverStatus =
 function startTicketDrag(
     ticket
 ) {
+
     dragOverStatus.value =
         ''
 
 
     draggedTicket.value =
         ticket
+
 }
 
 
 function endTicketDrag() {
+
     dragOverStatus.value =
         ''
 
 
     draggedTicket.value =
         null
+
 }
 
 
 function handleTicketDragEnter(
     status
 ) {
+
     if (
         !draggedTicket.value
     ) {
+
         return
+
     }
 
 
     dragOverStatus.value =
         status
+
 }
 
 
 function handleTicketDrop(
     status
 ) {
+
     if (
         !draggedTicket.value
     ) {
+
         return
+
     }
 
 
@@ -391,14 +480,17 @@ function handleTicketDrop(
         ticket.status ===
         status
     ) {
+
         return
+
     }
 
 
-    moveTicket(
+    void moveTicket(
         ticket,
         status
     )
+
 }
 
 
@@ -410,6 +502,7 @@ function handleTicketDrop(
 
 const ticketAssignees =
     computed(() => {
+
         const options =
             []
 
@@ -420,6 +513,7 @@ const ticketAssignees =
         function pushUser(
             user
         ) {
+
             const id =
                 Number(
                     user?.id ||
@@ -431,7 +525,9 @@ const ticketAssignees =
                 !id ||
                 seen.has(id)
             ) {
+
                 return
+
             }
 
 
@@ -454,20 +550,23 @@ const ticketAssignees =
                         user?.is_admin
                     )
             })
+
         }
 
 
-        const currentUser =
+        const currentProjectUser =
             project.value?.current_user ||
             null
 
 
         if (
-            currentUser?.is_admin
+            currentProjectUser?.is_admin
         ) {
+
             pushUser(
-                currentUser
+                currentProjectUser
             )
+
         }
 
 
@@ -476,30 +575,37 @@ const ticketAssignees =
             of project.value?.coworkers ||
             []
         ) {
+
             pushUser(
                 user
             )
+
         }
 
 
         return options
+
     })
 
 
 const ticketAssigneeOptions =
     computed(() => [
+
         ...ticketAssignees.value.map(
             user => ({
+
                 label:
                     `${user.name}${user.is_admin ? ' (admin)' : ''}`,
 
                 value:
                     `user:${user.id}`
+
             })
         ),
 
         ...contactOptions.value.map(
             contact => ({
+
                 label:
                     `${contact.first_name || ''} ${contact.last_name || ''}`.trim() ||
                     contact.email ||
@@ -507,9 +613,518 @@ const ticketAssigneeOptions =
 
                 value:
                     `contact:${contact.id}`
+
             })
         )
+
     ])
+
+
+const ticketFilterAssigneeOptions =
+    computed(() => [
+
+        {
+            label:
+                'All assignees',
+
+            value:
+                ''
+        },
+
+        ...ticketAssigneeOptions.value
+
+    ])
+
+/*
+|--------------------------------------------------------------------------
+| Ticket tags — same behaviour as Services
+|--------------------------------------------------------------------------
+*/
+
+const ticketTagOptions =
+    computed(() => {
+
+        const query =
+            String(
+                ticketTagSearch.value ||
+                ''
+            ).trim()
+
+
+        const existing =
+            ticketTags.value
+                .filter(
+                    tag => {
+
+                        if (
+                            !query
+                        ) {
+
+                            return true
+
+                        }
+
+
+                        return String(
+                            tag?.name ||
+                            ''
+                        )
+                            .toLowerCase()
+                            .includes(
+                                query.toLowerCase()
+                            )
+
+                    }
+                )
+                .map(
+                    tag => ({
+
+                        label:
+                            tag.name,
+
+                        value:
+                            tag.id,
+
+                        existing:
+                            true
+
+                    })
+                )
+
+
+        if (
+            !query
+        ) {
+
+            return existing
+
+        }
+
+
+        const exactMatch =
+            ticketTags.value.some(
+                tag =>
+                    String(
+                        tag?.name ||
+                        ''
+                    )
+                        .trim()
+                        .toLowerCase() ===
+                    query.toLowerCase()
+            )
+
+
+        if (
+            exactMatch
+        ) {
+
+            return existing
+
+        }
+
+
+        return [
+
+            ...existing,
+
+            {
+
+                label:
+                    `Create "${query}"`,
+
+                value:
+                    '__create__',
+
+                create:
+                    true,
+
+                name:
+                    query
+
+            }
+
+        ]
+
+    })
+
+
+function searchTicketTags(
+    query
+) {
+
+    ticketTagSearch.value =
+        String(
+            query ||
+            ''
+        )
+
+}
+
+
+async function createTicketTag({
+    name,
+    done
+}) {
+
+    try {
+
+        const response =
+            await api.post(
+                `/projects/${projectId.value}/ticket-tags`,
+                {
+                    name
+                }
+            )
+
+        const created =
+            response.data?.data ||
+            response.data?.tag ||
+            response.data
+
+        if (
+            !created?.id
+        ) {
+
+            throw new Error(
+                'The server did not return the created tag.'
+            )
+
+        }
+
+        const exists =
+            ticketTags.value.some(
+                tag =>
+                    String(tag.id) ===
+                    String(created.id)
+            )
+
+        if (
+            !exists
+        ) {
+
+            ticketTags.value = [
+
+                ...ticketTags.value,
+
+                created
+
+            ].sort(
+                (
+                    a,
+                    b
+                ) =>
+                    String(a.name)
+                        .localeCompare(
+                            String(b.name)
+                        )
+            )
+
+        }
+
+        done(
+            created
+        )
+
+    } catch (
+        exception
+    ) {
+
+        showError(
+            errorMessage(
+                exception
+            )
+        )
+
+        done(
+            null,
+            exception
+        )
+
+    }
+
+}
+
+
+/*
+ * This is intentionally modelled after the Services
+ * autocomplete implementation.
+ *
+ * Existing tags are selected immediately.
+ *
+ * A new tag is created only when the user clicks
+ * "Create ...".
+ */
+async function handleTicketTagSelect(
+    option
+) {
+
+    if (
+        !option ||
+        ticketTagCreating.value
+    ) {
+
+        return
+
+    }
+
+
+    /*
+     * Existing tag
+     */
+    if (
+        option.existing
+    ) {
+
+        const alreadySelected =
+            ticketForm.tag_ids.some(
+                id =>
+                    String(id) ===
+                    String(option.value)
+            )
+
+
+        if (
+            !alreadySelected
+        ) {
+
+            ticketForm.tag_ids = [
+
+                ...ticketForm.tag_ids,
+
+                Number(
+                    option.value
+                )
+
+            ]
+
+        }
+
+
+        ticketTagSearch.value =
+            ''
+
+
+        return
+
+    }
+
+
+    /*
+     * Create new tag
+     */
+    if (
+        option.value !==
+            '__create__' ||
+        !option.name
+    ) {
+
+        return
+
+    }
+
+
+    const name =
+        String(
+            option.name ||
+            ''
+        ).trim()
+
+
+    if (
+        !name
+    ) {
+
+        return
+
+    }
+
+
+    /*
+     * Snapshot current selection exactly
+     * like the Services implementation.
+     */
+    const existingSelectedIds =
+        [
+            ...ticketForm.tag_ids
+        ]
+
+
+    /*
+     * First check for an existing tag with
+     * the same name.
+     */
+    const existingTag =
+        ticketTags.value.find(
+            tag =>
+                String(
+                    tag?.name ||
+                    ''
+                )
+                    .trim()
+                    .toLowerCase() ===
+                name.toLowerCase()
+        )
+
+
+    if (
+        existingTag?.id
+    ) {
+
+        if (
+            !existingSelectedIds.some(
+                id =>
+                    String(id) ===
+                    String(
+                        existingTag.id
+                    )
+            )
+        ) {
+
+            ticketForm.tag_ids = [
+
+                ...existingSelectedIds,
+
+                Number(
+                    existingTag.id
+                )
+
+            ]
+
+        }
+
+
+        ticketTagSearch.value =
+            ''
+
+
+        return
+
+    }
+
+
+    ticketTagCreating.value =
+        true
+
+
+    try {
+
+        const response =
+            await api.post(
+
+                `/projects/${projectId.value}/ticket-tags`,
+
+                {
+                    name
+                }
+
+            )
+
+
+        const created =
+            response.data?.data ||
+            response.data?.tag ||
+            response.data
+
+
+        if (
+            created?.id
+        ) {
+
+            /*
+             * Keep all existing tags.
+             * Never replace the collection.
+             */
+            const alreadyExists =
+                ticketTags.value.some(
+                    tag =>
+                        String(
+                            tag.id
+                        ) ===
+                        String(
+                            created.id
+                        )
+                )
+
+
+            if (
+                !alreadyExists
+            ) {
+
+                ticketTags.value = [
+
+                    ...ticketTags.value,
+
+                    created
+
+                ].sort(
+                    (
+                        a,
+                        b
+                    ) =>
+                        String(
+                            a.name
+                        ).localeCompare(
+                            String(
+                                b.name
+                            )
+                        )
+                )
+
+            }
+
+
+            /*
+             * Keep all previously selected tags
+             * and append the newly created one.
+             */
+            ticketForm.tag_ids = [
+
+                ...existingSelectedIds,
+
+                Number(
+                    created.id
+                )
+
+            ]
+
+        }
+
+
+        /*
+         * Clear only the autocomplete search.
+         */
+        ticketTagSearch.value =
+            ''
+
+    } catch (
+        exception
+    ) {
+
+        /*
+         * Restore exactly the previous
+         * selection if creation fails.
+         */
+        ticketForm.tag_ids = [
+
+            ...existingSelectedIds
+
+        ]
+
+
+        showError(
+            errorMessage(
+                exception
+            )
+        )
+
+    } finally {
+
+        ticketTagCreating.value =
+            false
+
+    }
+
+}
 
 
 /*
@@ -528,6 +1143,7 @@ const pageTitle =
 
 const selectedCompanyName =
     computed(() => {
+
         const company =
             lookups.value.companies.find(
                 item =>
@@ -540,10 +1156,9 @@ const selectedCompanyName =
             )
 
 
-        return (
-            company?.name ||
+        return company?.name ||
             ''
-        )
+
     })
 
 
@@ -558,14 +1173,14 @@ const projectReady =
 const canManageProjectSettings =
     computed(() =>
         Boolean(
-            currentUser.value
-                ?.is_admin ??
+            currentUser.value?.is_admin ??
             shellUser?.is_admin
         )
     )
 
 
 const statusOptions = [
+
     {
         label:
             'Draft',
@@ -605,34 +1220,15 @@ const statusOptions = [
         value:
             'archived'
     }
+
 ]
-
-async function handleProjectFilesOpenFolder(
-    folder
-) {
-    projectFilesFolderKey.value =
-        folder?.client_key ??
-        folder?.id ??
-        null
-
-    if (
-        isPersistedFolderId(
-            folder?.id
-        )
-    ) {
-        await loadProjectFilesFolder(
-            Number(
-                folder.id
-            )
-        )
-    }
-}
 
 
 const serviceOptions =
     computed(() =>
         lookups.value.service_products.map(
             product => ({
+
                 label:
                     product.active
                         ? product.name
@@ -651,6 +1247,7 @@ const serviceOptions =
                     String(
                         projectForm.service_product_id
                     )
+
             })
         )
     )
@@ -660,14 +1257,15 @@ const contactAssignmentOptions =
     computed(() =>
         contactOptions.value.map(
             contact => ({
+
                 label:
-                    `${contact.first_name || ''} ${contact.last_name || ''}`
-                        .trim() ||
+                    `${contact.first_name || ''} ${contact.last_name || ''}`.trim() ||
                     contact.email ||
                     'Contact',
 
                 value:
                     contact.id
+
             })
         )
     )
@@ -675,6 +1273,7 @@ const contactAssignmentOptions =
 
 const coworkerAssignmentOptions =
     computed(() => {
+
         const options =
             []
 
@@ -685,6 +1284,7 @@ const coworkerAssignmentOptions =
         function pushOption(
             user
         ) {
+
             const id =
                 Number(
                     user?.id ||
@@ -696,7 +1296,9 @@ const coworkerAssignmentOptions =
                 !id ||
                 seen.has(id)
             ) {
+
                 return
+
             }
 
 
@@ -706,44 +1308,48 @@ const coworkerAssignmentOptions =
 
 
             options.push({
+
                 label:
-                    `${user.name} ${user.is_admin ? '(admin)' : ''}`,
+                    `${user.name}${user.is_admin ? ' (admin)' : ''}`,
+
                 value:
                     id
+
             })
+
         }
 
 
         if (
             currentUser.value?.is_admin
         ) {
+
             pushOption(
                 currentUser.value
             )
+
         }
 
 
         for (
-            const coworker
+            const user
             of coworkers.value
         ) {
+
             pushOption(
-                coworker
+                user
             )
+
         }
 
 
         return options
+
     })
 
 
-/*
-|--------------------------------------------------------------------------
-| Ticket options
-|--------------------------------------------------------------------------
-*/
-
 const ticketPriorityOptions = [
+
     {
         label:
             'Low',
@@ -775,10 +1381,12 @@ const ticketPriorityOptions = [
         value:
             'urgent'
     }
+
 ]
 
 
 const ticketStatusOptions = [
+
     {
         label:
             'New',
@@ -802,16 +1410,39 @@ const ticketStatusOptions = [
         value:
             'finished'
     }
+
 ]
 
 
-/*
-|--------------------------------------------------------------------------
-| Project helpers
-|--------------------------------------------------------------------------
-*/
+async function handleProjectFilesOpenFolder(
+    folder
+) {
+
+    projectFilesFolderKey.value =
+        folder?.client_key ??
+        folder?.id ??
+        null
+
+
+    if (
+        isPersistedFolderId(
+            folder?.id
+        )
+    ) {
+
+        await loadProjectFilesFolder(
+            Number(
+                folder.id
+            )
+        )
+
+    }
+
+}
+
 
 function normalizeCompanyPrefill() {
+
     const raw =
         route.query.company_id ??
         route.query.client_id ??
@@ -830,11 +1461,14 @@ function normalizeCompanyPrefill() {
         value ||
         ''
     ).trim()
+
 }
 
 
 function getProjectAutosaveSnapshot() {
+
     return JSON.stringify({
+
         company_id:
             String(
                 projectForm.company_id ||
@@ -924,18 +1558,25 @@ function getProjectAutosaveSnapshot() {
                     ) =>
                         a - b
                 )
+
     })
+
 }
 
 
 function canAutosaveProject() {
+
     if (
         !canManageProjectSettings.value
     ) {
+
         return false
+
     }
 
+
     return Boolean(
+
         String(
             projectForm.company_id ||
             ''
@@ -950,19 +1591,16 @@ function canAutosaveProject() {
             projectForm.name ||
             ''
         ).trim()
+
     )
+
 }
 
-
-/*
-|--------------------------------------------------------------------------
-| Error handling
-|--------------------------------------------------------------------------
-*/
 
 function showError(
     message
 ) {
+
     error.value =
         message
 
@@ -971,10 +1609,15 @@ function showError(
         false
 
 
-    requestAnimationFrame(() => {
-        showErrorToast.value =
-            true
-    })
+    requestAnimationFrame(
+        () => {
+
+            showErrorToast.value =
+                true
+
+        }
+    )
+
 }
 
 
@@ -987,11 +1630,14 @@ function showError(
 function isPersistedFolderId(
     value
 ) {
+
     if (
         value === null ||
         value === undefined
     ) {
+
         return false
+
     }
 
 
@@ -1002,11 +1648,15 @@ function isPersistedFolderId(
 
 
     return (
+
         Number.isInteger(
             numeric
         ) &&
+
         numeric > 0
+
     )
+
 }
 
 
@@ -1014,6 +1664,7 @@ function normalizeProjectFolders(
     serverFolders = [],
     previousFolders = []
 ) {
+
     const source =
         Array.isArray(
             serverFolders
@@ -1031,8 +1682,7 @@ function normalizeProjectFolders(
             ? [
                 ...previousFolders.filter(
                     item =>
-                        !item
-                            ?.__uploaded_file
+                        !item?.__uploaded_file
                 )
             ]
             : []
@@ -1040,23 +1690,30 @@ function normalizeProjectFolders(
 
     const previousById =
         new Map(
+
             previous
+
                 .filter(
                     item =>
                         isPersistedFolderId(
                             item?.id
                         )
                 )
+
                 .map(
                     item => [
+
                         String(
                             Number(
                                 item.id
                             )
                         ),
+
                         item
+
                     ]
                 )
+
         )
 
 
@@ -1079,6 +1736,7 @@ function normalizeProjectFolders(
     const normalized =
         source.map(
             item => {
+
                 const previousItem =
                     previousById.get(
                         String(
@@ -1091,6 +1749,7 @@ function normalizeProjectFolders(
 
 
                 return {
+
                     ...item,
 
                     client_key:
@@ -1105,89 +1764,113 @@ function normalizeProjectFolders(
                     client_visible:
                         item.client_visible ??
                         true
+
                 }
+
             }
         )
 
 
     const idToClientKey =
         new Map(
+
             normalized.map(
                 item => [
+
                     String(
                         item.id
                     ),
 
                     item.client_key
+
                 ]
             )
+
         )
 
 
     return normalized.map(
         item => ({
+
             ...item,
 
             parent_client_key:
-                item.parent_id !==
-                    null &&
-                item.parent_id !==
-                    undefined
+                item.parent_id !== null &&
+                item.parent_id !== undefined
+
                     ? (
+
                         idToClientKey.get(
                             String(
                                 item.parent_id
                             )
                         ) ||
+
                         String(
                             item.parent_id
                         )
+
                     )
+
                     : null
+
         })
     )
+
 }
 
 
 function structureItemsOnly(
     items
 ) {
+
     return (
-        Array.isArray(items)
+
+        Array.isArray(
+            items
+        )
             ? items
             : []
+
     ).filter(
         item =>
-            !item
-                ?.__uploaded_file
+            !item?.__uploaded_file
     )
+
 }
 
 
 function uploadedItemsOnly(
     items
 ) {
+
     return (
-        Array.isArray(items)
+
+        Array.isArray(
+            items
+        )
             ? items
             : []
+
     ).filter(
         item =>
             Boolean(
-                item
-                    ?.__uploaded_file
+                item?.__uploaded_file
             )
     )
+
 }
 
 
 function foldersPayloadForSave() {
+
     const items =
         structureItemsOnly(
             projectFolders.value ||
             []
         ).map(
             item => ({
+
                 ...item,
 
                 id:
@@ -1212,14 +1895,17 @@ function foldersPayloadForSave() {
                 client_visible:
                     item.client_visible ??
                     true
+
             })
         )
 
 
     const keyById =
         new Map(
+
             items.map(
                 item => [
+
                     String(
                         item.id
                     ),
@@ -1227,34 +1913,42 @@ function foldersPayloadForSave() {
                     String(
                         item.client_key
                     )
+
                 ]
             )
+
         )
 
 
     return items.map(
         item => ({
+
             ...item,
 
             parent_client_key:
-                item.parent_id !==
-                    null &&
-                item.parent_id !==
-                    undefined
+                item.parent_id !== null &&
+                item.parent_id !== undefined
+
                     ? (
+
                         keyById.get(
                             String(
                                 item.parent_id
                             )
                         ) ||
+
                         String(
                             item.parent_client_key ||
                             item.parent_id
                         )
+
                     )
+
                     : null
+
         })
     )
+
 }
 
 
@@ -1267,10 +1961,13 @@ function foldersPayloadForSave() {
 function applyProjectToForm(
     projectData
 ) {
+
     if (
         !projectData
     ) {
+
         return
+
     }
 
 
@@ -1304,6 +2001,7 @@ function applyProjectToForm(
     Object.assign(
         projectForm,
         {
+
             company_id:
                 String(
                     projectData.company_id ||
@@ -1357,40 +2055,53 @@ function applyProjectToForm(
                     coworker =>
                         coworker.id
                 )
+
         }
     )
 
 
     lastSavedProjectSnapshot.value =
         getProjectAutosaveSnapshot()
+
 }
 
 
 async function loadLookupsAndCoworkers() {
+
     if (
         !canManageProjectSettings.value
     ) {
+
         currentUser.value =
             currentUser.value ||
             shellUser ||
             null
 
+
         lookups.value = {
+
             companies: [],
+
             service_products: []
+
         }
+
 
         coworkers.value =
             []
 
+
         return
+
     }
+
 
     const [
         lookupsResponse,
         coworkersResponse
     ] =
         await Promise.all([
+
             api.get(
                 '/lookups'
             ),
@@ -1404,6 +2115,7 @@ async function loadLookupsAndCoworkers() {
                     }
                 }
             )
+
         ])
 
 
@@ -1423,6 +2135,7 @@ async function loadLookupsAndCoworkers() {
     currentUser.value =
         coworkersResponse.data?.current_user ||
         null
+
 }
 
 
@@ -1430,9 +2143,11 @@ async function loadContacts(
     companyId,
     preserve = false
 ) {
+
     if (
         !companyId
     ) {
+
         contactOptions.value =
             []
 
@@ -1440,12 +2155,15 @@ async function loadContacts(
         if (
             !preserve
         ) {
+
             projectForm.contact_ids =
                 []
+
         }
 
 
         return
+
     }
 
 
@@ -1463,6 +2181,7 @@ async function loadContacts(
     if (
         !preserve
     ) {
+
         projectForm.contact_ids =
             projectForm.contact_ids.filter(
                 id =>
@@ -1476,17 +2195,84 @@ async function loadContacts(
                             )
                     )
             )
+
     }
+
 }
 
+
+/*
+|--------------------------------------------------------------------------
+| Ticket tags
+|--------------------------------------------------------------------------
+*/
+
+async function loadTicketTags() {
+
+    if (
+        !projectId.value
+    ) {
+
+        ticketTags.value =
+            []
+
+        return
+
+    }
+
+
+    try {
+
+        const response =
+            await api.get(
+                `/projects/${projectId.value}/ticket-tags`
+            )
+
+
+        ticketTags.value =
+            Array.isArray(
+                response.data
+            )
+                ? response.data
+                : (
+                    response.data?.data ||
+                    []
+                )
+
+    } catch (
+        exception
+    ) {
+
+        ticketTags.value =
+            []
+
+
+        showError(
+            errorMessage(
+                exception
+            )
+        )
+
+    }
+
+}
+
+
+/*
+|--------------------------------------------------------------------------
+| Project files
+|--------------------------------------------------------------------------
+*/
 
 function mapUploadedFileToStructureItem(
     file,
     structureItems
 ) {
+
     const folderId =
         file?.folder_id ??
         null
+
 
     const parentFolder =
         folderId === null
@@ -1504,7 +2290,9 @@ function mapUploadedFileToStructureItem(
                     )
             )
 
+
     return {
+
         id:
             `project-file-${file.id}`,
 
@@ -1563,7 +2351,9 @@ function mapUploadedFileToStructureItem(
 
         __uploaded_file:
             true
+
     }
+
 }
 
 
@@ -1571,16 +2361,23 @@ async function loadProjectFilesFolder(
     folderId = null,
     force = false
 ) {
+
     if (
         !projectId.value
     ) {
+
         return
+
     }
+
 
     const cacheKey =
         folderId === null
             ? 'root'
-            : String(folderId)
+            : String(
+                folderId
+            )
+
 
     if (
         !force &&
@@ -1588,13 +2385,18 @@ async function loadProjectFilesFolder(
             cacheKey
         )
     ) {
+
         return
+
     }
+
 
     projectFilesLoading.value =
         true
 
+
     try {
+
         const response =
             await api.get(
                 `/projects/${projectId.value}/files`,
@@ -1609,6 +2411,7 @@ async function loadProjectFilesFolder(
                 }
             )
 
+
         const files =
             Array.isArray(
                 response.data?.files
@@ -1616,10 +2419,12 @@ async function loadProjectFilesFolder(
                 ? response.data.files
                 : []
 
+
         const structureItems =
             structureItemsOnly(
                 projectFolders.value
             )
+
 
         const mappedFiles =
             files.map(
@@ -1630,13 +2435,16 @@ async function loadProjectFilesFolder(
                     )
             )
 
+
         const parentKey =
             String(
                 folderId ??
                 ''
             )
 
+
         projectFiles.value = [
+
             ...projectFiles.value.filter(
                 item =>
                     String(
@@ -1645,68 +2453,92 @@ async function loadProjectFilesFolder(
                     ) !==
                     parentKey
             ),
+
             ...mappedFiles
+
         ]
+
 
         projectFilesLoadedFolders.add(
             cacheKey
         )
+
     } catch (
         exception
     ) {
+
         showError(
             errorMessage(
                 exception
             )
         )
+
     } finally {
+
         projectFilesLoading.value =
             false
+
     }
+
 }
 
 
 function resetProjectFilesCache() {
+
     projectFiles.value =
         []
 
+
     projectFilesLoadedFolders.clear()
+
 }
 
 
 async function refreshProjectFilesFolder(
     folderId = null
 ) {
+
     const cacheKey =
         folderId === null
             ? 'root'
-            : String(folderId)
+            : String(
+                folderId
+            )
+
 
     projectFilesLoadedFolders.delete(
         cacheKey
     )
 
+
     await loadProjectFilesFolder(
         folderId
     )
+
 }
 
 
 async function refreshProjectStructure() {
+
     if (
         !projectId.value
     ) {
+
         return
+
     }
+
 
     const response =
         await api.get(
             `/projects/${projectId.value}`
         )
 
+
     const projectData =
         response.data?.data ||
         {}
+
 
     projectFolders.value =
         normalizeProjectFolders(
@@ -1715,23 +2547,28 @@ async function refreshProjectStructure() {
             projectFolders.value ||
             []
         )
+
 }
 
 
 async function loadProjectDetails(
     id
 ) {
+
     const response =
         await api.get(
             `/projects/${id}`
         )
 
+
     const projectData =
         response.data.data
+
 
     applyProjectToForm(
         projectData
     )
+
 
     projectFolders.value =
         normalizeProjectFolders(
@@ -1741,27 +2578,29 @@ async function loadProjectDetails(
             []
         )
 
+
     resetProjectFilesCache()
 
-    tickets.value =
-        (
-            await api.get(
-                `/projects/${id}/tickets`
-            )
-        ).data
+
+    await Promise.all([
+        reloadTickets(),
+        loadTicketTags()
+    ])
+
 
     await loadContacts(
         projectData.company_id,
         true
     )
 
-    // Only root uploaded-file metadata is loaded here.
-    // Child folders are loaded when the user opens them.
+
     void loadProjectFilesFolder()
+
 }
 
 
 async function load() {
+
     loading.value =
         true
 
@@ -1771,6 +2610,7 @@ async function load() {
 
 
     try {
+
         await loadLookupsAndCoworkers()
 
 
@@ -1785,6 +2625,7 @@ async function load() {
         if (
             projectRouteId
         ) {
+
             projectId.value =
                 projectRouteId
 
@@ -1792,7 +2633,9 @@ async function load() {
             await loadProjectDetails(
                 projectRouteId
             )
+
         } else {
+
             const companyId =
                 normalizeCompanyPrefill()
 
@@ -1800,6 +2643,7 @@ async function load() {
             if (
                 !companyId
             ) {
+
                 showError(
                     'Create projects from a client detail page so the client is assigned automatically.'
                 )
@@ -1812,6 +2656,7 @@ async function load() {
 
 
                 return
+
             }
 
 
@@ -1822,16 +2667,24 @@ async function load() {
             projectFolders.value =
                 []
 
+
             resetProjectFilesCache()
 
 
             tickets.value =
                 []
 
+            resetTicketPagination()
+
+
+            ticketTags.value =
+                []
+
 
             Object.assign(
                 projectForm,
                 {
+
                     company_id:
                         companyId,
 
@@ -1861,8 +2714,39 @@ async function load() {
 
                     coworker_ids:
                         []
+
                 }
             )
+
+
+            Object.assign(
+                ticketForm,
+                {
+
+                    title:
+                        '',
+
+                    description:
+                        '',
+
+                    priority:
+                        'normal',
+
+                    deadline:
+                        '',
+
+                    assignees:
+                        [],
+
+                    tag_ids:
+                        []
+
+                }
+            )
+
+
+            ticketTagSearch.value =
+                ''
 
 
             initialCompany.value =
@@ -1877,23 +2761,30 @@ async function load() {
 
             lastSavedProjectSnapshot.value =
                 getProjectAutosaveSnapshot()
+
         }
+
     } catch (
         exception
     ) {
+
         showError(
             errorMessage(
                 exception
             )
         )
+
     } finally {
+
         loading.value =
             false
 
 
         suppressProjectAutosave.value =
             false
+
     }
+
 }
 
 
@@ -1904,12 +2795,15 @@ async function load() {
 */
 
 async function saveProjectForm() {
+
     if (
         !canManageProjectSettings.value ||
         saving.value ||
         !canAutosaveProject()
     ) {
+
         return
+
     }
 
 
@@ -1935,7 +2829,9 @@ async function saveProjectForm() {
 
 
     try {
+
         const payload = {
+
             company_id:
                 projectForm.company_id,
 
@@ -1965,12 +2861,14 @@ async function saveProjectForm() {
 
             coworker_ids:
                 projectForm.coworker_ids
+
         }
 
 
         if (
             projectId.value
         ) {
+
             const response =
                 await api.put(
                     `/projects/${projectId.value}`,
@@ -1986,7 +2884,9 @@ async function saveProjectForm() {
             await loadProjectDetails(
                 projectId.value
             )
+
         } else {
+
             const response =
                 await api.post(
                     '/projects',
@@ -2023,6 +2923,7 @@ async function saveProjectForm() {
             await loadProjectDetails(
                 createdId
             )
+
         }
 
 
@@ -2031,9 +2932,11 @@ async function saveProjectForm() {
 
 
         setLastSavedAt()
+
     } catch (
         exception
     ) {
+
         errors.value =
             validationErrors(
                 exception
@@ -2045,7 +2948,9 @@ async function saveProjectForm() {
                 exception
             )
         )
+
     } finally {
+
         saving.value =
             false
 
@@ -2057,11 +2962,14 @@ async function saveProjectForm() {
 
         suppressProjectAutosave.value =
             false
+
     }
+
 }
 
 
 function scheduleProjectAutosave() {
+
     if (
         suppressProjectAutosave.value ||
         loading.value ||
@@ -2069,7 +2977,9 @@ function scheduleProjectAutosave() {
         !autosaveEnabled.value ||
         !canAutosaveProject()
     ) {
+
         return
+
     }
 
 
@@ -2082,33 +2992,41 @@ function scheduleProjectAutosave() {
         snapshot ===
             lastSavedProjectSnapshot.value
     ) {
+
         return
+
     }
 
 
     if (
         projectAutosaveTimer.value
     ) {
+
         clearTimeout(
             projectAutosaveTimer.value
         )
+
     }
 
 
     projectAutosaveTimer.value =
         setTimeout(
             () => {
+
                 if (
                     !saving.value &&
                     autosaveEnabled.value &&
                     canAutosaveProject()
                 ) {
-                    void saveProjectForm()
-                }
-            },
 
+                    void saveProjectForm()
+
+                }
+
+            },
             600
         )
+
 }
 
 
@@ -2119,6 +3037,7 @@ function scheduleProjectAutosave() {
 */
 
 watch(
+
     () =>
         projectForm.company_id,
 
@@ -2126,12 +3045,14 @@ watch(
         value,
         oldValue
     ) => {
+
         if (
             oldValue !==
                 undefined &&
             value !==
                 oldValue
         ) {
+
             await loadContacts(
                 value,
 
@@ -2142,32 +3063,41 @@ watch(
                         initialCompany.value
                     )
             )
+
         }
+
     }
+
 )
 
 
 watch(
+
     () => ({
         ...projectForm
     }),
 
     () => {
+
         scheduleProjectAutosave()
+
     },
 
     {
         deep:
             true
     }
+
 )
 
 
 watch(
+
     () =>
         props.id,
 
     value => {
+
         const nextId =
             String(
                 value ||
@@ -2179,60 +3109,49 @@ watch(
             nextId !==
             projectId.value
         ) {
+
             projectId.value =
                 nextId
+
 
             resetProjectFilesCache()
 
 
             void load()
+
         }
+
     }
+
 )
 
 
 watch(
+
     () => [
+
         route.query.document,
+
         projectFolders.value.length
+
     ],
 
     () => {
+
         syncProjectDocumentFromRoute()
+
     },
 
     {
         immediate:
             true
     }
+
 )
 
 
 onMounted(
     load
-)
-
-
-onBeforeUnmount(
-    () => {
-        if (
-            structureSaveTimer.value
-        ) {
-            clearTimeout(
-                structureSaveTimer.value
-            )
-        }
-
-        if (
-            projectAutosaveTimer.value
-        ) {
-            clearTimeout(
-                projectAutosaveTimer.value
-            )
-        }
-
-        resetProjectFilesCache()
-    }
 )
 
 
@@ -2243,12 +3162,15 @@ onBeforeUnmount(
 */
 
 async function togglePublishing() {
+
     if (
         !canManageProjectSettings.value ||
         !project.value ||
         busy.value
     ) {
+
         return
+
     }
 
 
@@ -2257,65 +3179,83 @@ async function togglePublishing() {
 
 
     try {
+
         const response =
             await api.put(
                 `/projects/${projectId.value}/publishing`,
                 {
                     is_published:
-                        !project.value
-                            .is_published
+                        !project.value.is_published
                 }
             )
 
 
         project.value.is_published =
             response.data.data.is_published
+
     } catch (
         exception
     ) {
+
         showError(
             errorMessage(
                 exception
             )
         )
+
     } finally {
+
         busy.value =
             false
+
     }
+
 }
 
 
 function requestDelete() {
+
     if (
         !canManageProjectSettings.value
     ) {
+
         return
+
     }
+
 
     showDeleteConfirm.value =
         true
+
 }
 
 
 function closeDeleteConfirm() {
+
     if (
         busy.value
     ) {
+
         return
+
     }
 
 
     showDeleteConfirm.value =
         false
+
 }
 
 
 async function destroyProject() {
+
     if (
         !canManageProjectSettings.value ||
         busy.value
     ) {
+
         return
+
     }
 
 
@@ -2324,6 +3264,7 @@ async function destroyProject() {
 
 
     try {
+
         await api.delete(
             `/projects/${projectId.value}`
         )
@@ -2334,28 +3275,37 @@ async function destroyProject() {
 
 
         if (
-            window.history.length >
-            1
+            window.history.length > 1
         ) {
+
             router.back()
+
         } else {
+
             router.push({
                 name:
                     'clients.index'
             })
+
         }
+
     } catch (
         exception
     ) {
+
         showError(
             errorMessage(
                 exception
             )
         )
+
     } finally {
+
         busy.value =
             false
+
     }
+
 }
 
 
@@ -2366,13 +3316,18 @@ async function destroyProject() {
 */
 
 async function inviteCoworker() {
+
     if (
         !canManageProjectSettings.value
     ) {
+
         return
+
     }
 
+
     try {
+
         await api.post(
             `/projects/${projectId.value}/coworkers`,
             coworker
@@ -2382,36 +3337,43 @@ async function inviteCoworker() {
         coworker.name =
             ''
 
-
         coworker.email =
             ''
 
 
         await load()
+
     } catch (
         exception
     ) {
+
         showError(
             errorMessage(
                 exception
             )
         )
+
     }
+
 }
 
 
 async function inviteContact(
     contactId
 ) {
+
     if (
         !canManageProjectSettings.value ||
         !contactId
     ) {
+
         return
+
     }
 
 
     try {
+
         await api.post(
             `/projects/${projectId.value}/contacts/invite`,
             {
@@ -2422,27 +3384,34 @@ async function inviteContact(
 
 
         await load()
+
     } catch (
         exception
     ) {
+
         showError(
             errorMessage(
                 exception
             )
         )
+
     }
+
 }
 
 
 async function resendCoworkerInvitation(
     userId
 ) {
+
     if (
         !canManageProjectSettings.value ||
         !userId ||
         resendingCoworkerId.value
     ) {
+
         return
+
     }
 
 
@@ -2451,33 +3420,43 @@ async function resendCoworkerInvitation(
 
 
     try {
+
         await api.post(
             `/projects/${projectId.value}/coworkers/${userId}/resend-invitation`
         )
+
     } catch (
         exception
     ) {
+
         showError(
             errorMessage(
                 exception
             )
         )
+
     } finally {
+
         resendingCoworkerId.value =
             null
+
     }
+
 }
 
 
 async function resendContactInvitation(
     contactId
 ) {
+
     if (
         !canManageProjectSettings.value ||
         !contactId ||
         resendingContactId.value
     ) {
+
         return
+
     }
 
 
@@ -2486,21 +3465,28 @@ async function resendContactInvitation(
 
 
     try {
+
         await api.post(
             `/projects/${projectId.value}/contacts/${contactId}/resend-invitation`
         )
+
     } catch (
         exception
     ) {
+
         showError(
             errorMessage(
                 exception
             )
         )
+
     } finally {
+
         resendingContactId.value =
             null
+
     }
+
 }
 
 
@@ -2513,140 +3499,223 @@ async function resendContactInvitation(
 function normalizeTicketAssignees(
     values = []
 ) {
+
     return (
-        Array.isArray(values)
+
+        Array.isArray(
+            values
+        )
             ? values
             : []
+
     )
-        .map(value => {
-            if (
-                value &&
-                typeof value ===
-                'object'
-            ) {
+        .map(
+            value => {
+
+                if (
+                    value &&
+                    typeof value ===
+                        'object'
+                ) {
+
+                    return {
+
+                        type:
+                            value.type,
+
+                        id:
+                            Number(
+                                value.id
+                            )
+
+                    }
+
+                }
+
+
+                const [
+                    type,
+                    id
+                ] =
+                    String(
+                        value ||
+                        ''
+                    ).split(':')
+
+
                 return {
-                    type:
-                        value.type,
+
+                    type,
+
                     id:
                         Number(
-                            value.id
+                            id
                         )
+
                 }
-            }
 
-            const [type, id] =
-                String(
-                    value ||
-                    ''
-                ).split(':')
-
-            return {
-                type,
-                id: Number(id)
             }
-        })
+        )
         .filter(
             item =>
                 (
                     item.type ===
-                    'user' ||
+                        'user' ||
                     item.type ===
-                    'contact'
+                        'contact'
                 ) &&
                 Number.isInteger(
                     item.id
                 ) &&
                 item.id > 0
         )
+
 }
 
+
+function normalizeTicketTagIds(
+    values = []
+) {
+
+    return (
+
+        Array.isArray(
+            values
+        )
+            ? values
+            : []
+
+    )
+        .map(
+            value =>
+                Number(
+                    value
+                )
+        )
+        .filter(
+            value =>
+                Number.isInteger(
+                    value
+                ) &&
+                value > 0
+        )
+
+}
+
+
 async function createTicket() {
+
     if (
-        !ticketForm.title ||
-        !ticketForm.description
+        !ticketForm.title.trim() ||
+        !ticketForm.description.trim()
     ) {
+
         return
+
     }
 
+
     try {
-        const response =
-            await api.post(
+
+        await api.post(
+
             `/projects/${projectId.value}/tickets`,
+
             {
-                ...ticketForm,
+
+                title:
+                    ticketForm.title.trim(),
+
+                description:
+                    ticketForm.description.trim(),
+
+                priority:
+                    ticketForm.priority,
+
+                deadline:
+                    ticketForm.deadline ||
+                    null,
+
                 assignees:
                     normalizeTicketAssignees(
                         ticketForm.assignees
+                    ),
+
+                tag_ids:
+                    normalizeTicketTagIds(
+                        ticketForm.tag_ids
                     )
+
             }
+
         )
 
-        const createdTicket =
-            response.data?.data ||
-            response.data ||
-            null
-
-        if (
-            createdTicket
-        ) {
-            tickets.value = [
-                createdTicket,
-                ...tickets.value.filter(
-                    item =>
-                        String(
-                            item.id
-                        ) !==
-                        String(
-                            createdTicket.id
-                        )
-                )
-            ]
-        }
 
         Object.assign(
             ticketForm,
             {
-                title: '',
-                description: '',
-                priority: 'normal',
-                assignees: []
+
+                title:
+                    '',
+
+                description:
+                    '',
+
+                priority:
+                    'normal',
+
+                deadline:
+                    '',
+
+                assignees:
+                    [],
+
+                tag_ids:
+                    []
+
             }
         )
 
+
+        ticketTagSearch.value =
+            ''
+
+
+        await reloadTickets()
+
+
         await nextTick()
+
 
         const description =
             document.getElementById(
                 'ticket-description'
             )
 
+
         if (
             description &&
-            description.tagName === 'TEXTAREA'
+            description.tagName ===
+                'TEXTAREA'
         ) {
-            description.style.height = 'auto'
+
+            description.style.height =
+                'auto'
+
         }
 
-        try {
-            const refreshed =
-                await api.get(
-                    `/projects/${projectId.value}/tickets`
-                )
-
-            tickets.value =
-                refreshed.data
-        } catch {
-            // Keep optimistic ticket list if refresh fails.
-        }
     } catch (
         exception
     ) {
+
         showError(
             errorMessage(
                 exception
             )
         )
+
     }
+
 }
 
 
@@ -2655,64 +3724,55 @@ async function saveTicket({
     data,
     done
 }) {
+
     try {
-        const response =
-            await api.put(
-                `/projects/${projectId.value}/tickets/${ticket.id}`,
-                {
-                    title:
-                        data.title,
 
-                    description:
-                        data.description,
+        await api.put(
 
-                    priority:
-                        data.priority,
+            `/projects/${projectId.value}/tickets/${ticket.id}`,
 
-                    assignees:
-                        data.assignees,
+            {
 
-                    status:
-                        data.status
-                }
-            )
+                title:
+                    data.title,
 
+                description:
+                    data.description,
 
-        const updatedTicket =
-            response.data?.data ||
-            response.data ||
-            null
+                priority:
+                    data.priority,
 
+                deadline:
+                    data.deadline ||
+                    null,
 
-        const index =
-            tickets.value.findIndex(
-                item =>
-                    String(
-                        item.id
-                    ) ===
-                    String(
-                        ticket.id
-                    )
-            )
+                assignees:
+                    normalizeTicketAssignees(
+                        data.assignees
+                    ),
+
+                tag_ids:
+                    normalizeTicketTagIds(
+                        data.tag_ids
+                    ),
+
+                status:
+                    data.status
+
+            }
+
+        )
 
 
-        if (
-            index !==
-            -1 &&
-            updatedTicket
-        ) {
-            tickets.value.splice(
-                index,
-                1,
-                updatedTicket
-            )
-        }
+        await reloadTickets()
 
 
-        done()
+        done(true)
+
     } catch (
         exception
     ) {
+
         showError(
             errorMessage(
                 exception
@@ -2720,8 +3780,10 @@ async function saveTicket({
         )
 
 
-        done()
+        done(false)
+
     }
+
 }
 
 
@@ -2729,28 +3791,23 @@ async function deleteTicket({
     ticket,
     done
 }) {
+
     try {
+
         await api.delete(
             `/projects/${projectId.value}/tickets/${ticket.id}`
         )
 
 
-        tickets.value =
-            tickets.value.filter(
-                item =>
-                    String(
-                        item.id
-                    ) !==
-                    String(
-                        ticket.id
-                    )
-            )
+        await reloadTickets()
 
 
-        done()
+        done(true)
+
     } catch (
         exception
     ) {
+
         showError(
             errorMessage(
                 exception
@@ -2758,8 +3815,10 @@ async function deleteTicket({
         )
 
 
-        done()
+        done(false)
+
     }
+
 }
 
 
@@ -2767,91 +3826,478 @@ async function moveTicket(
     ticket,
     status
 ) {
+
     if (
         !ticket ||
         !status ||
         ticket.status ===
             status
     ) {
+
         return
+
     }
 
 
     try {
-        const response =
-            await api.put(
-                `/projects/${projectId.value}/tickets/${ticket.id}`,
-                {
-                    status,
 
-                    priority:
-                        ticket.priority,
+        await api.put(
 
-                    assignees:
-                        normalizeTicketAssignees(
-                            ticket.assignees ||
-                            (ticket.assigned_to
-                                ? [`user:${ticket.assigned_to}`]
-                                : [])
+            `/projects/${projectId.value}/tickets/${ticket.id}`,
+
+            {
+
+                status,
+
+                priority:
+                    ticket.priority,
+
+                deadline:
+                    ticket.deadline ||
+                    null,
+
+                assignees:
+                    normalizeTicketAssignees(
+                        ticket.assignees ||
+                        (
+                            ticket.assigned_to
+                                ? [
+                                    `user:${ticket.assigned_to}`
+                                ]
+                                : []
                         )
-                }
-            )
+                    ),
 
-
-        const updatedTicket =
-            response.data?.data ||
-            response.data ||
-            null
-
-
-        const index =
-            tickets.value.findIndex(
-                item =>
-                    String(
-                        item.id
-                    ) ===
-                    String(
-                        ticket.id
+                tag_ids:
+                    normalizeTicketTagIds(
+                        (
+                            ticket.tags ||
+                            []
+                        ).map(
+                            tag =>
+                                tag.id
+                        )
                     )
-            )
+
+            }
+
+        )
 
 
-        if (
-            index !==
-            -1 &&
-            updatedTicket
-        ) {
-            tickets.value.splice(
-                index,
-                1,
-                updatedTicket
-            )
-        }
+        await reloadTickets()
+
     } catch (
         exception
     ) {
+
         showError(
             errorMessage(
                 exception
             )
         )
+
     }
+
 }
 
 
 function ticketsFor(
     status
 ) {
+
     return tickets.value.filter(
         ticket =>
             ticket &&
             ticket.status ===
-            status
+                status
     )
+
 }
 
 
+function resetTicketPagination() {
+
+    for (
+        const status of [
+            'new',
+            'in_progress',
+            'finished'
+        ]
+    ) {
+
+        ticketPagination[status].page =
+            0
+
+        ticketPagination[status].last_page =
+            1
+
+        ticketPagination[status].total =
+            0
+
+        ticketLoading[status] =
+            false
+
+    }
+
+}
+
+
+async function loadTicketsForStatus(
+    status,
+    reset = false
+) {
+
+    if (
+        !projectId.value ||
+        !ticketPagination[status] ||
+        ticketLoading[status]
+    ) {
+
+        return
+
+    }
+
+
+    const pagination =
+        ticketPagination[status]
+
+
+    if (
+        reset
+    ) {
+
+        pagination.page =
+            0
+
+        pagination.last_page =
+            1
+
+        pagination.total =
+            0
+
+        tickets.value =
+            tickets.value.filter(
+                ticket =>
+                    ticket.status !==
+                    status
+            )
+
+    }
+
+
+    if (
+        pagination.page >=
+            pagination.last_page
+    ) {
+
+        return
+
+    }
+
+
+    ticketLoading[status] =
+        true
+
+
+    try {
+
+        const response =
+            await api.get(
+                `/projects/${projectId.value}/tickets`,
+                {
+                    params: {
+
+                        status,
+
+                        page:
+                            pagination.page +
+                            1,
+
+                        per_page:
+                            20,
+
+                        assignee:
+                            ticketFilters.assignee ||
+                            undefined,
+
+                        priority:
+                            ticketFilters.priority ||
+                            undefined,
+
+                        deadline:
+                            ticketFilters.deadline ||
+                            'nearest'
+
+                    }
+                }
+            )
+
+
+        const payload =
+            response.data ||
+            {}
+
+
+        const incoming =
+            Array.isArray(
+                payload.data
+            )
+                ? payload.data
+                : Array.isArray(
+                    payload
+                )
+                    ? payload
+                    : []
+
+
+        const meta =
+            payload.meta ||
+            {}
+
+
+        const existingIds =
+            new Set(
+                tickets.value.map(
+                    ticket =>
+                        String(
+                            ticket.id
+                        )
+                )
+            )
+
+
+        const next =
+            [
+                ...tickets.value
+            ]
+
+
+        for (
+            const ticket
+            of incoming
+        ) {
+
+            const id =
+                String(
+                    ticket.id
+                )
+
+
+            const existingIndex =
+                next.findIndex(
+                    item =>
+                        String(
+                            item.id
+                        ) ===
+                        id
+                )
+
+
+            if (
+                existingIndex >=
+                    0
+            ) {
+
+                next.splice(
+                    existingIndex,
+                    1,
+                    ticket
+                )
+
+            } else {
+
+                next.push(
+                    ticket
+                )
+
+            }
+
+        }
+
+
+        tickets.value =
+            next
+
+
+        pagination.page =
+            Number(
+                meta.current_page ||
+                payload.current_page ||
+                pagination.page +
+                    1
+            )
+
+
+        pagination.last_page =
+            Number(
+                meta.last_page ||
+                payload.last_page ||
+                pagination.page
+            )
+
+
+        pagination.total =
+            Number(
+                meta.total ||
+                payload.total ||
+                next.filter(
+                    ticket =>
+                        ticket.status ===
+                        status
+                ).length
+            )
+
+    } catch (
+        exception
+    ) {
+
+        showError(
+            errorMessage(
+                exception
+            )
+        )
+
+    } finally {
+
+        ticketLoading[status] =
+            false
+
+    }
+
+}
+
+
+async function reloadTickets() {
+
+    if (
+        !projectId.value
+    ) {
+
+        return
+
+    }
+
+
+    resetTicketPagination()
+
+
+    await Promise.all([
+
+        loadTicketsForStatus(
+            'new'
+        ),
+
+        loadTicketsForStatus(
+            'in_progress'
+        ),
+
+        loadTicketsForStatus(
+            'finished'
+        )
+
+    ])
+
+}
+
+
+async function loadMoreTickets(
+    status
+) {
+
+    if (
+        ticketLoading[status]
+    ) {
+
+        return
+
+    }
+
+
+    const pagination =
+        ticketPagination[status]
+
+
+    if (
+        !pagination ||
+        pagination.page >=
+            pagination.last_page
+    ) {
+
+        return
+
+    }
+
+
+    await loadTicketsForStatus(
+        status
+    )
+
+}
+
+
+function handleTicketScroll(
+    event,
+    status
+) {
+
+    const element =
+        event.currentTarget
+
+
+    if (
+        !element
+    ) {
+
+        return
+
+    }
+
+
+    const threshold =
+        120
+
+
+    if (
+        element.scrollTop +
+        element.clientHeight >=
+        element.scrollHeight -
+        threshold
+    ) {
+
+        void loadMoreTickets(
+            status
+        )
+
+    }
+
+}
+
+
+watch(
+
+    () => [
+        ticketFilters.assignee,
+        ticketFilters.priority,
+        ticketFilters.deadline
+    ],
+
+    () => {
+
+        if (
+            projectReady.value
+        ) {
+
+            void reloadTickets()
+
+        }
+
+    }
+
+)
+
+
 function createProjectTicket() {
+
     const element =
         document.getElementById(
             'new-ticket'
@@ -2859,35 +4305,41 @@ function createProjectTicket() {
 
 
     element?.scrollIntoView({
+
         behavior:
             'smooth',
 
         block:
             'center'
+
     })
 
 
     requestAnimationFrame(
         () => {
+
             document
                 .getElementById(
                     'ticket-title'
                 )
                 ?.focus()
+
         }
     )
+
 }
 
 
 /*
 |--------------------------------------------------------------------------
-| Files
+| Project files
 |--------------------------------------------------------------------------
 */
 
 function queueStructureSave(
     value
 ) {
+
     const items =
         Array.isArray(
             value
@@ -2895,132 +4347,194 @@ function queueStructureSave(
             ? value
             : []
 
+
     projectFolders.value =
         structureItemsOnly(
             items
         )
+
 
     projectFiles.value =
         uploadedItemsOnly(
             items
         )
 
+
     if (
         structureSaveTimer.value
     ) {
+
         clearTimeout(
             structureSaveTimer.value
         )
+
     }
+
 
     structureSaveTimer.value =
         setTimeout(
             () => {
+
                 structureSaveTimer.value =
                     null
 
-                void saveProjectStructure()
-            },
 
+                void saveProjectStructure()
+
+            },
             250
         )
+
 }
 
 
 async function saveProjectStructure() {
+
     if (
         structureSaving.value
     ) {
+
         structureSaveQueued.value =
             true
 
+
         return
+
     }
+
 
     structureSaving.value =
         true
 
+
     structureSaveQueued.value =
         false
 
+
     try {
+
         const response =
             await api.put(
+
                 `/projects/${projectId.value}/structure`,
+
                 {
+
                     folders:
                         foldersPayloadForSave()
+
                 }
+
             )
+
 
         projectFolders.value =
             normalizeProjectFolders(
+
                 response.data?.folders ||
                 [],
+
                 projectFolders.value ||
                 []
+
             )
+
     } catch (
         exception
     ) {
+
         showError(
             errorMessage(
                 exception
             )
         )
+
     } finally {
+
         structureSaving.value =
             false
+
 
         if (
             structureSaveQueued.value
         ) {
+
             structureSaveQueued.value =
                 false
 
+
             void saveProjectStructure()
+
         }
+
     }
+
 }
 
 
 async function handleProjectFileUpload(
     payload = {}
 ) {
-    if (!projectId.value) {
+
+    if (
+        !projectId.value
+    ) {
+
         showError(
             'Create and save the project before uploading files.'
         )
 
+
         return
+
     }
 
-    const files = Array.from(
-        payload?.files ||
-        []
-    )
 
-    if (!files.length) {
+    const files =
+        Array.from(
+            payload?.files ||
+            []
+        )
+
+
+    if (
+        !files.length
+    ) {
+
         return
+
     }
+
 
     const parent =
         payload?.parent ||
         null
 
-    let folderId = null
+
+    let folderId =
+        null
+
 
     if (
         isPersistedFolderId(
             payload?.folderId
         )
     ) {
-        folderId = Number(
-            payload.folderId
-        )
-    } else if (parent?.client_key) {
+
+        folderId =
+            Number(
+                payload.folderId
+            )
+
+    } else if (
+        parent?.client_key
+    ) {
+
         const match =
-            (projectFolders.value || []).find(
+            (
+                projectFolders.value ||
+                []
+            ).find(
                 item =>
                     String(
                         item.client_key
@@ -3030,25 +4544,36 @@ async function handleProjectFileUpload(
                     )
             )
 
+
         if (
             isPersistedFolderId(
                 match?.id
             )
         ) {
-            folderId = Number(
-                match.id
-            )
+
+            folderId =
+                Number(
+                    match.id
+                )
+
         }
+
     }
+
 
     if (
         payload?.folderId &&
         !folderId
     ) {
+
         await saveProjectStructure()
 
+
         const refreshed =
-            (projectFolders.value || []).find(
+            (
+                projectFolders.value ||
+                []
+            ).find(
                 item =>
                     String(
                         item.client_key
@@ -3059,27 +4584,40 @@ async function handleProjectFileUpload(
                     )
             )
 
+
         if (
             isPersistedFolderId(
                 refreshed?.id
             )
         ) {
-            folderId = Number(
-                refreshed.id
-            )
+
+            folderId =
+                Number(
+                    refreshed.id
+                )
+
         }
+
     }
 
-    const maxFilesPerRequest = 20
+
+    const maxFilesPerRequest =
+        20
+
 
     try {
-        const chunks = []
+
+        const chunks =
+            []
+
 
         for (
             let offset = 0;
             offset < files.length;
-            offset += maxFilesPerRequest
+            offset +=
+                maxFilesPerRequest
         ) {
+
             chunks.push(
                 files.slice(
                     offset,
@@ -3087,87 +4625,129 @@ async function handleProjectFileUpload(
                         maxFilesPerRequest
                 )
             )
+
         }
+
 
         for (
             let chunkIndex = 0;
             chunkIndex < chunks.length;
             chunkIndex += 1
         ) {
+
             const chunk =
-                chunks[chunkIndex]
+                chunks[
+                    chunkIndex
+                ]
+
 
             const chunkOffset =
                 chunkIndex *
                 maxFilesPerRequest
 
+
             const body =
                 new FormData()
 
+
             chunk.forEach(
-                (file, index) => {
+                (
+                    file,
+                    index
+                ) => {
+
                     const sourceIndex =
                         chunkOffset +
                         index
 
+
                     const relativePath =
                         String(
+
                             payload
                                 ?.relativePaths?.[
-                                sourceIndex
-                            ] ||
+                                    sourceIndex
+                                ] ||
+
                             file.webkitRelativePath ||
+
                             file.name
+
                         )
+
 
                     body.append(
                         'files[]',
                         file
                     )
 
+
                     body.append(
                         `relative_paths[${index}]`,
                         relativePath
                     )
+
                 }
             )
 
-            if (folderId) {
+
+            if (
+                folderId
+            ) {
+
                 body.append(
                     'folder_id',
-                    String(folderId)
+                    String(
+                        folderId
+                    )
                 )
+
             }
+
 
             body.append(
                 'client_visible',
                 '1'
             )
 
+
             await api.post(
+
                 `/projects/${projectId.value}/files`,
+
                 body
+
             )
+
         }
 
+
         await refreshProjectStructure()
+
 
         await refreshProjectFilesFolder(
             folderId
         )
-    } catch (exception) {
+
+    } catch (
+        exception
+    ) {
+
         showError(
             errorMessage(
                 exception
             )
         )
+
     }
+
 }
 
 
 function normalizeOpenUrl(
     value
 ) {
+
     const raw =
         String(
             value ||
@@ -3178,7 +4758,9 @@ function normalizeOpenUrl(
     if (
         !raw
     ) {
+
         return ''
+
     }
 
 
@@ -3186,7 +4768,9 @@ function normalizeOpenUrl(
         raw.startsWith('/') ||
         raw.startsWith('#')
     ) {
+
         return raw
+
     }
 
 
@@ -3195,37 +4779,49 @@ function normalizeOpenUrl(
             raw
         )
     ) {
+
         return raw
+
     }
 
 
     return `https://${raw}`
+
 }
 
 
 function handleProjectStructureOpenFile(
     item
 ) {
+
     const openUrl =
         String(
             item?.open_url ||
             ''
         ).trim()
 
-    if (openUrl) {
+
+    if (
+        openUrl
+    ) {
+
         window.open(
             openUrl,
             '_blank',
             'noopener,noreferrer'
         )
 
+
         return
+
     }
+
 
     if (
         item?.resource_type ===
         'link'
     ) {
+
         const linkUrl =
             normalizeOpenUrl(
                 item?.url ||
@@ -3236,6 +4832,7 @@ function handleProjectStructureOpenFile(
         if (
             linkUrl
         ) {
+
             window.open(
                 linkUrl,
                 '_blank',
@@ -3244,19 +4841,23 @@ function handleProjectStructureOpenFile(
 
 
             return
+
         }
+
     }
 
 
     showError(
         'This project file entry has no storage-backed file to open. Use Project Files below for uploaded binaries.'
     )
+
 }
 
 
 function handleProjectStructureDownloadFile(
     item
 ) {
+
     const downloadUrl =
         String(
             item?.download_url ||
@@ -3267,6 +4868,7 @@ function handleProjectStructureDownloadFile(
     if (
         downloadUrl
     ) {
+
         const link =
             document.createElement(
                 'a'
@@ -3298,12 +4900,14 @@ function handleProjectStructureDownloadFile(
 
 
         return
+
     }
 
 
     showError(
         'This project file entry has no storage-backed binary to download. Use Project Files below for uploaded binaries.'
     )
+
 }
 
 
@@ -3316,7 +4920,9 @@ function handleProjectStructureDownloadFile(
 function readDocumentEnvelope(
     content
 ) {
+
     try {
+
         const parsed =
             JSON.parse(
                 String(
@@ -3334,7 +4940,9 @@ function readDocumentEnvelope(
                 parsed
             )
         ) {
+
             return {
+
                 title:
                     String(
                         parsed.title ||
@@ -3350,14 +4958,20 @@ function readDocumentEnvelope(
                 doc:
                     parsed.doc ||
                     parsed
+
             }
+
         }
+
     } catch {
+
         // Legacy content is handled by the editor.
+
     }
 
 
     return {
+
         title:
             '',
 
@@ -3367,24 +4981,29 @@ function readDocumentEnvelope(
         doc:
             content ||
             ''
+
     }
+
 }
 
 
 function projectDocumentRouteKey(
     item
 ) {
+
     return String(
         item?.client_key ||
         item?.id ||
         ''
     ).trim()
+
 }
 
 
 function findProjectDocumentByRouteKey(
     key
 ) {
+
     const value =
         String(
             key ||
@@ -3392,8 +5011,12 @@ function findProjectDocumentByRouteKey(
         ).trim()
 
 
-    if (!value) {
+    if (
+        !value
+    ) {
+
         return null
+
     }
 
 
@@ -3419,12 +5042,14 @@ function findProjectDocumentByRouteKey(
                     value
             )
     )
+
 }
 
 
 async function setProjectDocumentRoute(
     key
 ) {
+
     const value =
         String(
             key ||
@@ -3433,21 +5058,33 @@ async function setProjectDocumentRoute(
 
 
     const nextQuery = {
+
         ...route.query
+
     }
 
 
-    if (value) {
+    if (
+        value
+    ) {
+
         nextQuery.document =
             value
+
     } else {
+
         delete nextQuery.document
+
     }
 
 
     await router.replace({
-        query: nextQuery
+
+        query:
+            nextQuery
+
     })
+
 }
 
 
@@ -3455,20 +5092,26 @@ async function openProjectDocument(
     item,
     options = {}
 ) {
+
     const {
-        updateRoute =
-            true
-    } = options
+        updateRoute = true
+    } =
+        options
 
 
     if (
         !item?.id
     ) {
+
         return
+
     }
 
 
-    if (updateRoute) {
+    if (
+        updateRoute
+    ) {
+
         const key =
             projectDocumentRouteKey(
                 item
@@ -3481,21 +5124,28 @@ async function openProjectDocument(
                 route.query.document ||
                 ''
             ) !==
-                key
+            key
         ) {
+
             syncingDocumentRoute.value =
                 true
 
 
             try {
+
                 await setProjectDocumentRoute(
                     key
                 )
+
             } finally {
+
                 syncingDocumentRoute.value =
                     false
+
             }
+
         }
+
     }
 
 
@@ -3513,6 +5163,7 @@ async function openProjectDocument(
 
 
     documentTemplate.value = {
+
         id:
             item.id,
 
@@ -3552,6 +5203,7 @@ async function openProjectDocument(
         content:
             item.content ||
             ''
+
     }
 
 
@@ -3579,22 +5231,30 @@ async function openProjectDocument(
 
 
     window.scrollTo({
+
         top:
             0,
 
         behavior:
             'smooth'
+
     })
+
 }
+
 
 async function reviewProjectDocument(
     document
 ) {
+
     if (
         !document?.id
     ) {
+
         return
+
     }
+
 
     const existing =
         (
@@ -3614,30 +5274,33 @@ async function reviewProjectDocument(
                     )
         )
 
+
     if (
         existing
     ) {
+
         await openProjectDocument(
             existing
         )
 
+
         return
+
     }
 
-    /*
-     * The todo_signatures payload may contain only
-     * document metadata. Reload the project so we get
-     * the complete document content.
-     */
+
     try {
+
         const response =
             await api.get(
                 `/projects/${projectId.value}`
             )
 
+
         const projectData =
             response.data?.data ||
             {}
+
 
         const normalized =
             normalizeProjectFolders(
@@ -3647,8 +5310,10 @@ async function reviewProjectDocument(
                 []
             )
 
+
         projectFolders.value =
             normalized
+
 
         const resolved =
             normalized.find(
@@ -3665,35 +5330,48 @@ async function reviewProjectDocument(
                         )
             )
 
+
         if (
             resolved
         ) {
+
             await openProjectDocument(
                 resolved
             )
 
+
             return
+
         }
+
 
         showError(
             'The document could not be found in the project structure.'
         )
+
     } catch (
         exception
     ) {
+
         showError(
             errorMessage(
                 exception
             )
         )
+
     }
+
 }
 
+
 function syncProjectDocumentFromRoute() {
+
     if (
         syncingDocumentRoute.value
     ) {
+
         return
+
     }
 
 
@@ -3704,16 +5382,22 @@ function syncProjectDocumentFromRoute() {
         ).trim()
 
 
-    if (!routeKey) {
+    if (
+        !routeKey
+    ) {
+
         if (
             documentEditorOpen.value
         ) {
+
             documentEditorOpen.value =
                 false
+
         }
 
 
         return
+
     }
 
 
@@ -3728,7 +5412,9 @@ function syncProjectDocumentFromRoute() {
         currentKey ===
             routeKey
     ) {
+
         return
+
     }
 
 
@@ -3738,33 +5424,46 @@ function syncProjectDocumentFromRoute() {
         )
 
 
-    if (match) {
+    if (
+        match
+    ) {
+
         void openProjectDocument(
+
             match,
+
             {
                 updateRoute:
                     false
             }
+
         )
+
     }
+
 }
 
 
 function updateDocumentBlocks(
     value
 ) {
+
     documentBlocks.value =
         value
+
 }
 
 
 function updateDocumentTitle(
     value
 ) {
+
     if (
         !documentTemplate.value
     ) {
+
         return
+
     }
 
 
@@ -3776,6 +5475,7 @@ function updateDocumentTitle(
 
 
     documentTemplate.value = {
+
         ...documentTemplate.value,
 
         name:
@@ -3783,21 +5483,27 @@ function updateDocumentTitle(
 
         title:
             title
+
     }
+
 }
 
 
 function updateDocumentSubtitle(
     value
 ) {
+
     if (
         !documentTemplate.value
     ) {
+
         return
+
     }
 
 
     documentTemplate.value = {
+
         ...documentTemplate.value,
 
         subtitle:
@@ -3805,13 +5511,16 @@ function updateDocumentSubtitle(
                 value ||
                 ''
             )
+
     }
+
 }
 
 
 async function saveProjectDocument(
     template
 ) {
+
     const payload =
         template ||
         documentTemplate.value
@@ -3820,7 +5529,9 @@ async function saveProjectDocument(
     if (
         !payload?.id
     ) {
+
         return
+
     }
 
 
@@ -3842,6 +5553,7 @@ async function saveProjectDocument(
 
     const content =
         JSON.stringify({
+
             title,
 
             subtitle,
@@ -3850,6 +5562,7 @@ async function saveProjectDocument(
                 payload.document_schema ||
                 documentBlocks.value ||
                 {}
+
         })
 
 
@@ -3862,23 +5575,24 @@ async function saveProjectDocument(
                 String(
                     item.id
                 ) ===
-                String(
-                    payload.id
-                ) ||
+                    String(
+                        payload.id
+                    ) ||
                 String(
                     item.client_key
                 ) ===
-                String(
-                    payload.client_key ||
-                    ''
-                )
+                    String(
+                        payload.client_key ||
+                        ''
+                    )
         )
 
 
     if (
         index <
-        0
+            0
     ) {
+
         documentSaveError.value =
             'Document file could not be found in the project structure.'
 
@@ -3889,6 +5603,7 @@ async function saveProjectDocument(
 
 
         return
+
     }
 
 
@@ -3901,6 +5616,7 @@ async function saveProjectDocument(
 
 
     try {
+
         const next =
             [
                 ...projectFolders.value
@@ -3908,6 +5624,7 @@ async function saveProjectDocument(
 
 
         next[index] = {
+
             ...next[index],
 
             name:
@@ -3917,6 +5634,7 @@ async function saveProjectDocument(
                 title,
 
             content
+
         }
 
 
@@ -3931,6 +5649,7 @@ async function saveProjectDocument(
 
 
         documentTemplate.value = {
+
             ...documentTemplate.value,
 
             id:
@@ -3948,6 +5667,7 @@ async function saveProjectDocument(
             subtitle,
 
             content
+
         }
 
 
@@ -3960,9 +5680,11 @@ async function saveProjectDocument(
 
 
         await saveProjectStructure()
+
     } catch (
         exception
     ) {
+
         documentSaveError.value =
             errorMessage(
                 exception
@@ -3972,14 +5694,19 @@ async function saveProjectDocument(
         showError(
             documentSaveError.value
         )
+
     } finally {
+
         documentSaveInFlight.value =
             false
+
     }
+
 }
 
 
 async function handleDocumentBack() {
+
     documentEditorOpen.value =
         false
 
@@ -3989,203 +5716,235 @@ async function handleDocumentBack() {
 
 
     try {
+
         await setProjectDocumentRoute(
             ''
         )
+
     } finally {
+
         syncingDocumentRoute.value =
             false
-    }
-}
 
-
-function openPortfolioEditor() {
-    router.push({
-        name:
-            'portfolio.edit',
-
-        params: {
-            id:
-                projectId.value
-        }
-    })
-}
-
-
-function openClient() {
-    if (
-        !project.value?.company?.id
-    ) {
-        return
     }
 
-
-    router.push({
-        name:
-            'clients.show',
-
-        params: {
-            id:
-                project.value.company.id
-        }
-    })
 }
 
+
+/*
+|--------------------------------------------------------------------------
+| Cleanup
+|--------------------------------------------------------------------------
+*/
 
 onBeforeUnmount(
     () => {
+
         if (
             projectAutosaveTimer.value
         ) {
+
             clearTimeout(
                 projectAutosaveTimer.value
             )
+
         }
 
 
         if (
             structureSaveTimer.value
         ) {
+
             clearTimeout(
                 structureSaveTimer.value
             )
+
         }
+
     }
 )
+
+
 useAdminPageHeader({
-    title: pageTitle,
-    description: computed(() =>
-        projectReady.value
-            ? project.value?.summary || 'Project workspace and delivery.'
-            : 'Create the project here. Changes save automatically.'
-    ),
-    eyebrow: computed(() =>
-        project.value?.project_code || 'Project'
-    ),
-    breadcrumbs: computed(() => [
-        {
-            label: 'Projects',
-            to: {
-                name: 'projects.index'
+
+    title:
+        pageTitle,
+
+    description:
+        computed(() =>
+            projectReady.value
+                ? project.value?.summary ||
+                    'Project workspace and delivery.'
+                : 'Create the project here. Changes save automatically.'
+        ),
+
+    eyebrow:
+        computed(() =>
+            project.value?.project_code ||
+            'Project'
+        ),
+
+    breadcrumbs:
+        computed(() => [
+
+            {
+                label:
+                    'Projects',
+
+                to: {
+                    name:
+                        'projects.index'
+                }
+
+            },
+
+            {
+                label:
+                    pageTitle.value
             }
-        },
-        {
-            label: pageTitle.value
-        }
-    ])
+
+        ])
+
 })
+
 </script>
 
 
 <template>
+
     <div
         class="
             w-full
-            space-y-14
-            lg:space-y-16
+            space-y-28
         "
     >
+
         <!-- Document editor -->
+
         <Teleport
             v-if="
                 documentEditorOpen
             "
             to="body"
         >
+
             <DocumentEditor
-            :model-value="
-                documentBlocks
-            "
-            :template="
-                documentTemplate
-            "
-            :title="
-                documentTemplate?.name ||
-                ''
-            "
-            :subtitle="
-                documentTemplate?.subtitle ||
-                ''
-            "
-            :show-signature-status="
-                true
-            "
-            :requires-signature="
-                Boolean(
-                    documentTemplate?.requires_client_signature
-                )
-            "
-            :signature-signed="
-                Boolean(
-                    documentTemplate?.is_signed
-                )
-            "
-            :editable="
-                true
-            "
-            :saving="
-                documentSaveInFlight
-            "
-            :save-revision="
-                documentSaveRevision
-            "
-            :saved-revision="
-                documentSavedRevision
-            "
-            :save-error="
-                documentSaveError
-            "
-            :project-files-enabled="
-                true
-            "
-            :project-id="
-                projectId
-            "
-            language="en"
-            @update:title="
-                updateDocumentTitle
-            "
-            @update:subtitle="
-                updateDocumentSubtitle
-            "
-            @update:model-value="
-                updateDocumentBlocks
-            "
-            @back="
-                handleDocumentBack
-            "
-            @save="
-                saveProjectDocument
-            "
+                :model-value="
+                    documentBlocks
+                "
+
+                :template="
+                    documentTemplate
+                "
+
+                :title="
+                    documentTemplate?.name ||
+                    ''
+                "
+
+                :subtitle="
+                    documentTemplate?.subtitle ||
+                    ''
+                "
+
+                :show-signature-status="
+                    true
+                "
+
+                :requires-signature="
+                    Boolean(
+                        documentTemplate?.requires_client_signature
+                    )
+                "
+
+                :signature-signed="
+                    Boolean(
+                        documentTemplate?.is_signed
+                    )
+                "
+
+                :editable="
+                    true
+                "
+
+                :saving="
+                    documentSaveInFlight
+                "
+
+                :save-revision="
+                    documentSaveRevision
+                "
+
+                :saved-revision="
+                    documentSavedRevision
+                "
+
+                :save-error="
+                    documentSaveError
+                "
+
+                :project-files-enabled="
+                    true
+                "
+
+                :project-id="
+                    projectId
+                "
+
+                language="en"
+
+                @update:title="
+                    updateDocumentTitle
+                "
+
+                @update:subtitle="
+                    updateDocumentSubtitle
+                "
+
+                @update:model-value="
+                    updateDocumentBlocks
+                "
+
+                @back="
+                    handleDocumentBack
+                "
+
+                @save="
+                    saveProjectDocument
+                "
+
             />
+
         </Teleport>
 
 
         <template
             v-else
         >
+
             <Toast
                 v-model="
                     showErrorToast
                 "
+
                 heading="Something went wrong"
+
                 :text="
                     error
                 "
+
                 :duration="
                     5000
                 "
             />
 
 
-            <!-- Loading -->
             <div
                 v-if="
                     loading
                 "
-                class="
-                "
             >
+
                 <p
                     class="
                         p
@@ -4195,13 +5954,16 @@ useAdminPageHeader({
                 >
                     Loading project...
                 </p>
+
             </div>
 
 
             <template
                 v-else
             >
+
                 <!-- Project information -->
+
                 <section
                     v-if="
                         canManageProjectSettings
@@ -4210,6 +5972,7 @@ useAdminPageHeader({
                         space-y-14
                     "
                 >
+
                     <div
                         class="
                             flex
@@ -4220,7 +5983,9 @@ useAdminPageHeader({
                             sm:justify-between
                         "
                     >
+
                         <div>
+
                             <h2
                                 class="
                                     h2
@@ -4229,7 +5994,9 @@ useAdminPageHeader({
                             >
                                 Project information
                             </h2>
+
                         </div>
+
                     </div>
 
 
@@ -4242,21 +6009,30 @@ useAdminPageHeader({
                             md:gap-20
                         "
                     >
+
                         <section
                             class="
                                 space-y-8
                             "
                         >
+
                             <FormField
                                 id="project-name"
+
                                 v-model="
                                     projectForm.name
                                 "
+
                                 name="name"
+
                                 type="text"
+
                                 label="Project name"
+
                                 placeholder="Project name"
+
                                 required
+
                                 :error="
                                     errors.name?.[0] ||
                                     ''
@@ -4266,16 +6042,23 @@ useAdminPageHeader({
 
                             <FormField
                                 id="project-service"
+
                                 v-model="
                                     projectForm.service_product_id
                                 "
+
                                 name="service_product_id"
+
                                 type="select"
+
                                 label="Service product"
+
                                 :options="
                                     serviceOptions
                                 "
+
                                 required
+
                                 :error="
                                     errors.service_product_id?.[0] ||
                                     ''
@@ -4285,15 +6068,21 @@ useAdminPageHeader({
 
                             <FormField
                                 id="project-status"
+
                                 v-model="
                                     projectForm.portal_status
                                 "
+
                                 name="portal_status"
+
                                 type="select"
+
                                 label="Status"
+
                                 :options="
                                     statusOptions
                                 "
+
                                 :error="
                                     errors.portal_status?.[0] ||
                                     ''
@@ -4308,14 +6097,20 @@ useAdminPageHeader({
                                     sm:grid-cols-2
                                 "
                             >
+
                                 <FormField
                                     id="project-started"
+
                                     v-model="
                                         projectForm.started_at
                                     "
+
                                     name="started_at"
+
                                     type="date"
+
                                     label="Started"
+
                                     :error="
                                         errors.started_at?.[0] ||
                                         ''
@@ -4325,18 +6120,25 @@ useAdminPageHeader({
 
                                 <FormField
                                     id="project-completed"
+
                                     v-model="
                                         projectForm.completed_at
                                     "
+
                                     name="completed_at"
+
                                     type="date"
+
                                     label="Completed"
+
                                     :error="
                                         errors.completed_at?.[0] ||
                                         ''
                                     "
                                 />
+
                             </div>
+
                         </section>
 
 
@@ -4345,15 +6147,22 @@ useAdminPageHeader({
                                 space-y-8
                             "
                         >
+
                             <FormField
                                 id="project-summary"
+
                                 v-model="
                                     projectForm.summary
                                 "
+
                                 name="summary"
+
                                 type="textarea"
+
                                 label="Summary"
+
                                 placeholder="Brief description of the project"
+
                                 :error="
                                     errors.summary?.[0] ||
                                     ''
@@ -4363,24 +6172,34 @@ useAdminPageHeader({
 
                             <FormField
                                 id="project-notes"
+
                                 v-model="
                                     projectForm.internal_notes
                                 "
+
                                 name="internal_notes"
+
                                 type="textarea"
+
                                 label="Internal notes"
+
                                 placeholder="Visible only to your team"
+
                                 :error="
                                     errors.internal_notes?.[0] ||
                                     ''
                                 "
                             />
+
                         </section>
+
                     </div>
+
                 </section>
 
 
                 <!-- Actions required -->
+
                 <section
                     v-if="
                         canManageProjectSettings &&
@@ -4390,7 +6209,9 @@ useAdminPageHeader({
                         space-y-6
                     "
                 >
+
                     <div>
+
                         <h2
                             class="
                                 h2
@@ -4401,6 +6222,7 @@ useAdminPageHeader({
                             Actions required
                         </h2>
 
+
                         <p
                             class="
                                 p
@@ -4409,7 +6231,9 @@ useAdminPageHeader({
                         >
                             These documents are waiting for a client signature.
                         </p>
+
                     </div>
+
 
                     <ul
                         class="
@@ -4417,17 +6241,26 @@ useAdminPageHeader({
                             gap-2
                         "
                     >
+
                         <li
-                            v-for="document in project.todo_signatures"
-                            :key="`todo-${document.id}`"
+                            v-for="
+                                document in project.todo_signatures
+                            "
+
+                            :key="
+                                `todo-${document.id}`
+                            "
+
                             class="
                                 border
                                 border-accent
                                 bg-accent
                             "
                         >
+
                             <button
                                 type="button"
+
                                 class="
                                     flex
                                     w-full
@@ -4439,32 +6272,60 @@ useAdminPageHeader({
                                     text-left
                                     text-light
                                 "
+
                                 @click="
                                     reviewProjectDocument(document)
                                 "
                             >
-                                <span class="flex items-center gap-2">
-                                    <i class="bi bi-file-earmark p" />
-                                    <span class="p uppercase">
-                                        {{ document.name }}
-                                    </span>
-                                </span>
 
-                                <Button
-                                    type="button"
-                                    text="review"
-                                    variant="light"
-                                    hover-variant="dark"
-                                    align="right"
+                                <span
                                     class="
-                                        max-w-[120px]
+                                        flex
+                                        items-center
+                                        gap-2
                                     "
                                 >
-                                    review
-                                </Button>
+
+                                    <i
+                                        class="
+                                            bi
+                                            bi-file-earmark
+                                            p
+                                        "
+                                    />
+
+
+                                    <span
+                                        class="
+                                            p
+                                            uppercase
+                                        "
+                                    >
+                                        {{
+                                            document.name
+                                        }}
+                                    </span>
+
+                                </span>
+
+
+                                <span
+                                    class="
+                                        font-mono
+                                        text-[10px]
+                                        font-bold
+                                        uppercase
+                                    "
+                                >
+                                    Review
+                                </span>
+
                             </button>
+
                         </li>
+
                     </ul>
+
                 </section>
 
 
@@ -4473,7 +6334,9 @@ useAdminPageHeader({
                         projectReady
                     "
                 >
+
                     <!-- Assigned people -->
+
                     <section
                         v-if="
                             canManageProjectSettings
@@ -4482,7 +6345,9 @@ useAdminPageHeader({
                             space-y-8
                         "
                     >
+
                         <div>
+
                             <h3
                                 class="
                                     h2
@@ -4492,6 +6357,7 @@ useAdminPageHeader({
                             >
                                 Assigned people
                             </h3>
+
                         </div>
 
 
@@ -4503,23 +6369,33 @@ useAdminPageHeader({
                                 md:grid-cols-2
                             "
                         >
+
                             <FormField
                                 id="project-contacts"
+
                                 v-model="
                                     projectForm.contact_ids
                                 "
+
                                 name="contact_ids"
+
                                 type="select"
+
                                 label="Client contacts"
+
                                 placeholder="Select contacts"
+
                                 multiple
+
                                 :options="
                                     contactAssignmentOptions
                                 "
+
                                 :disabled="
                                     !projectForm.company_id ||
                                     saving
                                 "
+
                                 :error="
                                     errors.contact_ids?.[0] ||
                                     ''
@@ -4529,35 +6405,48 @@ useAdminPageHeader({
 
                             <FormField
                                 id="project-coworkers"
+
                                 v-model="
                                     projectForm.coworker_ids
                                 "
+
                                 name="coworker_ids"
+
                                 type="select"
+
                                 label="Coworkers"
+
                                 placeholder="Select coworkers"
+
                                 multiple
+
                                 :options="
                                     coworkerAssignmentOptions
                                 "
+
                                 :disabled="
                                     saving
                                 "
+
                                 :error="
                                     errors.coworker_ids?.[0] ||
                                     ''
                                 "
                             />
+
                         </div>
+
                     </section>
 
 
                     <!-- Tickets -->
+
                     <section
                         class="
                             space-y-8
                         "
                     >
+
                         <div
                             class="
                                 flex
@@ -4566,6 +6455,7 @@ useAdminPageHeader({
                                 gap-6
                             "
                         >
+
                             <h2
                                 class="
                                     h2
@@ -4579,8 +6469,10 @@ useAdminPageHeader({
 
 
                         <!-- New ticket -->
+
                         <div
                             id="new-ticket"
+
                             class="
                                 grid
                                 grid-cols-1
@@ -4589,40 +6481,58 @@ useAdminPageHeader({
                                 lg:grid-cols-4
                             "
                         >
+
                             <FormField
                                 id="ticket-title"
+
                                 v-model="
                                     ticketForm.title
                                 "
+
                                 name="title"
+
                                 type="text"
+
                                 label="Title"
+
                                 placeholder="Ticket title"
+
                                 required
                             />
 
 
                             <FormField
                                 id="ticket-description"
+
                                 v-model="
                                     ticketForm.description
                                 "
+
                                 name="description"
+
                                 type="textarea"
+
                                 label="Description"
+
                                 placeholder="What needs to be done?"
+
                                 required
                             />
 
 
                             <FormField
                                 id="ticket-priority"
+
                                 v-model="
                                     ticketForm.priority
                                 "
+
                                 name="priority"
+
                                 type="select"
+
                                 label="Priority"
+
                                 :options="
                                     ticketPriorityOptions
                                 "
@@ -4630,16 +6540,90 @@ useAdminPageHeader({
 
 
                             <FormField
+                                id="ticket-deadline"
+
+                                v-model="
+                                    ticketForm.deadline
+                                "
+
+                                name="deadline"
+
+                                type="date"
+
+                                label="Deadline"
+                            />
+
+
+                            <FormField
                                 id="ticket-assignee"
+
                                 v-model="
                                     ticketForm.assignees
                                 "
+
                                 name="assignees"
+
                                 type="select"
+
                                 label="Assignee"
+
                                 multiple
+
                                 :options="
                                     ticketAssigneeOptions
+                                "
+                            />
+
+
+                            <!--
+                                IMPORTANT:
+                                This is autocomplete, exactly like
+                                the Services field.
+                            -->
+
+                            <FormField
+                                id="ticket-tags"
+
+                                :model-value="
+                                    ticketForm.tag_ids
+                                "
+
+                                name="tag_ids"
+
+                                type="autocomplete"
+
+                                multiple
+
+                                label="Tags"
+
+                                placeholder="Start typing a tag"
+
+                                :options="
+                                    ticketTagOptions
+                                "
+
+                                :loading="
+                                    ticketTagCreating
+                                "
+
+                                :disabled="
+                                    ticketTagCreating
+                                "
+
+                                @search="
+                                    searchTicketTags
+                                "
+
+                                @update:model-value="
+                                    value => {
+                                        if (Array.isArray(value)) {
+                                            ticketForm.tag_ids = value
+                                        }
+                                    }
+                                "
+
+                                @select="
+                                    handleTicketTagSelect
                                 "
                             />
 
@@ -4650,20 +6634,114 @@ useAdminPageHeader({
                                     lg:col-span-4
                                 "
                             >
+
                                 <Button
                                     type="button"
+
                                     text="add ticket"
+
                                     variant="accent"
+                                    hover-variant="dark"
+
                                     align="right"
+
                                     @click="
                                         createTicket
                                     "
                                 />
+
                             </div>
+
                         </div>
 
 
                         <!-- Ticket board -->
+
+                        <div
+                            class="
+                                grid
+                                grid-cols-1
+                                gap-4
+                                py-5
+                                md:grid-cols-3
+                            "
+                        >
+
+                            <FormField
+                                id="ticket-filter-assignee"
+
+                                v-model="
+                                    ticketFilters.assignee
+                                "
+
+                                name="ticket_filter_assignee"
+
+                                type="select"
+
+                                label="Assignee"
+
+                                :options="
+                                    ticketFilterAssigneeOptions
+                                "
+                            />
+
+
+                            <FormField
+                                id="ticket-filter-priority"
+
+                                v-model="
+                                    ticketFilters.priority
+                                "
+
+                                name="ticket_filter_priority"
+
+                                type="select"
+
+                                label="Priority"
+
+                                :options="
+                                    [
+                                        {
+                                            label: 'All priorities',
+                                            value: ''
+                                        },
+
+                                        ...ticketPriorityOptions
+                                    ]
+                                "
+                            />
+
+
+                            <FormField
+                                id="ticket-filter-deadline"
+
+                                v-model="
+                                    ticketFilters.deadline
+                                "
+
+                                name="ticket_filter_deadline"
+
+                                type="select"
+
+                                label="Order by deadline"
+
+                                :options="
+                                    [
+                                        {
+                                            label: 'Nearest deadline',
+                                            value: 'nearest'
+                                        },
+
+                                        {
+                                            label: 'Furthest deadline',
+                                            value: 'furthest'
+                                        }
+                                    ]
+                                "
+                            />
+
+                        </div>
+
                         <div
                             class="
                                 grid
@@ -4671,6 +6749,7 @@ useAdminPageHeader({
                                 lg:grid-cols-3
                             "
                         >
+
                             <section
                                 v-for="
                                     column in [
@@ -4699,31 +6778,41 @@ useAdminPageHeader({
                                         }
                                     ]
                                 "
+
                                 :key="
                                     column.key
                                 "
+
                                 :class="[
+
                                     'min-w-0 p-2 transition-colors',
-                                    dragOverStatus === column.key
+
+                                    dragOverStatus ===
+                                        column.key
                                         ? 'bg-accent/10'
                                         : ''
+
                                 ]"
+
                                 @dragover.prevent="
                                     handleTicketDragEnter(
                                         column.key
                                     )
                                 "
+
                                 @dragenter="
                                     handleTicketDragEnter(
                                         column.key
                                     )
                                 "
+
                                 @drop.prevent="
                                     handleTicketDrop(
                                         column.key
                                     )
                                 "
                             >
+
                                 <div
                                     class="
                                         flex
@@ -4732,6 +6821,7 @@ useAdminPageHeader({
                                         py-4
                                     "
                                 >
+
                                     <h3
                                         class="
                                             h3
@@ -4751,11 +6841,12 @@ useAdminPageHeader({
                                         "
                                     >
                                         {{
-                                            ticketsFor(
+                                            ticketPagination[
                                                 column.key
-                                            ).length
+                                            ].total
                                         }}
                                     </span>
+
                                 </div>
 
 
@@ -4767,53 +6858,125 @@ useAdminPageHeader({
                                         overflow-y-auto
                                         pr-1
                                     "
+
+                                    @scroll.passive="
+                                        handleTicketScroll(
+                                            $event,
+                                            column.key
+                                        )
+                                    "
                                 >
+
                                     <ProjectTicket
                                         v-for="
                                             ticket in ticketsFor(
                                                 column.key
                                             )
                                         "
+
                                         :key="
                                             ticket.id
                                         "
+
                                         :ticket="
                                             ticket
                                         "
+
                                         :priority-options="
                                             ticketPriorityOptions
                                         "
+
                                         :assignee-options="
                                             ticketAssigneeOptions
                                         "
+
                                         :status-options="
                                             ticketStatusOptions
                                         "
+
+                                        :tag-options="
+                                            ticketTagOptions
+                                        "
+
                                         @drag-start="
                                             startTicketDrag
                                         "
+
                                         @drag-end="
                                             endTicketDrag
                                         "
+
                                         @save="
                                             saveTicket
                                         "
+
                                         @delete="
                                             deleteTicket
                                         "
+
+                                        @create-tag="
+                                            createTicketTag
+                                        "
                                     />
+
+                                    <div
+                                        v-if="
+                                            ticketLoading[
+                                                column.key
+                                            ]
+                                        "
+                                        class="
+                                            py-4
+                                            text-center
+                                            font-mono
+                                            text-[10px]
+                                            font-bold
+                                            uppercase
+                                            text-dark/40
+                                        "
+                                    >
+                                        Loading more...
+                                    </div>
+
+                                    <div
+                                        v-else-if="
+                                            ticketPagination[
+                                                column.key
+                                            ].page <
+                                            ticketPagination[
+                                                column.key
+                                            ].last_page
+                                        "
+                                        class="
+                                            py-4
+                                            text-center
+                                            font-mono
+                                            text-[10px]
+                                            font-bold
+                                            uppercase
+                                            text-dark/30
+                                        "
+                                    >
+                                        Scroll for more
+                                    </div>
+
                                 </div>
+
                             </section>
+
                         </div>
+
                     </section>
 
 
                     <!-- Files -->
+
                     <section
                         class="
                             space-y-8
                         "
                     >
+
                         <div
                             class="
                                 flex
@@ -4824,7 +6987,9 @@ useAdminPageHeader({
                                 sm:justify-between
                             "
                         >
+
                             <div>
+
                                 <h2
                                     class="
                                         h2
@@ -4833,7 +6998,9 @@ useAdminPageHeader({
                                 >
                                     Project files
                                 </h2>
+
                             </div>
+
                         </div>
 
 
@@ -4841,47 +7008,60 @@ useAdminPageHeader({
                             :project-id="
                                 projectId
                             "
+
                             :model-value="
                                 [
-                                ...projectFolders,
-                                ...projectFiles
-                            ]
+                                    ...projectFolders,
+                                    ...projectFiles
+                                ]
                             "
+
                             :initial-folder-id="
                                 projectFilesInitialFolderId
                             "
+
                             :allow-upload-control="
                                 true
                             "
+
                             :allow-metadata-editing="
                                 true
                             "
+
                             :prevent-deleting-required="
                                 true
                             "
+
                             @update:model-value="
                                 queueStructureSave
                             "
+
                             @open-folder="
                                 handleProjectFilesOpenFolder
                             "
+
                             @open-document="
                                 openProjectDocument
                             "
+
                             @open-file="
                                 handleProjectStructureOpenFile
                             "
+
                             @download-file="
                                 handleProjectStructureDownloadFile
                             "
+
                             @upload-files="
                                 handleProjectFileUpload
                             "
                         />
+
                     </section>
 
 
                     <!-- Danger zone -->
+
                     <section
                         v-if="
                             canManageProjectSettings
@@ -4890,7 +7070,9 @@ useAdminPageHeader({
                             space-y-8
                         "
                     >
+
                         <div>
+
                             <h2
                                 class="
                                     h2
@@ -4900,22 +7082,30 @@ useAdminPageHeader({
                             >
                                 Danger zone
                             </h2>
+
                         </div>
 
 
                         <Button
                             type="button"
+
                             text="delete project"
+
                             align="left"
+
                             :disabled="
                                 busy
                             "
+
                             @click="
                                 requestDelete
                             "
                         />
+
                     </section>
+
                 </template>
+
             </template>
 
 
@@ -4923,19 +7113,28 @@ useAdminPageHeader({
                 :open="
                     showDeleteConfirm
                 "
+
                 title="Delete project?"
+
                 text="This will permanently delete the project and its related records."
+
                 confirm-label="Delete project"
+
                 :busy="
                     busy
                 "
+
                 @close="
                     closeDeleteConfirm
                 "
+
                 @confirm="
                     destroyProject
                 "
             />
+
         </template>
+
     </div>
+
 </template>

@@ -15,12 +15,13 @@ class DashboardController extends Controller
 {
     public function __invoke(): JsonResponse
     {
-        $recentProjects = Project::query()
+        $activeProjects = Project::query()
             ->whereNotNull('company_id')
+            ->where('portal_status', 'active')
+            ->whereNull('archived_at')
             ->with(['company', 'serviceProduct'])
             ->withCount('contacts')
             ->latest('updated_at')
-            ->limit(6)
             ->get();
         $recentCompanies = Company::query()
             ->withCount(['contacts', 'projects'])
@@ -36,7 +37,7 @@ class DashboardController extends Controller
                 'active_service_products' => ServiceProduct::query()->where('active', true)->count(),
                 'portal_contacts' => ClientContact::query()->where('active', true)->where('can_access_portal', true)->count(),
             ],
-            'recent_projects' => ProjectResource::collection($recentProjects),
+            'active_projects' => ProjectResource::collection($activeProjects),
             'recent_clients' => CompanyResource::collection($recentCompanies),
         ]);
     }

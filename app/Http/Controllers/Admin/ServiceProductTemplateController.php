@@ -5,13 +5,11 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\ServiceProduct;
 use App\Models\ServiceProductTemplateFolder;
-use Illuminate\Filesystem\FilesystemAdapter;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
-use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class ServiceProductTemplateController extends Controller
@@ -714,36 +712,53 @@ class ServiceProductTemplateController extends Controller
     public function open(
         ServiceProduct $serviceProduct,
         ServiceProductTemplateFolder $folder
-    ): Response {
+    ): StreamedResponse {
         $this->assertOwnership(
             $serviceProduct,
             $folder
         );
 
-        if (
-            $folder->isLink()
-        ) {
+        if ($folder->isLink()) {
             abort_unless(
                 filled($folder->url),
                 404
             );
 
-            return redirect()->away(
-                $folder->url
+            /*
+            * A link is not a streamed file.
+            *
+            * Keep the method's return type consistent by
+            * returning a small streamed response containing
+            * the redirect target.
+            *
+            * The frontend should normally use the URL directly
+            * for link resources, so this branch is mainly a
+            * defensive fallback.
+            */
+            return response()->stream(
+                function () use ($folder): void {
+                    echo $folder->url;
+                },
+                200,
+                [
+                    'Content-Type' => 'text/plain; charset=UTF-8',
+                    'Cache-Control' => 'private, no-store',
+                ]
             );
         }
 
         abort_unless(
-            filled(
-                $folder->storage_path
-            ),
+            filled($folder->storage_path),
             404
         );
 
-        /** @var FilesystemAdapter $disk */
-        $disk = Storage::disk(
-            $folder->disk ?: 'local'
-        );
+        $diskName =
+            $folder->disk ?: 'local';
+
+        $disk =
+            Storage::disk(
+                $diskName
+            );
 
         abort_unless(
             $disk->exists(
@@ -752,21 +767,52 @@ class ServiceProductTemplateController extends Controller
             404
         );
 
-        return $disk->response(
-            $folder->storage_path,
+        $mimeType =
+            $folder->mime_type
+            ?: 'application/octet-stream';
+
+        $filename =
             $folder->original_filename
-                ?: $folder->name,
+            ?: $folder->name;
+
+        $inline =
+            $this->shouldInline(
+                $folder
+            );
+
+        return response()->stream(
+            function () use (
+                $disk,
+                $folder
+            ): void {
+                $stream =
+                    $disk->readStream(
+                        $folder->storage_path
+                    );
+
+                abort_unless(
+                    is_resource($stream),
+                    404
+                );
+
+                fpassthru($stream);
+
+                fclose($stream);
+            },
+            200,
             [
                 'Content-Type' =>
-                    $folder->mime_type
-                    ?: 'application/octet-stream',
+                    $mimeType,
 
                 'Content-Disposition' =>
-                    $this->shouldInline(
-                        $folder
+                    (
+                        $inline
+                            ? 'inline'
+                            : 'attachment'
                     )
-                        ? 'inline'
-                        : 'attachment',
+                    . '; filename="'
+                    . addslashes($filename)
+                    . '"',
 
                 'Cache-Control' =>
                     'private, no-store',
@@ -793,10 +839,10 @@ class ServiceProductTemplateController extends Controller
             404
         );
 
-        /** @var FilesystemAdapter $disk */
-        $disk = Storage::disk(
-            $folder->disk ?: 'local'
-        );
+        $disk =
+            Storage::disk(
+                $folder->disk ?: 'local'
+            );
 
         abort_unless(
             $disk->exists(
@@ -805,11 +851,128 @@ class ServiceProductTemplateController extends Controller
             404
         );
 
-        return $disk->download(
-            $folder->storage_path,
+        $filename =
             $folder->original_filename
-                ?: $folder->name
+            ?: $folder->name;
+
+        return response()->streamDownload(
+            function () use (
+                $disk,
+                $folder
+            ): void {
+                $stream =
+                    $disk->readStream(
+                        $folder->storage_path
+                    );
+
+                abort_unless(
+                    is_resource($stream),
+                    404
+                );
+
+                fpassthru($stream);
+
+                fclose($stream);
+            },
+            $filename,
+            [
+                'Content-Type' =>
+                    $folder->mime_type
+                    ?: 'application/octet-stream',
+
+                'Cache-Control' =>
+                    'private, no-store',
+
+                'X-Content-Type-Options' =>
+                    'nosniff',
+            ]
         );
+    }
+
+    public function destroy(
+        ServiceProduct $serviceProduct,
+        ServiceProductTemplateFolder $folder
+    ): JsonResponse {
+        $this->assertOwnership(
+            $serviceProduct,
+            $folder
+        );
+
+        $ids = [
+            $folder->id,
+        ];
+
+        $pendingIds = [
+            $folder->id,
+        ];
+
+        /*
+         * Find every descendant so deleting a folder also
+         * removes its stored files and child records.
+         */
+        while (! empty($pendingIds)) {
+            $children =
+                ServiceProductTemplateFolder::query()
+                    ->where(
+                        'service_product_id',
+                        $serviceProduct->id
+                    )
+                    ->whereIn(
+                        'parent_id',
+                        $pendingIds
+                    )
+                    ->get();
+
+            if ($children->isEmpty()) {
+                break;
+            }
+
+            $pendingIds = [];
+
+            foreach ($children as $child) {
+                if (! in_array($child->id, $ids, true)) {
+                    $ids[] = $child->id;
+                    $pendingIds[] = $child->id;
+                }
+            }
+        }
+
+        $entries =
+            ServiceProductTemplateFolder::query()
+                ->where(
+                    'service_product_id',
+                    $serviceProduct->id
+                )
+                ->whereIn(
+                    'id',
+                    $ids
+                )
+                ->get();
+
+        foreach ($entries as $entry) {
+            if (filled($entry->storage_path)) {
+                Storage::disk(
+                    $entry->disk ?: 'local'
+                )->delete(
+                    $entry->storage_path
+                );
+            }
+        }
+
+        ServiceProductTemplateFolder::query()
+            ->where(
+                'service_product_id',
+                $serviceProduct->id
+            )
+            ->whereIn(
+                'id',
+                $ids
+            )
+            ->delete();
+
+        return response()->json([
+            'deleted' => $ids,
+        ]);
     }
 
     public function document(

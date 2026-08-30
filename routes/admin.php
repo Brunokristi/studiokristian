@@ -391,6 +391,33 @@ Route::prefix('admin/client-portal')
 
                 /*
                 |--------------------------------------------------------------------------
+                | Ticket Tags
+                |--------------------------------------------------------------------------
+                */
+
+                Route::get(
+                    '/projects/{project}/ticket-tags',
+                    [
+                        ProjectTicketController::class,
+                        'tags',
+                    ]
+                )->name(
+                    'projects.ticket-tags.index'
+                );
+
+                Route::post(
+                    '/projects/{project}/ticket-tags',
+                    [
+                        ProjectTicketController::class,
+                        'storeTag',
+                    ]
+                )->name(
+                    'projects.ticket-tags.store'
+                );
+
+
+                /*
+                |--------------------------------------------------------------------------
                 | Service Products
                 |--------------------------------------------------------------------------
                 */
@@ -496,6 +523,16 @@ Route::prefix('admin/client-portal')
                     'service-products.template.document'
                 );
 
+                Route::delete(
+                    '/service-products/{serviceProduct}/template-folders/{folder}',
+                    [
+                        ServiceProductTemplateController::class,
+                        'destroy',
+                    ]
+                )->name(
+                    'service-products.template.destroy'
+                );
+
 
                 /*
                 |--------------------------------------------------------------------------
@@ -505,23 +542,44 @@ Route::prefix('admin/client-portal')
 
                 Route::get(
                     '/service-products/{serviceProduct}/services',
-                    [ServiceController::class, 'index']
-                )->name('service-products.services.index');
+                    [
+                        ServiceController::class,
+                        'index',
+                    ]
+                )->name(
+                    'service-products.services.index'
+                );
 
                 Route::post(
                     '/service-products/{serviceProduct}/services',
-                    [ServiceController::class, 'store']
-                )->name('service-products.services.store');
+                    [
+                        ServiceController::class,
+                        'store',
+                    ]
+                )->name(
+                    'service-products.services.store'
+                );
 
                 Route::put(
                     '/services/{service}',
-                    [ServiceController::class, 'update']
-                )->name('services.update');
+                    [
+                        ServiceController::class,
+                        'update',
+                    ]
+                )->name(
+                    'services.update'
+                );
 
                 Route::delete(
                     '/services/{service}',
-                    [ServiceController::class, 'destroy']
-                )->name('services.destroy');
+                    [
+                        ServiceController::class,
+                        'destroy',
+                    ]
+                )->name(
+                    'services.destroy'
+                );
+
             });
 
 
@@ -808,22 +866,70 @@ Route::prefix('admin/client-portal')
 
             Route::get(
                 '/projects/{project}/tickets',
-                [ProjectTicketController::class, 'index']
+                [
+                    ProjectTicketController::class,
+                    'index',
+                ]
+            )->name(
+                'projects.tickets.index'
             );
 
             Route::post(
                 '/projects/{project}/tickets',
-                [ProjectTicketController::class, 'store']
+                [
+                    ProjectTicketController::class,
+                    'store',
+                ]
+            )->name(
+                'projects.tickets.store'
             );
 
             Route::put(
                 '/projects/{project}/tickets/{ticket}',
-                [ProjectTicketController::class, 'update']
+                [
+                    ProjectTicketController::class,
+                    'update',
+                ]
+            )->name(
+                'projects.tickets.update'
             );
 
             Route::delete(
                 '/projects/{project}/tickets/{ticket}',
-                [ProjectTicketController::class, 'destroy']
+                [
+                    ProjectTicketController::class,
+                    'destroy',
+                ]
+            )->name(
+                'projects.tickets.destroy'
             );
+
+
+            /*
+            |--------------------------------------------------------------------------
+            | Ticket Tags
+            |--------------------------------------------------------------------------
+            */
+
+            Route::get(
+                '/projects/{project}/ticket-tags',
+                [
+                    ProjectTicketController::class,
+                    'tags',
+                ]
+            )->name(
+                'projects.ticket-tags.index'
+            );
+
+            Route::post(
+                '/projects/{project}/ticket-tags',
+                [
+                    ProjectTicketController::class,
+                    'storeTag',
+                ]
+            )->name(
+                'projects.ticket-tags.store'
+            );
+
         });
     });

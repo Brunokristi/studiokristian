@@ -1,15 +1,17 @@
 <script setup>
+
 import {
     computed,
     nextTick,
     onBeforeUnmount,
     onMounted,
-    ref
+    ref,
+    watch
 } from 'vue'
-
 
 const props =
     defineProps({
+
         id: {
             type: String,
             default: ''
@@ -118,6 +120,10 @@ const isAutocompleteOpen =
     ref(false)
 
 
+const fieldWrapper =
+    ref(null)
+
+
 const fileInput =
     ref(null)
 
@@ -126,16 +132,33 @@ const textareaRef =
     ref(null)
 
 
-const fieldWrapper =
-    ref(null)
-
-
 const tokenInput =
+    ref('')
+
+
+/*
+|--------------------------------------------------------------------------
+| IMPORTANT
+|--------------------------------------------------------------------------
+|
+| This is completely separate from modelValue.
+|
+| When autocomplete is multiple:
+|
+| modelValue = selected values
+|
+| autocompleteInput = what the user is currently typing
+|
+|--------------------------------------------------------------------------
+*/
+
+const autocompleteInput =
     ref('')
 
 
 const selectedLabel =
     computed(() => {
+
         const selected =
             props.options.find(
                 option =>
@@ -147,16 +170,17 @@ const selectedLabel =
                     )
             )
 
-
         return (
             selected?.label ||
             ''
         )
+
     })
 
 
 const selectedOptions =
     computed(() => {
+
         if (
             !props.multiple ||
             !Array.isArray(
@@ -167,29 +191,29 @@ const selectedOptions =
         }
 
 
-        return props.options.filter(
-            option =>
-                props.modelValue.some(
-                    value =>
-                        String(
-                            value
-                        ) ===
-                        String(
-                            option.value
-                        )
-                )
-        )
+        return props.modelValue
+            .map(
+                selectedValue =>
+                    props.options.find(
+                        option =>
+                            String(
+                                option.value
+                            ) ===
+                            String(
+                                selectedValue
+                            )
+                    )
+            )
+            .filter(
+                Boolean
+            )
+
     })
-
-
-const filteredOptions =
-    computed(() =>
-        props.options
-    )
 
 
 const fileCount =
     computed(() => {
+
         if (
             Array.isArray(
                 props.modelValue
@@ -202,11 +226,13 @@ const fileCount =
         return props.modelValue
             ? 1
             : 0
+
     })
 
 
 const tokenList =
     computed(() => {
+
         if (
             !Array.isArray(
                 props.modelValue
@@ -221,14 +247,78 @@ const tokenList =
                 typeof item ===
                 'string'
         )
+
     })
 
 
 function handleInput(
     event
 ) {
+
     const value =
         event.target.value
+
+
+    /*
+     * Normal inputs work exactly as before.
+     */
+
+    if (
+        props.type !==
+        'autocomplete'
+    ) {
+
+        emit(
+            'update:modelValue',
+            value
+        )
+
+        emit(
+            'change',
+            value
+        )
+
+        return
+
+    }
+
+
+    /*
+     * AUTOCOMPLETE
+     *
+     * Never write the typed value into modelValue
+     * when this is a multiple autocomplete.
+     */
+
+    if (
+        props.multiple
+    ) {
+
+        autocompleteInput.value =
+            value
+
+
+        isAutocompleteOpen.value =
+            true
+
+
+        emit(
+            'search',
+            value
+        )
+
+
+        return
+
+    }
+
+
+    /*
+     * Single-value autocomplete.
+     */
+
+    autocompleteInput.value =
+        value
 
 
     emit(
@@ -243,32 +333,29 @@ function handleInput(
     )
 
 
-    if (
-        props.type ===
-        'autocomplete'
-    ) {
-        isAutocompleteOpen.value =
-            true
+    isAutocompleteOpen.value =
+        true
 
 
-        emit(
-            'search',
-            value
-        )
-    }
+    emit(
+        'search',
+        value
+    )
+
 }
 
 
 function handleKeydown(
     event
 ) {
+
     if (
         event.key ===
         'Escape'
     ) {
+
         isSelectOpen.value =
             false
-
 
         isAutocompleteOpen.value =
             false
@@ -279,18 +366,22 @@ function handleKeydown(
         'keydown',
         event
     )
+
 }
 
 
 function handleFocus(
     event
 ) {
+
     if (
         props.type ===
         'autocomplete'
     ) {
+
         isAutocompleteOpen.value =
             true
+
     }
 
 
@@ -298,22 +389,26 @@ function handleFocus(
         'focus',
         event
     )
+
 }
 
 
 function handleBlur(
     event
 ) {
+
     emit(
         'blur',
         event
     )
+
 }
 
 
 function handleTextareaInput(
     event
 ) {
+
     const value =
         event.target.value
 
@@ -331,11 +426,14 @@ function handleTextareaInput(
 
 
     resizeTextarea()
+
 }
 
 
 function resizeTextarea() {
+
     nextTick(() => {
+
         if (
             !textareaRef.value
         ) {
@@ -349,11 +447,28 @@ function resizeTextarea() {
 
         textareaRef.value.style.height =
             `${textareaRef.value.scrollHeight}px`
+
     })
+
 }
 
 
+watch(
+    () => props.modelValue,
+    () => {
+        if (
+            props.type === 'textarea'
+        ) {
+            resizeTextarea()
+        }
+    },
+    {
+        immediate: true
+    }
+)
+
 function toggleSelect() {
+
     if (
         props.disabled
     ) {
@@ -363,15 +478,18 @@ function toggleSelect() {
 
     isSelectOpen.value =
         !isSelectOpen.value
+
 }
 
 
 function isOptionSelected(
     option
 ) {
+
     if (
         props.multiple
     ) {
+
         if (
             !Array.isArray(
                 props.modelValue
@@ -390,6 +508,7 @@ function isOptionSelected(
                     option.value
                 )
         )
+
     }
 
 
@@ -401,15 +520,18 @@ function isOptionSelected(
             option.value
         )
     )
+
 }
 
 
 function handleSelectOption(
     option
 ) {
+
     if (
         props.multiple
     ) {
+
         const currentValues =
             Array.isArray(
                 props.modelValue
@@ -435,14 +557,18 @@ function handleSelectOption(
         if (
             index === -1
         ) {
+
             currentValues.push(
                 option.value
             )
+
         } else {
+
             currentValues.splice(
                 index,
                 1
             )
+
         }
 
 
@@ -460,11 +586,12 @@ function handleSelectOption(
 
         emit(
             'select',
-            option.value
+            option
         )
 
 
         return
+
     }
 
 
@@ -482,18 +609,20 @@ function handleSelectOption(
 
     emit(
         'select',
-        option.value
+        option
     )
 
 
     isSelectOpen.value =
         false
+
 }
 
 
 function removeSelectedOption(
     value
 ) {
+
     if (
         !Array.isArray(
             props.modelValue
@@ -525,25 +654,167 @@ function removeSelectedOption(
         'change',
         values
     )
+
+}
+
+
+function isAutocompleteOptionSelected(
+    option
+) {
+
+    if (
+        !props.multiple ||
+        !Array.isArray(
+            props.modelValue
+        )
+    ) {
+        return false
+    }
+
+
+    return props.modelValue.some(
+        value =>
+            String(
+                value
+            ) ===
+            String(
+                option.value
+            )
+    )
+
 }
 
 
 function handleAutocompleteOption(
     option
 ) {
-    const value =
-        option.value
 
+    /*
+     * Multiple autocomplete
+     */
+
+    if (
+        props.multiple
+    ) {
+
+        /*
+         * Create a NEW array from the current
+         * selection.
+         *
+         * We never use the autocomplete input
+         * as the model value.
+         */
+
+        const currentValues =
+            Array.isArray(
+                props.modelValue
+            )
+                ? [
+                    ...props.modelValue
+                ]
+                : []
+
+
+        const alreadySelected =
+            currentValues.some(
+                value =>
+                    String(
+                        value
+                    ) ===
+                    String(
+                        option.value
+                    )
+            )
+
+
+        /*
+         * Do not toggle here.
+         *
+         * Selecting an autocomplete option means
+         * ADD it.
+         *
+         * Removal is done with the pill's × button.
+         */
+
+        if (
+            !alreadySelected
+        ) {
+
+            currentValues.push(
+                option.value
+            )
+
+        }
+
+
+        emit(
+            'update:modelValue',
+            currentValues
+        )
+
+
+        emit(
+            'change',
+            currentValues
+        )
+
+
+        emit(
+            'select',
+            option
+        )
+
+
+        /*
+         * Clear ONLY the search input.
+         */
+
+        autocompleteInput.value =
+            ''
+
+
+        isAutocompleteOpen.value =
+            false
+
+
+        /*
+         * Re-open the dropdown after Vue has updated
+         * the selection. This makes it possible to
+         * keep adding services without clicking again.
+         */
+
+        nextTick(() => {
+
+            if (
+                !props.disabled
+            ) {
+
+                isAutocompleteOpen.value =
+                    true
+
+            }
+
+        })
+
+
+        return
+
+    }
+
+
+    /*
+     * Single autocomplete.
+     */
 
     emit(
         'update:modelValue',
-        value
+        option.value
     )
 
 
     emit(
         'change',
-        value
+        option.value
     )
 
 
@@ -553,14 +824,20 @@ function handleAutocompleteOption(
     )
 
 
+    autocompleteInput.value =
+        ''
+
+
     isAutocompleteOpen.value =
         false
+
 }
 
 
 function handleDocumentClick(
     event
 ) {
+
     if (
         !fieldWrapper.value
     ) {
@@ -580,15 +857,16 @@ function handleDocumentClick(
     isSelectOpen.value =
         false
 
-
     isAutocompleteOpen.value =
         false
+
 }
 
 
 function handleFileChange(
     event
 ) {
+
     const input =
         event.target
 
@@ -596,6 +874,7 @@ function handleFileChange(
     if (
         props.multiple
     ) {
+
         const files =
             Array.from(
                 input.files ||
@@ -612,6 +891,7 @@ function handleFileChange(
 
 
         return
+
     }
 
 
@@ -620,10 +900,12 @@ function handleFileChange(
         input.files?.[0] ||
         null
     )
+
 }
 
 
 function openFilePicker() {
+
     if (
         props.disabled
     ) {
@@ -632,10 +914,12 @@ function openFilePicker() {
 
 
     fileInput.value?.click()
+
 }
 
 
 function addToken() {
+
     const value =
         tokenInput.value.trim()
 
@@ -652,6 +936,7 @@ function addToken() {
             value
         )
     ) {
+
         emit(
             'update:modelValue',
             [
@@ -659,17 +944,20 @@ function addToken() {
                 value
             ]
         )
+
     }
 
 
     tokenInput.value =
         ''
+
 }
 
 
 function removeToken(
     index
 ) {
+
     emit(
         'update:modelValue',
         tokenList.value.filter(
@@ -681,41 +969,60 @@ function removeToken(
                 index
         )
     )
+
 }
 
 
 function handleTokenEnter(
     event
 ) {
+
     event.preventDefault()
 
     addToken()
+
 }
 
 
 onMounted(() => {
+
     document.addEventListener(
         'mousedown',
         handleDocumentClick
     )
+
+    if (
+        props.type === 'textarea'
+    ) {
+
+        resizeTextarea()
+
+    }
+
 })
 
 
 onBeforeUnmount(() => {
+
     document.removeEventListener(
         'mousedown',
         handleDocumentClick
     )
+
 })
+
 </script>
 
 
 <template>
+
     <div
         ref="fieldWrapper"
         class="w-full"
     >
+
         <!-- Label -->
+
         <label
             v-if="label"
             :for="id"
@@ -725,8 +1032,8 @@ onBeforeUnmount(() => {
                 block
             "
         >
-            {{ label }}
 
+            {{ label }}
 
             <span
                 v-if="required"
@@ -738,10 +1045,12 @@ onBeforeUnmount(() => {
             >
                 *
             </span>
+
         </label>
 
 
-        <!-- Text / Search / Email / Password / Date -->
+        <!-- Standard inputs -->
+
         <input
             v-if="
                 type === 'text' ||
@@ -813,25 +1122,105 @@ onBeforeUnmount(() => {
 
 
         <!-- Autocomplete -->
+
         <div
             v-else-if="
                 type === 'autocomplete'
             "
             class="relative"
         >
+
+            <!-- Selected pills -->
+
+            <div
+                v-if="
+                    multiple &&
+                    selectedOptions.length
+                "
+                class="
+                    mb-3
+                    flex
+                    flex-wrap
+                    gap-2
+                "
+            >
+
+                <span
+                    v-for="
+                        option in selectedOptions
+                    "
+                    :key="
+                        String(
+                            option.value
+                        )
+                    "
+                    class="
+                        inline-flex
+                        items-center
+                        gap-2
+                        bg-accent
+                        px-2
+                        py-1
+                        font-mono
+                        text-[10px]
+                        font-bold
+                        uppercase
+                        leading-none
+                        text-light
+                    "
+                >
+
+                    <span>
+                        {{ option.label }}
+                    </span>
+
+                    <button
+                        type="button"
+                        class="
+                            leading-none
+                            transition-opacity
+                            hover:opacity-60
+                        "
+                        aria-label="Remove"
+                        @mousedown.prevent
+                        @click="
+                            removeSelectedOption(
+                                option.value
+                            )
+                        "
+                    >
+                        ×
+                    </button>
+
+                </span>
+
+            </div>
+
+
+            <!-- Autocomplete input -->
+
             <input
                 :id="id"
                 :name="name"
                 type="text"
                 :value="
-                    typeof modelValue === 'string' ||
-                    typeof modelValue === 'number'
-                        ? modelValue
-                        : ''
+                    multiple
+                        ? autocompleteInput
+                        : (
+                            typeof modelValue === 'string' ||
+                            typeof modelValue === 'number'
+                                ? modelValue
+                                : ''
+                        )
                 "
-                :placeholder="placeholder"
+                :placeholder="
+                    placeholder
+                "
                 :autocomplete="autocomplete"
-                :required="required"
+                :required="
+                    required &&
+                    !multiple
+                "
                 :autofocus="autofocus"
                 :disabled="disabled"
                 :readonly="readonly"
@@ -889,12 +1278,14 @@ onBeforeUnmount(() => {
             >
 
 
+            <!-- Autocomplete dropdown -->
+
             <div
                 v-if="
                     isAutocompleteOpen &&
                     (
                         loading ||
-                        filteredOptions.length
+                        options.length
                     )
                 "
                 class="
@@ -912,57 +1303,105 @@ onBeforeUnmount(() => {
                 "
                 role="listbox"
             >
-                <p
+
+                <div
                     v-if="loading"
                     class="
                         p
                         px-4
                         py-3
-                        text-dark/50
+                        text-dark/40
                     "
                 >
-                    Searching addresses...
-                </p>
+                    Searching...
+                </div>
 
 
                 <button
-                    v-else
                     v-for="
-                        option in filteredOptions
+                        option in options
                     "
+                    v-else
                     :key="
-                        option.value
+                        String(
+                            option.value
+                        )
                     "
                     type="button"
                     class="
                         p
-                        block
+                        flex
                         w-full
+                        items-center
+                        justify-between
                         border-0
-                        bg-light
                         px-4
                         py-3
                         text-left
-                        text-dark
                         transition-colors
                         duration-200
                         hover:bg-dark
                         hover:text-light
                     "
+                    :class="{
+                        'bg-dark text-light':
+                            multiple &&
+                            isAutocompleteOptionSelected(
+                                option
+                            )
+                    }"
                     role="option"
+                    :aria-selected="
+                        multiple
+                            ? isAutocompleteOptionSelected(
+                                option
+                            )
+                            : false
+                    "
                     @mousedown.prevent="
                         handleAutocompleteOption(
                             option
                         )
                     "
                 >
-                    {{ option.label }}
+
+                    <span
+                        :class="{
+                            'font-bold':
+                                option.create
+                        }"
+                    >
+                        {{ option.label }}
+                    </span>
+
+
+                    <span
+                        v-if="
+                            multiple &&
+                            isAutocompleteOptionSelected(
+                                option
+                            )
+                        "
+                        class="
+                            ml-4
+                            shrink-0
+                            font-mono
+                            text-xs
+                        "
+                        aria-hidden="true"
+                    >
+                        ✓
+                    </span>
+
                 </button>
+
             </div>
+
         </div>
 
 
         <!-- Textarea -->
+
         <textarea
             v-else-if="
                 type === 'textarea'
@@ -1027,17 +1466,18 @@ onBeforeUnmount(() => {
             @blur="
                 handleBlur
             "
-        />
+        ></textarea>
 
 
         <!-- Select -->
+
         <div
             v-else-if="
                 type === 'select'
             "
             class="relative"
         >
-            <!-- Selected tags -->
+
             <div
                 v-if="
                     multiple &&
@@ -1050,12 +1490,15 @@ onBeforeUnmount(() => {
                     gap-2
                 "
             >
+
                 <span
                     v-for="
                         option in selectedOptions
                     "
                     :key="
-                        option.value
+                        String(
+                            option.value
+                        )
                     "
                     class="
                         inline-flex
@@ -1072,8 +1515,8 @@ onBeforeUnmount(() => {
                         text-light
                     "
                 >
-                    {{ option.label }}
 
+                    {{ option.label }}
 
                     <button
                         type="button"
@@ -1091,11 +1534,12 @@ onBeforeUnmount(() => {
                     >
                         ×
                     </button>
+
                 </span>
+
             </div>
 
 
-            <!-- Select trigger -->
             <button
                 :id="id"
                 type="button"
@@ -1140,6 +1584,7 @@ onBeforeUnmount(() => {
                     toggleSelect
                 "
             >
+
                 <span
                     class="
                         min-w-0
@@ -1153,6 +1598,7 @@ onBeforeUnmount(() => {
                                 : !selectedLabel
                     }"
                 >
+
                     {{
                         multiple
                             ? (
@@ -1167,6 +1613,7 @@ onBeforeUnmount(() => {
                                 'Select an option'
                             )
                     }}
+
                 </span>
 
 
@@ -1188,10 +1635,10 @@ onBeforeUnmount(() => {
                 >
                     ↓
                 </span>
+
             </button>
 
 
-            <!-- Options -->
             <div
                 v-if="
                     isSelectOpen
@@ -1216,6 +1663,7 @@ onBeforeUnmount(() => {
                         : undefined
                 "
             >
+
                 <button
                     v-for="
                         option in options
@@ -1256,10 +1704,10 @@ onBeforeUnmount(() => {
                         )
                     "
                 >
+
                     <span>
                         {{ option.label }}
                     </span>
-
 
                     <span
                         v-if="
@@ -1273,10 +1721,10 @@ onBeforeUnmount(() => {
                             font-mono
                             text-xs
                         "
-                        aria-hidden="true"
                     >
                         ✓
                     </span>
+
                 </button>
 
                 <p
@@ -1292,16 +1740,20 @@ onBeforeUnmount(() => {
                 >
                     No options available.
                 </p>
+
             </div>
+
         </div>
 
 
         <!-- File -->
+
         <template
             v-else-if="
                 type === 'file'
             "
         >
+
             <input
                 :id="id"
                 ref="fileInput"
@@ -1316,7 +1768,6 @@ onBeforeUnmount(() => {
                     handleFileChange
                 "
             >
-
 
             <button
                 type="button"
@@ -1357,6 +1808,7 @@ onBeforeUnmount(() => {
                     openFilePicker
                 "
             >
+
                 <span
                     class="
                         min-w-0
@@ -1364,14 +1816,15 @@ onBeforeUnmount(() => {
                         truncate
                     "
                 >
+
                     {{
                         fileCount
                             ? `${fileCount} file${fileCount === 1 ? '' : 's'} selected`
                             : placeholder ||
                               'Choose file'
                     }}
-                </span>
 
+                </span>
 
                 <span
                     class="
@@ -1383,16 +1836,20 @@ onBeforeUnmount(() => {
                 >
                     +
                 </span>
+
             </button>
+
         </template>
 
 
         <!-- Tokens -->
+
         <div
             v-else-if="
                 type === 'tokens'
             "
         >
+
             <div
                 v-if="
                     tokenList.length
@@ -1404,6 +1861,7 @@ onBeforeUnmount(() => {
                     gap-2
                 "
             >
+
                 <span
                     v-for="
                         (
@@ -1430,8 +1888,8 @@ onBeforeUnmount(() => {
                         text-light
                     "
                 >
-                    {{ token }}
 
+                    {{ token }}
 
                     <button
                         type="button"
@@ -1449,9 +1907,10 @@ onBeforeUnmount(() => {
                     >
                         ×
                     </button>
-                </span>
-            </div>
 
+                </span>
+
+            </div>
 
             <input
                 :id="id"
@@ -1500,10 +1959,12 @@ onBeforeUnmount(() => {
                     addToken
                 "
             >
+
         </div>
 
 
         <!-- Error -->
+
         <p
             v-if="error"
             class="
@@ -1514,5 +1975,7 @@ onBeforeUnmount(() => {
         >
             {{ error }}
         </p>
+
     </div>
+
 </template>
