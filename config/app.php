@@ -56,6 +56,8 @@ return [
 
     'mail_asset_url' => env('MAIL_ASSET_URL', env('APP_URL', 'http://localhost')),
 
+    'contact_email' => env('CONTACT_EMAIL', env('ADMIN_EMAIL', env('MAIL_FROM_ADDRESS'))),
+
     /*
     |--------------------------------------------------------------------------
     | Application Timezone

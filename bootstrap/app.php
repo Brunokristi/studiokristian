@@ -33,6 +33,11 @@ return Application::configure(basePath: dirname(__DIR__))
 
             return route('dashboard');
         });
+
+        // Public contact form is unauthenticated JSON API, not a session-backed form.
+        $middleware->validateCsrfTokens(except: [
+            'api/contact',
+        ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         //

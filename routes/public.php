@@ -2,6 +2,7 @@
 
 use Illuminate\Support\Facades\Route;
 
+use App\Http\Controllers\PublicSite\ContactController;
 use App\Http\Controllers\PublicSite\HomeController;
 use App\Http\Controllers\PublicSite\ProjectController;
 use App\Http\Controllers\PublicSite\ServiceController;
@@ -46,4 +47,9 @@ Route::prefix('api')->group(function () {
         '/services/{slug}',
         [ServiceController::class, 'show']
     );
+
+    Route::post(
+        '/contact',
+        [ContactController::class, 'store']
+    )->middleware('throttle:5,1');
 });
