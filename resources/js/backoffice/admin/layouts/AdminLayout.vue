@@ -27,6 +27,15 @@ const {
     lastSavedAt
 } = useAutosavePolicy()
 
+const route =
+    useRoute()
+
+/*
+|--------------------------------------------------------------------------
+| Autosave
+|--------------------------------------------------------------------------
+*/
+
 const lastSavedLabel =
     computed(() => {
         if (
@@ -63,21 +72,48 @@ const lastSavedLabel =
         )
     })
 
-const route =
-    useRoute()
-
 /*
 |--------------------------------------------------------------------------
-| Menu state
+| Mobile navigation
 |--------------------------------------------------------------------------
-|
-| Closed by default on small screens.
-| On desktop the sidebar is always visible through lg: classes.
-|
 */
 
 const menuOpen =
     ref(false)
+
+function toggleMenu() {
+    menuOpen.value =
+        !menuOpen.value
+}
+
+function closeMenu() {
+    menuOpen.value =
+        false
+}
+
+/*
+|--------------------------------------------------------------------------
+| Close mobile menu when route changes
+|--------------------------------------------------------------------------
+*/
+
+watch(
+    () => route.fullPath,
+    () => {
+        if (
+            window.innerWidth <
+            1024
+        ) {
+            closeMenu()
+        }
+    }
+)
+
+/*
+|--------------------------------------------------------------------------
+| Authentication
+|--------------------------------------------------------------------------
+*/
 
 const csrfToken =
     document.querySelector(
@@ -96,6 +132,12 @@ const isAdminUser =
     Boolean(
         currentUserPayload?.is_admin
     )
+
+/*
+|--------------------------------------------------------------------------
+| Navigation
+|--------------------------------------------------------------------------
+*/
 
 const adminNavigation = [
     {
@@ -190,35 +232,6 @@ function isActive(
     )
 }
 
-function toggleMenu() {
-    menuOpen.value =
-        !menuOpen.value
-}
-
-function closeMenu() {
-    menuOpen.value =
-        false
-}
-
-watch(
-    () => route.fullPath,
-    () => {
-        /*
-         * Only close the navigation
-         * automatically on mobile.
-         *
-         * On desktop the sidebar is
-         * always visible.
-         */
-        if (
-            window.innerWidth <
-            1024
-        ) {
-            closeMenu()
-        }
-    }
-)
-
 </script>
 
 <template>
@@ -235,7 +248,9 @@ watch(
         "
     >
 
-        <!-- Header -->
+        <!-- ================================================================ -->
+        <!-- HEADER -->
+        <!-- ================================================================ -->
 
         <header
             class="
@@ -294,7 +309,7 @@ watch(
                 class="
                     flex
                     items-center
-                    gap-6
+                    gap-4
                 "
             >
 
@@ -337,46 +352,66 @@ watch(
                         "
                     >
                         last saved:
-                        {{
-                            lastSavedLabel
-                        }}
+                        {{ lastSavedLabel }}
                     </span>
 
                 </div>
 
-                <!-- Navigation toggle -->
+                <!-- Mobile navigation -->
 
                 <button
                     type="button"
                     class="
-                        grid
-                        h-9
-                        w-9
-                        shrink-0
-                        place-items-center
-                        text-dark
-                        transition-colors
-                        duration-200
-                        hover:text-accent
-                        lg:hidden
+                        md:hidden
+                        flex
+                        nav-control
                     "
                     :aria-expanded="
                         menuOpen
                     "
                     aria-controls="admin-navigation"
-                    aria-label="Toggle navigation"
-                    @click="
-                        toggleMenu
+                    :aria-label="
+                        menuOpen
+                            ? 'Close navigation'
+                            : 'Open navigation'
                     "
+                    @click="toggleMenu"
                 >
-                    ...
+
+                    <span
+                        class="menu-icon"
+                        :class="{
+                            'menu-icon-open':
+                                menuOpen
+                        }"
+                    >
+
+                        <span
+                            class="
+                                menu-line
+                                menu-line-top
+                            "
+                        ></span>
+
+                        <span
+                            class="
+                                menu-line
+                                menu-line-bottom
+                            "
+                        ></span>
+
+                    </span>
+
                 </button>
 
             </div>
 
         </header>
 
-        <!-- Application -->
+
+        <!-- ================================================================ -->
+        <!-- APPLICATION -->
+        <!-- ================================================================ -->
 
         <div
             class="
@@ -390,9 +425,7 @@ watch(
             <!-- Mobile backdrop -->
 
             <button
-                v-if="
-                    menuOpen
-                "
+                v-if="menuOpen"
                 type="button"
                 aria-label="Close navigation"
                 class="
@@ -403,10 +436,9 @@ watch(
                     backdrop-blur-[2px]
                     lg:hidden
                 "
-                @click="
-                    closeMenu
-                "
+                @click="closeMenu"
             ></button>
+
 
             <!-- Application grid -->
 
@@ -420,7 +452,9 @@ watch(
                 "
             >
 
-                <!-- Sidebar -->
+                <!-- ======================================================== -->
+                <!-- SIDEBAR -->
+                <!-- ======================================================== -->
 
                 <aside
                     id="admin-navigation"
@@ -494,9 +528,7 @@ watch(
                                 'text-accent':
                                     isActive(item)
                             }"
-                            @click="
-                                closeMenu
-                            "
+                            @click="closeMenu"
                         >
                             {{
                                 item.label
@@ -504,6 +536,7 @@ watch(
                         </RouterLink>
 
                     </nav>
+
 
                     <!-- Logout -->
 
@@ -554,7 +587,10 @@ watch(
 
                 </aside>
 
-                <!-- Main -->
+
+                <!-- ======================================================== -->
+                <!-- MAIN -->
+                <!-- ======================================================== -->
 
                 <main
                     class="
@@ -570,10 +606,14 @@ watch(
                     "
                 >
 
+                    <!-- Page header -->
+
                     <header
                         v-if="pageHeader.title"
                         class="pb-10"
                     >
+
+                        <!-- Breadcrumb -->
 
                         <nav
                             v-if="
@@ -620,9 +660,7 @@ watch(
                             >
 
                                 <span
-                                    class="
-                                        text-dark
-                                    "
+                                    class="text-dark"
                                     aria-hidden="true"
                                 >
                                     /
@@ -676,18 +714,14 @@ watch(
                             >
 
                                 <span
-                                    class="
-                                        text-dark
-                                    "
+                                    class="text-dark"
                                     aria-hidden="true"
                                 >
                                     /
                                 </span>
 
                                 <span
-                                    class="
-                                        text-accent
-                                    "
+                                    class="text-accent"
                                 >
                                     {{
                                         pageHeader.eyebrow
@@ -697,6 +731,9 @@ watch(
                             </template>
 
                         </nav>
+
+
+                        <!-- Title + actions -->
 
                         <div
                             class="
@@ -747,46 +784,157 @@ watch(
 
         </div>
 
+
         <Toast />
 
     </div>
 
 </template>
 
+
 <style scoped>
 
+/*
+|--------------------------------------------------------------------------
+| Navigation control
+|--------------------------------------------------------------------------
+*/
+
+.nav-control {
+    position: relative;
+    width: 24px;
+    height: 24px;
+    padding: 0;
+    margin: 0;
+
+    align-items: center;
+    justify-content: center;
+
+    color: inherit;
+    background: transparent;
+    border: 0;
+
+    cursor: pointer;
+
+    transition:
+        transform 220ms
+        cubic-bezier(
+            0.16,
+            1,
+            0.3,
+            1
+        );
+}
+
+.nav-control:hover {
+    transform:
+        scale(1.08);
+}
+
+.nav-control:active {
+    transform:
+        scale(0.94);
+}
+
+
+/*
+|--------------------------------------------------------------------------
+| Menu icon
+|--------------------------------------------------------------------------
+*/
+
 .menu-icon {
-    display: block;
+    position: relative;
+
+    width: 18px;
+    height: 14px;
+
+    transition:
+        transform 350ms
+        cubic-bezier(
+            0.16,
+            1,
+            0.3,
+            1
+        );
 }
 
 .menu-line {
     position: absolute;
+
     left: 0;
-    width: 15px;
+
+    width: 18px;
     height: 1px;
+
     background: currentColor;
+
     transform-origin: center;
+
     transition:
-        transform 0.25s ease,
-        top 0.25s ease;
+        transform 350ms
+        cubic-bezier(
+            0.16,
+            1,
+            0.3,
+            1
+        ),
+        top 350ms
+        cubic-bezier(
+            0.16,
+            1,
+            0.3,
+            1
+        );
 }
 
 .menu-line-top {
-    top: 4px;
+    top: 2px;
 }
 
 .menu-line-bottom {
-    top: 11px;
+    top: 10px;
 }
 
-.menu-icon.is-open .menu-line-top {
-    top: 7.5px;
-    transform: rotate(45deg);
+
+/*
+|--------------------------------------------------------------------------
+| Hamburger → X
+|--------------------------------------------------------------------------
+*/
+
+.menu-icon-open .menu-line-top {
+    top: 6px;
+
+    transform:
+        rotate(45deg);
 }
 
-.menu-icon.is-open .menu-line-bottom {
-    top: 7.5px;
-    transform: rotate(-45deg);
+.menu-icon-open .menu-line-bottom {
+    top: 6px;
+
+    transform:
+        rotate(-45deg);
+}
+
+
+/*
+|--------------------------------------------------------------------------
+| Reduced motion
+|--------------------------------------------------------------------------
+*/
+
+@media (
+    prefers-reduced-motion: reduce
+) {
+
+    .nav-control,
+    .menu-icon,
+    .menu-line {
+        animation: none;
+        transition: none;
+    }
+
 }
 
 </style>

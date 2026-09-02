@@ -170,7 +170,7 @@ class PortfolioController extends Controller
                     $slug,
                     $this->nullableText($data['existing_logo_path'] ?? null),
                     $this->nullableText($data['logo_path'] ?? null),
-                    $data['logo_project_file_id'] ?? null,
+                    $this->nullableId($data['logo_project_file_id'] ?? null),
                     $project
                 ),
                 'podcast_path' => $this->resolvedPodcastPath(
@@ -254,7 +254,7 @@ class PortfolioController extends Controller
             $uploadedFile = $request->file("images.$index.file");
             $existingPath = trim((string) ($image['existing_path'] ?? ''));
             $manualPath = trim((string) ($image['path'] ?? ''));
-            $projectFileId = $image['project_file_id'] ?? null;
+            $projectFileId = $this->nullableId($image['project_file_id'] ?? null);
             $path = $this->resolvedImagePath(
                 $uploadedFile,
                 $folder,
@@ -382,6 +382,8 @@ class PortfolioController extends Controller
             $filename = Str::uuid() . '.' . $extension;
             $storedPath = $file->storeAs($folder, $filename, 'public');
 
+            $this->assertPublicFileWasStored($storedPath, 'images');
+
             return '/storage/' . $storedPath;
         }
 
@@ -422,6 +424,8 @@ class PortfolioController extends Controller
                 Storage::disk($sourceDisk)->get($sourcePath)
             );
 
+            $this->assertPublicFileWasStored($storedPath, 'images');
+
             return '/storage/' . $storedPath;
         }
 
@@ -444,10 +448,27 @@ class PortfolioController extends Controller
             $filename = 'podcast-' . Str::uuid() . '.' . $extension;
             $storedPath = $file->storeAs($folder, $filename, 'public');
 
+            $this->assertPublicFileWasStored($storedPath, 'podcast_file');
+
             return '/storage/' . $storedPath;
         }
 
         return $existingPath;
+    }
+
+    /**
+     * The 'public' disk write is silent on failure (returns false / stores
+     * nothing without an exception on some filesystems), which previously
+     * produced a path that 404s the moment the page is viewed. Fail the
+     * save loudly instead so a broken/ephemeral public disk is caught here.
+     */
+    private function assertPublicFileWasStored(string $storedPath, string $field): void
+    {
+        if (!Storage::disk('public')->exists($storedPath)) {
+            throw ValidationException::withMessages([
+                $field => 'The file could not be saved to public storage. Check that the storage disk is writable and that "php artisan storage:link" has been run on the server.'
+            ]);
+        }
     }
 
     private function resolvedLogoPath(
@@ -464,6 +485,8 @@ class PortfolioController extends Controller
             $extension = strtolower($file->getClientOriginalExtension() ?: 'bin');
             $filename = 'logo-' . Str::uuid() . '.' . $extension;
             $storedPath = $file->storeAs($folder, $filename, 'public');
+
+            $this->assertPublicFileWasStored($storedPath, 'logo_file');
 
             return '/storage/' . $storedPath;
         }
@@ -505,6 +528,8 @@ class PortfolioController extends Controller
                 $storedPath,
                 Storage::disk($sourceDisk)->get($sourcePath)
             );
+
+            $this->assertPublicFileWasStored($storedPath, 'logo_project_file_id');
 
             return '/storage/' . $storedPath;
         }
@@ -613,6 +638,21 @@ class PortfolioController extends Controller
         $trimmed = trim($value);
 
         return $trimmed === '' ? null : $trimmed;
+    }
+
+    /**
+     * Laravel's `nullable` rule lets an empty string pass an `integer`
+     * rule untouched (it does not coerce '' to null in validated()), so
+     * project_file_id can arrive here as '' instead of null once a
+     * previously-saved image round-trips through the frontend state.
+     */
+    private function nullableId(mixed $value): ?int
+    {
+        if ($value === null || $value === '') {
+            return null;
+        }
+
+        return (int) $value;
     }
 
     private function resolveSlovakText(?string $englishText, mixed $providedSlovak): ?string
