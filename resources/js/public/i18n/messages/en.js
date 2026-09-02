@@ -93,6 +93,10 @@ export default {
         description: 'Brands, websites, marketing, systems and a questionable amount of time spent making things work.',
     },
 
+    project: {
+        podcast: 'Project podcast',
+    },
+
     footer: {
         portfolio: 'Work',
         contact: 'Contact',
@@ -212,12 +216,12 @@ export default {
 
     seo: {
         home: {
-            title: 'studio kristian | Digital help for young businesses',
-            description: 'studio kristian helps young businesses launch, grow and work smarter through branding, marketing, technology and digital systems.',
+            title: 'studio kristian | Branding, Web & App Development, AI Integration',
+            description: 'studio kristian, founded by Bruno Kristián, helps businesses with branding, custom website and web application development, AI integration, digital infrastructure and technology consulting.',
         },
         portfolio: {
-            title: 'Work | studio kristian',
-            description: 'Explore selected studio kristian projects across branding, marketing, websites, digital products and business systems.',
+            title: 'Work | Branding, Websites & Digital Products | studio kristian',
+            description: 'Explore selected studio kristian projects across branding, marketing, custom websites, web applications, AI integration and business systems.',
         },
         project: {
             title: 'Project | studio kristian',
@@ -225,22 +229,32 @@ export default {
         },
         workflow: {
             title: 'Process | From Idea to Something Real | studio kristian',
-            description: 'See how studio kristian helps turn business ideas into brands, digital experiences, products and systems through a practical and collaborative process.',
+            description: 'See how studio kristian helps turn business ideas into brands, custom websites, web applications, AI-powered tools and digital systems through a practical process.',
         },
         contact: {
-            title: 'Let’s Talk | studio kristian',
-            description: 'Have a business idea, a project or something that could work better? Get in touch with studio kristian and figure out what would actually help.',
+            title: 'Consultation & Contact | studio kristian',
+            description: 'Book a free digital consultation with studio kristian. Get honest advice on branding, custom web development, web applications, AI automation or a technology audit.',
         },
         services: {
-            title: 'Services | studio kristian',
+            title: 'Services | Branding, Web Development, AI & IT Consulting | studio kristian',
             description:
-                'Explore branding, marketing, websites, digital products and business systems by studio kristian.',
+                'Branding & marketing, custom website development, web application development, AI integration, digital infrastructure and technology consulting by studio kristian.',
         },
 
         service: {
             title: 'Service | studio kristian',
             description:
                 'Explore this studio kristian service and what it includes.',
+        },
+
+        pricing: {
+            title: 'Pricing | studio kristian',
+            description: 'Transparent pricing for branding, custom website and web application development, AI integration and digital infrastructure services from studio kristian.',
+        },
+
+        privacy: {
+            title: 'Privacy Policy | studio kristian',
+            description: 'Read the studio kristian privacy policy to learn how we collect, use and protect your data.',
         },
     },
 

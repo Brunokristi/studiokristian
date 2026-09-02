@@ -5,6 +5,7 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\PublicSite\ContactController;
 use App\Http\Controllers\PublicSite\HomeController;
 use App\Http\Controllers\PublicSite\ProjectController;
+use App\Http\Controllers\PublicSite\SeoController;
 use App\Http\Controllers\PublicSite\ServiceController;
 
 
@@ -18,6 +19,16 @@ Route::get(
     '/',
     HomeController::class
 )->name('home');
+
+Route::get(
+    '/robots.txt',
+    [SeoController::class, 'robots']
+);
+
+Route::get(
+    '/sitemap.xml',
+    [SeoController::class, 'sitemap']
+);
 
 
 /*

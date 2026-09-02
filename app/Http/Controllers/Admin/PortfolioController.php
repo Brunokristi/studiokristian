@@ -85,6 +85,11 @@ class PortfolioController extends Controller
                     $this->nullableText($data['existing_logo_path'] ?? null),
                     $this->nullableText($data['logo_path'] ?? null)
                 ),
+                'podcast_path' => $this->resolvedPodcastPath(
+                    $request->file('podcast_file'),
+                    $slug,
+                    $this->nullableText($data['existing_podcast_path'] ?? null)
+                ),
             ]);
 
             $this->syncImages($request, $project, $data['images'] ?? []);
@@ -115,6 +120,7 @@ class PortfolioController extends Controller
                 'summary_sk' => data_get($project->summary_translations, 'sk', ''),
                 'hex_color' => $project->hex_color,
                 'logo_path' => $project->logo_path,
+                'podcast_path' => $project->podcast_path,
                 'images' => $project->images->map(fn ($image) => [
                     'id' => $image->id,
                     'path' => $image->path,
@@ -167,6 +173,11 @@ class PortfolioController extends Controller
                     $data['logo_project_file_id'] ?? null,
                     $project
                 ),
+                'podcast_path' => $this->resolvedPodcastPath(
+                    $request->file('podcast_file'),
+                    $slug,
+                    $this->nullableText($data['existing_podcast_path'] ?? null)
+                ),
             ]);
 
             $this->syncImages($request, $project, $data['images'] ?? []);
@@ -208,6 +219,8 @@ class PortfolioController extends Controller
             'existing_logo_path' => ['nullable', 'string', 'max:255'],
             'logo_file' => ['nullable', 'file', 'mimes:jpg,jpeg,png,gif,webp,svg,avif', 'max:20480'],
             'logo_project_file_id' => ['nullable', 'integer', 'exists:project_files,id'],
+            'existing_podcast_path' => ['nullable', 'string', 'max:255'],
+            'podcast_file' => ['nullable', 'file', 'mimes:mp3,mpga,wav,m4a', 'max:51200'],
             'images' => ['nullable', 'array'],
             'images.*.path' => ['nullable', 'string', 'max:255'],
             'images.*.existing_path' => ['nullable', 'string', 'max:255'],
@@ -417,6 +430,24 @@ class PortfolioController extends Controller
         }
 
         return $manualPath;
+    }
+
+    private function resolvedPodcastPath(
+        ?UploadedFile $file,
+        string $slug,
+        ?string $existingPath
+    ): ?string {
+        if ($file instanceof UploadedFile) {
+            $folder = 'projects/' . $slug;
+            Storage::disk('public')->makeDirectory($folder);
+            $extension = strtolower($file->getClientOriginalExtension() ?: 'mp3');
+            $filename = 'podcast-' . Str::uuid() . '.' . $extension;
+            $storedPath = $file->storeAs($folder, $filename, 'public');
+
+            return '/storage/' . $storedPath;
+        }
+
+        return $existingPath;
     }
 
     private function resolvedLogoPath(

@@ -95,6 +95,10 @@ export default {
             'Branding, weby, marketing, systémy a podozrivo veľa času stráveného nad detailmi, ktoré nikto nevidí.',
     },
 
+    project: {
+        podcast: 'Podcast k projektu',
+    },
+
     footer: {
         portfolio: 'Projekty',
         contact: 'Kontakt',
@@ -213,15 +217,15 @@ export default {
 
     seo: {
         home: {
-            title: 'studio kristian | Pomoc s digitálnou stránkou biznisu',
+            title: 'studio kristian | Tvorba webu, webové aplikácie, AI a branding',
             description:
-                'studio kristian pomáha podnikateľom s brandingom, marketingom, webmi, technológiami a systémami, ktoré pomáhajú biznisu fungovať lepšie.',
+                'studio kristian, ktoré vedie Bruno Kristián, pomáha firmám s brandingom a marketingom, tvorbou webových stránok a webových aplikácií na mieru, AI integráciou, digitálnou infraštruktúrou a technologickými konzultáciami.',
         },
 
         portfolio: {
-            title: 'Projekty | studio kristian',
+            title: 'Projekty | Branding, weby a digitálne produkty | studio kristian',
             description:
-                'Pozrite si projekty zo sveta brandingu, marketingu, webov, digitálnych produktov a business systémov.',
+                'Pozrite si projekty zo sveta brandingu, marketingu, tvorby webových stránok na mieru, webových aplikácií, AI integrácie a business systémov.',
         },
 
         project: {
@@ -233,25 +237,37 @@ export default {
         workflow: {
             title: 'Proces | Od nápadu k niečomu reálnemu | studio kristian',
             description:
-                'Pozrite sa, ako spolu môžeme premeniť nápad na značku, web, digitálny produkt alebo systém, ktorý funguje.',
+                'Pozrite sa, ako spolu môžeme premeniť nápad na značku, web na mieru, webovú aplikáciu, AI riešenie alebo systém, ktorý funguje.',
         },
 
         contact: {
-            title: 'Kontakt | studio kristian',
+            title: 'Konzultácia a kontakt | studio kristian',
             description:
-                'Máš nápad, rozbehnutý biznis alebo niečo, čo by mohlo fungovať lepšie? Ozvi sa a pozrieme sa na to spolu.',
+                'Dohodnite si bezplatnú digitálnu konzultáciu so studio kristian. Poradíme s brandingom, tvorbou webu na mieru, webovou aplikáciou, AI automatizáciou alebo technologickým auditom.',
         },
 
         services: {
-            title: 'Služby | studio kristian',
+            title: 'Služby | Tvorba webu, webové aplikácie, AI a IT konzultácie | studio kristian',
             description:
-                'Branding, marketing, weby, digitálne produkty a business systémy pre ľudí, ktorí niečo budujú.',
+                'Branding a marketing, tvorba webových stránok na mieru, vývoj webovej aplikácie, AI integrácia, digitálna infraštruktúra a technologické konzultácie od studio kristian.',
         },
 
         service: {
             title: 'Služba | studio kristian',
             description:
                 'Pozrite sa, s čím vám môže studio kristian pomôcť a čo všetko môže daná služba zahŕňať.',
+        },
+
+        pricing: {
+            title: 'Cenník | studio kristian',
+            description:
+                'Prehľadné ceny za branding, tvorbu webových stránok a webových aplikácií na mieru, AI integráciu a digitálnu infraštruktúru od studio kristian.',
+        },
+
+        privacy: {
+            title: 'Ochrana súkromia | studio kristian',
+            description:
+                'Prečítajte si zásady ochrany súkromia studio kristian a zistite, ako spracúvame a chránime vaše údaje.',
         },
     },
 

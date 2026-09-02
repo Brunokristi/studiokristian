@@ -14,6 +14,10 @@ import {
     useGlobalActions,
 } from '../composables/useGlobalActions'
 
+import {
+    useSeoMeta,
+} from '../composables/useSeoMeta'
+
 const {
     t,
 } = useI18n()
@@ -26,6 +30,12 @@ const {
     openWorkflow,
     openContacts,
 } = useGlobalActions()
+
+useSeoMeta({
+    title: () => t('navigation.home'),
+    description: () => 'Site navigation.',
+    noindex: true,
+})
 
 const isIntroAnimating =
     ref(true)

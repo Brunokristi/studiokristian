@@ -203,6 +203,9 @@ class ProjectController extends \App\Http\Controllers\Controller
             'logo_path' =>
                 $project->logo_path,
 
+            'podcast_path' =>
+                $project->podcast_path,
+
             'images' =>
                 $project->images->map(
                     fn ($image) => [

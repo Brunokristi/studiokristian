@@ -34,6 +34,7 @@ class Project extends Model
         'completed_at',
         'hex_color',
         'logo_path',
+        'podcast_path',
         'archived_at',
     ];
 

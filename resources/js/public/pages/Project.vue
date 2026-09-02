@@ -6,9 +6,10 @@ const { t, locale } = useI18n();
 const route = useRoute();
 import { useSeoMeta } from '../composables/useSeoMeta';
 
-import Button from '@shared/components/Button.vue';
-import Slideshow from '@shared/components/Slideshow.vue';
-import Info from '@shared/components/Info.vue';
+import Button from '../../shared/components/Button.vue';
+import Slideshow from '../../shared/components/Slideshow.vue';
+import Info from '../../shared/components/Info.vue';
+import AudioPlayer from '../../shared/components/AudioPlayer.vue';
 
 type ApiProject = {
   name: string;
@@ -17,6 +18,7 @@ type ApiProject = {
   images: Array<{ path: string; description: string | null; alt?: string | null }>;
   features: Array<{ title: string; description: string }>;
   live_url?: string | null;
+  podcast_path?: string | null;
 };
 
 const projectName = ref('');
@@ -25,6 +27,7 @@ const images = ref<{ src: string; alt: string; caption: string }[]>([]);
 const items = ref<{ heading: string; text: string }[]>([]);
 const isLoading = ref(true);
 const liveUrl = ref<string | null>(null);
+const podcastPath = ref<string | null>(null);
 
 function preloadImage(src: string): Promise<void> {
   return new Promise((resolve) => {
@@ -86,12 +89,14 @@ async function loadProject() {
       text: feature.description,
     }));
     liveUrl.value = project.live_url || null;
+    podcastPath.value = project.podcast_path || null;
   } catch (error) {
     console.error(error);
     projectName.value = 'Project not found';
     projectSummary.value = '';
     images.value = [];
     items.value = [];
+    podcastPath.value = null;
   } finally {
     isLoading.value = false;
   }
@@ -138,6 +143,13 @@ watch(
         />
 
         <h2 class="h2 text-accent">{{ projectName }}</h2>
+
+        <AudioPlayer
+            v-if="podcastPath"
+            :src="podcastPath"
+            :label="t('project.podcast')"
+            color="dark"
+        />
 
         <div>
             <Info

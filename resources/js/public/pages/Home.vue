@@ -18,11 +18,20 @@ import {
     useGlobalActions,
 } from '../composables/useGlobalActions'
 
+import {
+    useSeoMeta,
+} from '../composables/useSeoMeta'
+
 const {
     openContacts,
     openRecentProjects,
     openWorkflow,
 } = useGlobalActions()
+
+useSeoMeta({
+    title: () => t('seo.home.title'),
+    description: () => t('seo.home.description'),
+})
 
 const bgUrl = '/assets/bg.svg'
 const bgUrl2 = '/assets/bg2.svg'

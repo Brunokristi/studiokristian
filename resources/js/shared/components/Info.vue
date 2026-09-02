@@ -171,14 +171,7 @@ function handleEditingBlur() {
 
 
 const showEditorControls = computed(() => {
-    if (!props.editable) {
-        return false
-    }
-
-    return (
-        isHovering.value ||
-        isEditingFocused.value
-    )
+    return props.editable
 })
 
 
@@ -780,7 +773,7 @@ function handleDragEnd() {
                     pr-12
                 "
             >
-                <p class="p">
+                <p class="p whitespace-pre-wrap">
                     {{ text }}
                 </p>
             </div>

@@ -25,6 +25,7 @@ import Tag from '@shared/components/Tag.vue'
 import Toast from '@shared/components/Toast.vue'
 import Slideshow from '@shared/components/Slideshow.vue'
 import Info from '@shared/components/Info.vue'
+import AudioPlayer from '@shared/components/AudioPlayer.vue'
 import LanguageToggle from '@shared/components/LanguageToggle.vue'
 import FilePickerModal from '../../../components/FilePickerModal.vue'
 import FormField from '../../../../shared/components/FormField.vue'
@@ -78,6 +79,7 @@ const autosaveTimer = ref(null)
 const suppressAutosave = ref(false)
 const lastSavedSnapshot = ref('')
 const autosaveError = ref('')
+const podcastObjectUrl = ref(null)
 
 
 const imagePickerTitle = computed(() => {
@@ -110,6 +112,15 @@ const pageTitle = computed(() => {
     }
 
     return project.value.name || 'Portfolio'
+})
+
+
+const podcastPreviewSrc = computed(() => {
+    return (
+        podcastObjectUrl.value ||
+        project.value?.podcast_path ||
+        ''
+    )
 })
 
 
@@ -445,6 +456,24 @@ function getProjectAutosaveSnapshot() {
                     ?.lastModified ||
                     0
             ),
+        podcast_path:
+            project.value.podcast_path ||
+            '',
+        podcast_file_name:
+            project.value.podcast_file?.name ||
+            '',
+        podcast_file_size:
+            Number(
+                project.value.podcast_file
+                    ?.size ||
+                    0
+            ),
+        podcast_file_mtime:
+            Number(
+                project.value.podcast_file
+                    ?.lastModified ||
+                    0
+            ),
         images:
             (
                 project.value.images ||
@@ -594,6 +623,43 @@ function clearLogoSelection() {
     project.value.logo_file = null
     project.value.logo_project_file_id = null
     project.value.logo_path = ''
+}
+
+
+function handlePodcastFileChange(
+    value
+) {
+    if (!project.value) {
+        return
+    }
+
+    if (podcastObjectUrl.value) {
+        URL.revokeObjectURL(podcastObjectUrl.value)
+    }
+
+    project.value.podcast_file =
+        value ||
+        null
+
+    podcastObjectUrl.value =
+        value
+            ? URL.createObjectURL(value)
+            : null
+}
+
+
+function clearPodcastSelection() {
+    if (!project.value) {
+        return
+    }
+
+    if (podcastObjectUrl.value) {
+        URL.revokeObjectURL(podcastObjectUrl.value)
+    }
+
+    podcastObjectUrl.value = null
+    project.value.podcast_file = null
+    project.value.podcast_path = ''
 }
 
 
@@ -855,6 +921,19 @@ async function save(options = {}) {
             body.append(
                 'logo_file',
                 project.value.logo_file
+            )
+        }
+
+        append(
+            body,
+            'existing_podcast_path',
+            project.value.podcast_path || ''
+        )
+
+        if (project.value.podcast_file) {
+            body.append(
+                'podcast_file',
+                project.value.podcast_file
             )
         }
 
@@ -1792,6 +1871,10 @@ watch(
 
 onBeforeUnmount(() => {
     clearAutosaveTimer()
+
+    if (podcastObjectUrl.value) {
+        URL.revokeObjectURL(podcastObjectUrl.value)
+    }
 })
 useAdminPageHeader({
     title: pageTitle,
@@ -2268,6 +2351,83 @@ useAdminPageHeader({
                         </div>
 
 
+                    </div>
+                </div>
+
+                <div
+                    class="
+                        space-y-4
+                    "
+                >
+                    <h2
+                        class="
+                            h2
+                            col-span-1
+                            text-left
+                            text-accent
+                            md:col-span-2
+                        "
+                    >
+                        Podcast
+                    </h2>
+
+                    <div
+                        class="
+                            space-y-4
+                        "
+                    >
+                        <FormField
+                            id="meta-podcast"
+                            type="file"
+                            label="Podcast audio file"
+                            file-accept="audio/mpeg,audio/mp3,audio/wav,audio/x-m4a,.mp3,.wav,.m4a"
+                            :model-value="
+                                project.podcast_file
+                            "
+                            :error="
+                                errors.podcast_file
+                            "
+                            @update:model-value="
+                                handlePodcastFileChange
+                            "
+                        />
+
+                        <div
+                            v-if="
+                                podcastPreviewSrc
+                            "
+                            class="
+                                flex
+                                items-center
+                                justify-between
+                                gap-4
+                                border
+                                border-accent
+                                px-4
+                                py-3
+                            "
+                        >
+                            <AudioPlayer
+                                :src="
+                                    podcastPreviewSrc
+                                "
+                            />
+
+                            <button
+                                type="button"
+                                class="
+                                    p
+                                    shrink-0
+                                    text-accent
+                                "
+                                aria-label="Remove podcast"
+                                @click="
+                                    clearPodcastSelection
+                                "
+                            >
+                                <i class="bi bi-eraser" />
+                            </button>
+                        </div>
                     </div>
                 </div>
 

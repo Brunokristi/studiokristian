@@ -1,7 +1,16 @@
 <script setup lang="ts">
 import { useI18n } from 'vue-i18n';
 
+import {
+  useSeoMeta,
+} from '../composables/useSeoMeta';
+
 const { t } = useI18n();
+
+useSeoMeta({
+  title: () => t('seo.privacy.title'),
+  description: () => t('seo.privacy.description'),
+});
 </script>
 
 <template>

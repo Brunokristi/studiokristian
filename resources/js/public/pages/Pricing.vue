@@ -5,6 +5,15 @@ const { t } = useI18n();
 import Button from '@shared/components/Button.vue';
 import GridLayout from '../components/GridLayout.vue';
 
+import {
+  useSeoMeta,
+} from '../composables/useSeoMeta';
+
+useSeoMeta({
+  title: () => t('seo.pricing.title'),
+  description: () => t('seo.pricing.description'),
+});
+
 const kaq_image = '/assets/kaq_logo.svg';
 
 const cards = [
