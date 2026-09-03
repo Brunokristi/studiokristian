@@ -122,90 +122,315 @@ const displayedProjects =
 
 /*
 |--------------------------------------------------------------------------
-| INDIVIDUAL RANDOM IMAGE TIMERS
+| SYNCHRONIZED PROJECT GALLERY
 |--------------------------------------------------------------------------
 */
 
-const galleryTimers =
-    new Map<
-        string,
-        ReturnType<typeof setTimeout>
-    >()
+const galleryTimer =
+    ref<ReturnType<typeof setTimeout> | null>(
+        null
+    )
+
+const preloadedImages =
+    new Set<string>()
+
+const isPreloading =
+    ref(false)
 
 
-function scheduleProjectImageChange(
+/*
+|--------------------------------------------------------------------------
+| PRELOAD IMAGE
+|--------------------------------------------------------------------------
+|
+| Loads an image into browser memory before
+| it is displayed.
+|
+*/
+
+function preloadImage(
+    src: string
+): Promise<void> {
+    return new Promise((resolve) => {
+        if (!src) {
+            resolve()
+            return
+        }
+
+        if (preloadedImages.has(src)) {
+            resolve()
+            return
+        }
+
+        const image =
+            new Image()
+
+        image.onload = () => {
+            preloadedImages.add(src)
+            resolve()
+        }
+
+        image.onerror = () => {
+            /*
+            |--------------------------------------------------------------------------
+            | Do not let one failed image stop
+            | the entire gallery.
+            |--------------------------------------------------------------------------
+            */
+
+            resolve()
+        }
+
+        image.src = src
+    })
+}
+
+
+/*
+|--------------------------------------------------------------------------
+| GET NEXT IMAGE
+|--------------------------------------------------------------------------
+*/
+
+function getNextImage(
     project: ProjectGalleryItem
 ) {
-    /*
-    |--------------------------------------------------------------------------
-    | A project with only one image does not need a timer.
-    |--------------------------------------------------------------------------
-    */
+    if (
+        project.images.length <= 1
+    ) {
+        return null
+    }
 
-    if (project.images.length <= 1) {
+    const nextIndex =
+        (
+            project.currentImage + 1
+        ) %
+        project.images.length
+
+    return project.images[
+        nextIndex
+    ]
+}
+
+
+/*
+|--------------------------------------------------------------------------
+| PRELOAD NEXT GALLERY IMAGES
+|--------------------------------------------------------------------------
+|
+| Every visible project has its next image
+| loaded before the gallery changes.
+|
+*/
+
+async function preloadNextGalleryImages() {
+    const projects =
+        displayedProjects.value
+
+    if (!projects.length) {
+        return
+    }
+
+    const nextImages =
+        projects
+            .map((project) =>
+                getNextImage(project)
+            )
+            .filter(
+                (
+                    image
+                ): image is string =>
+                    Boolean(image)
+            )
+
+    if (!nextImages.length) {
+        return
+    }
+
+    isPreloading.value = true
+
+    await Promise.all(
+        nextImages.map((image) =>
+            preloadImage(image)
+        )
+    )
+
+    isPreloading.value = false
+}
+
+
+/*
+|--------------------------------------------------------------------------
+| ADVANCE GALLERY
+|--------------------------------------------------------------------------
+|
+| All visible project cards change at exactly
+| the same time.
+|
+*/
+
+async function advanceGallery() {
+    if (
+        !displayedProjects.value.length
+    ) {
+        scheduleGalleryChange()
         return
     }
 
     /*
     |--------------------------------------------------------------------------
-    | Random delay:
-    |
-    | Minimum: 3 seconds
-    | Maximum: 7 seconds
+    | Make absolutely sure the next images
+    | are loaded before changing the indexes.
     |--------------------------------------------------------------------------
     */
 
-    const delay =
-        3000 +
-        Math.random() * 4000
+    await preloadNextGalleryImages()
 
-    const timer =
-        setTimeout(() => {
-            /*
-            |--------------------------------------------------------------------------
-            | Move to the next image.
-            |--------------------------------------------------------------------------
-            */
+    /*
+    |--------------------------------------------------------------------------
+    | Change every visible project at once.
+    |--------------------------------------------------------------------------
+    */
+
+    displayedProjects.value.forEach(
+        (project) => {
+            if (
+                project.images.length <= 1
+            ) {
+                return
+            }
 
             project.currentImage =
                 (
                     project.currentImage + 1
                 ) %
                 project.images.length
-
-            /*
-            |--------------------------------------------------------------------------
-            | Schedule the next change with
-            | another random delay.
-            |--------------------------------------------------------------------------
-            */
-
-            scheduleProjectImageChange(
-                project
-            )
-        }, delay)
-
-    galleryTimers.set(
-        project.link,
-        timer
+        }
     )
+
+    /*
+    |--------------------------------------------------------------------------
+    | Immediately start loading the images
+    | that will be needed after this transition.
+    |--------------------------------------------------------------------------
+    */
+
+    preloadNextGalleryImages()
+
+    /*
+    |--------------------------------------------------------------------------
+    | Schedule the following synchronized
+    | transition.
+    |--------------------------------------------------------------------------
+    */
+
+    scheduleGalleryChange()
 }
 
 
 /*
 |--------------------------------------------------------------------------
-| Stop all gallery timers
+| RANDOM GALLERY DELAY
+|--------------------------------------------------------------------------
+|
+| Minimum: 3 seconds
+| Maximum: 7 seconds
 |--------------------------------------------------------------------------
 */
 
-function clearGalleryTimers() {
-    galleryTimers.forEach(
-        (timer) => {
-            clearTimeout(timer)
-        }
+function scheduleGalleryChange() {
+    if (galleryTimer.value) {
+        clearTimeout(
+            galleryTimer.value
+        )
+    }
+
+    if (
+        !displayedProjects.value.length
+    ) {
+        return
+    }
+
+    const delay =
+        3000 +
+        Math.random() * 4000
+
+    galleryTimer.value =
+        setTimeout(() => {
+            advanceGallery()
+        }, delay)
+}
+
+
+/*
+|--------------------------------------------------------------------------
+| CLEAR GALLERY TIMER
+|--------------------------------------------------------------------------
+*/
+
+function clearGalleryTimer() {
+    if (galleryTimer.value) {
+        clearTimeout(
+            galleryTimer.value
+        )
+
+        galleryTimer.value = null
+    }
+}
+
+
+/*
+|--------------------------------------------------------------------------
+| INITIALIZE GALLERY
+|--------------------------------------------------------------------------
+*/
+
+async function initializeGallery() {
+    /*
+    |--------------------------------------------------------------------------
+    | First preload the currently visible
+    | images.
+    |--------------------------------------------------------------------------
+    */
+
+    const currentImages =
+        displayedProjects.value
+            .map(
+                (project) =>
+                    project.images[
+                        project.currentImage
+                    ]
+            )
+            .filter(
+                (
+                    image
+                ): image is string =>
+                    Boolean(image)
+            )
+
+    await Promise.all(
+        currentImages.map((image) =>
+            preloadImage(image)
+        )
     )
 
-    galleryTimers.clear()
+    /*
+    |--------------------------------------------------------------------------
+    | Then preload the NEXT image for
+    | every visible project.
+    |--------------------------------------------------------------------------
+    */
+
+    await preloadNextGalleryImages()
+
+    /*
+    |--------------------------------------------------------------------------
+    | Now the first transition can happen
+    | without waiting for network requests.
+    |--------------------------------------------------------------------------
+    */
+
+    scheduleGalleryChange()
 }
 
 
@@ -216,7 +441,7 @@ function clearGalleryTimers() {
 */
 
 async function loadRecentProjects() {
-    clearGalleryTimers()
+    clearGalleryTimer()
 
     try {
         const response = await fetch(
@@ -277,20 +502,7 @@ async function loadRecentProjects() {
                             .length > 0
                 )
 
-        /*
-        |--------------------------------------------------------------------------
-        | Every project gets its own independent
-        | random image-change timer.
-        |--------------------------------------------------------------------------
-        */
-
-        projectGallery.value.forEach(
-            (project) => {
-                scheduleProjectImageChange(
-                    project
-                )
-            }
-        )
+        await initializeGallery()
     } catch (error) {
         console.error(error)
 
@@ -410,7 +622,7 @@ watch(
 */
 
 onUnmounted(() => {
-    clearGalleryTimers()
+    clearGalleryTimer()
 })
 </script>
 
@@ -597,8 +809,6 @@ onUnmounted(() => {
                         'home.about.intro'
                     ) }}
                 </p>
-
-
             </div>
         </section>
 
@@ -1212,7 +1422,7 @@ onUnmounted(() => {
 
 /*
 |--------------------------------------------------------------------------
-| New image starts outside on the RIGHT
+| NEW IMAGE STARTS OUTSIDE ON THE RIGHT
 |--------------------------------------------------------------------------
 */
 
@@ -1224,7 +1434,7 @@ onUnmounted(() => {
 
 /*
 |--------------------------------------------------------------------------
-| New image moves into position
+| NEW IMAGE MOVES INTO POSITION
 |--------------------------------------------------------------------------
 */
 
@@ -1236,7 +1446,7 @@ onUnmounted(() => {
 
 /*
 |--------------------------------------------------------------------------
-| Old image starts in position
+| OLD IMAGE STARTS IN POSITION
 |--------------------------------------------------------------------------
 */
 
@@ -1248,7 +1458,7 @@ onUnmounted(() => {
 
 /*
 |--------------------------------------------------------------------------
-| Old image leaves to the LEFT
+| OLD IMAGE LEAVES TO THE LEFT
 |--------------------------------------------------------------------------
 */
 
