@@ -102,64 +102,113 @@ const slider = ref<HTMLElement | null>(null)
 
 const isDragging = ref(false)
 const dragX = ref(0)
-const startX = ref(0)
-const startDragX = ref(0)
 
 const knobSize = 40
+const sliderPadding = 4
 
 const maxDrag = computed(() => {
     if (!slider.value) {
         return 0
     }
 
-    return (
-        slider.value.offsetWidth -
-        knobSize -
-        8
+    return Math.max(
+        0,
+        slider.value.clientWidth -
+            knobSize -
+            sliderPadding * 2
     )
 })
+
+let activePointerId: number | null = null
+let startPointerX = 0
+let startDragX = 0
+
+function getSliderX(clientX: number) {
+    if (!slider.value) {
+        return 0
+    }
+
+    const rect =
+        slider.value.getBoundingClientRect()
+
+    return clientX - rect.left
+}
 
 function startDrag(event: PointerEvent) {
     if (isTranscriptFinished.value) {
         return
     }
 
-    isDragging.value = true
-    startX.value = event.clientX
-    startDragX.value = dragX.value
+    const target =
+        event.currentTarget as HTMLElement
 
-    ;(event.currentTarget as HTMLElement)
-        ?.setPointerCapture?.(
-            event.pointerId
+    target.setPointerCapture?.(
+        event.pointerId
+    )
+
+    activePointerId = event.pointerId
+    isDragging.value = true
+
+    const pointerX =
+        getSliderX(event.clientX)
+
+    /*
+     * If the user grabs the track itself, place the knob
+     * so that its center is directly under the pointer.
+     */
+    dragX.value = Math.max(
+        0,
+        Math.min(
+            pointerX -
+                knobSize / 2 -
+                sliderPadding,
+            maxDrag.value
         )
+    )
+
+    startPointerX = event.clientX
+    startDragX = dragX.value
 }
 
 function onDrag(event: PointerEvent) {
     if (
         !isDragging.value ||
-        isTranscriptFinished.value
+        isTranscriptFinished.value ||
+        activePointerId !== event.pointerId
     ) {
         return
     }
 
     const delta =
-        event.clientX - startX.value
+        event.clientX - startPointerX
 
     const next =
-        startDragX.value + delta
+        startDragX + delta
 
     dragX.value = Math.max(
         0,
-        Math.min(next, maxDrag.value)
+        Math.min(
+            next,
+            maxDrag.value
+        )
     )
 }
 
-function endDrag() {
+function endDrag(event?: PointerEvent) {
     if (!isDragging.value) {
         return
     }
 
+    if (
+        event &&
+        activePointerId !== null &&
+        event.pointerId !== activePointerId
+    ) {
+        return
+    }
+
     isDragging.value = false
+    activePointerId = null
 
     const threshold =
         maxDrag.value * 0.75
@@ -296,11 +345,17 @@ onUnmounted(() => {
             <div class="px-8">
                 <div
                     ref="slider"
-                    class="relative h-12 bg-accent rounded-full overflow-hidden select-none shrink-0 pickup-track"
+                    class="relative h-12 bg-accent rounded-full select-none shrink-0 pickup-track"
+                    :class="{
+                        'pickup-track-dragging':
+                            isDragging,
+                        'pickup-track-disabled':
+                            isTranscriptFinished,
+                    }"
+                    @pointerdown="startDrag"
                     @pointermove="onDrag"
                     @pointerup="endDrag"
                     @pointercancel="endDrag"
-                    @pointerleave="endDrag"
                 >
                     <div
                         class="absolute inset-0 flex items-center justify-center pointer-events-none"
@@ -322,7 +377,7 @@ onUnmounted(() => {
                     </div>
 
                     <div
-                        class="absolute top-1 left-1 w-10 h-10 cursor-grab active:cursor-grabbing transition-transform duration-200 z-20"
+                        class="absolute top-1 left-1 w-10 h-10 z-20 pointer-events-none"
                         :class="{
                             'transition-none':
                                 isDragging,
@@ -330,7 +385,6 @@ onUnmounted(() => {
                         :style="{
                             transform: `translateX(${dragX}px)`,
                         }"
-                        @pointerdown="startDrag"
                     >
                         <div
                             class="w-10 h-10 rounded-full bg-dark flex items-center justify-center pickup-knob-inner"
@@ -424,9 +478,33 @@ onUnmounted(() => {
 
 /*
 |--------------------------------------------------------------------------
-| Pickup knob animation
+| Pickup slider
 |--------------------------------------------------------------------------
 */
+
+.pickup-track {
+    touch-action: none;
+    cursor: grab;
+}
+
+.pickup-track:active,
+.pickup-track-dragging {
+    cursor: grabbing;
+}
+
+.pickup-track-disabled {
+    cursor: default;
+}
+
+/*
+|--------------------------------------------------------------------------
+| Pickup knob
+|--------------------------------------------------------------------------
+*/
+
+.pickup-knob-inner {
+    will-change: transform;
+}
 
 .pickup-knob-inner-animated {
     animation:
