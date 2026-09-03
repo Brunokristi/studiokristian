@@ -173,21 +173,18 @@ const loadServices =
                 await response.json()
 
             services.value =
-                serviceProducts.flatMap(
-                    serviceProduct =>
-                        serviceProduct.services.map(
-                            service => ({
+                serviceProducts.map(
+                    serviceProduct => ({
 
-                                label:
-                                    service.name,
+                        label:
+                            serviceProduct.name,
 
-                                value:
-                                    String(
-                                        service.id
-                                    )
+                        value:
+                            String(
+                                serviceProduct.id
+                            )
 
-                            })
-                        )
+                    })
                 )
 
         } catch (

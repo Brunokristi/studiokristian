@@ -123,8 +123,8 @@ export default {
     },
 
     consultationForm: {
-        title: 'First consultation free',
-        subtitle: 'Tell us a little about your project and we will get back to you.',
+        title: 'Get first consultation free',
+        subtitle: 'What do you need to get done?',
         name: 'First & Last Name',
         service: 'What service are you interested in?',
         servicePlaceholder: 'Select a service',
@@ -141,7 +141,7 @@ export default {
         instagram: 'Instagram handle',
         message: 'Message',
         optional: 'optional',
-        messagePlaceholder: 'Tell us a little about your project...',
+        messagePlaceholder: 'Tell me a little about your project...',
         submit: 'Send request',
         submitting: 'Sending...',
         successTitle: 'Thank you.',
