@@ -762,6 +762,39 @@ watch(
 )
 
 
+/*
+|--------------------------------------------------------------------------
+| Recompute theme detection after language changes
+|--------------------------------------------------------------------------
+|
+| Translated copy has a different length, which reflows the page and
+| shifts [data-theme] section boundaries without a route change. Without
+| this, the scroll-based nav theme can stay stale until the next scroll.
+*/
+
+watch(
+    locale,
+    () => {
+
+        nextTick(() => {
+
+            sections =
+                Array.from(
+                    document.querySelectorAll(
+                        '[data-theme]'
+                    )
+                )
+
+            requestAnimationFrame(
+                updateThemeFromNavPosition
+            )
+
+        })
+
+    }
+)
+
+
 onUnmounted(() => {
 
     window.removeEventListener(

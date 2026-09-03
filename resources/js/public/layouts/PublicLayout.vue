@@ -310,7 +310,7 @@ onBeforeUnmount(() => {
 }
 
 .loader-overlay-fill {
-    fill: #f5f5f5;
+    fill: #ffffff;
     opacity: 1;
     transition: opacity 0.7s ease;
 }
