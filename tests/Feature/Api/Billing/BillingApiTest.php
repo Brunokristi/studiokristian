@@ -9,9 +9,11 @@ use App\Models\SaasPlan;
 use App\Models\SaasPlanPrice;
 use App\Models\SaasProjectApiCredential;
 use App\Models\SaasSubscription;
+use App\Models\CompanyTrial;
 use App\Models\ServiceProduct;
 use App\Services\Billing\StripeBillingService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Carbon;
 use Mockery\MockInterface;
 use Stripe\StripeObject;
 use Tests\TestCase;
@@ -92,6 +94,120 @@ class BillingApiTest extends TestCase
             ])
             ->assertCreated()
             ->assertJsonPath('id', 'cs_generic');
+    }
+
+    public function test_customer_can_start_one_application_trial_from_project_configuration(): void
+    {
+        Carbon::setTestNow('2026-09-05 18:00:00');
+
+        [$project, $plan, $price, $company] = $this->fixture('Trial Product');
+        $project->update([
+            'trial_enabled' => true,
+            'trial_duration_days' => 30,
+            'trial_credits' => 100,
+        ]);
+
+        $response = $this
+            ->withToken($this->projectToken($project))
+            ->withHeader('X-Billing-Customer-Token', $this->customerToken($project, $company))
+            ->postJson('/api/v1/billing/customer/trial', [
+                'started_at' => '2000-01-01T00:00:00Z',
+                'ends_at' => '2099-01-01T00:00:00Z',
+                'credits' => 999999,
+            ]);
+
+        $response
+            ->assertCreated()
+            ->assertJsonPath('data.status', CompanyTrial::STATUS_ACTIVE)
+            ->assertJsonPath('data.started_at', '2026-09-05T18:00:00+00:00')
+            ->assertJsonPath('data.ends_at', '2026-10-05T18:00:00+00:00')
+            ->assertJsonPath('data.credit_allowance', 100)
+            ->assertJsonPath('data.credits_remaining', 100);
+
+        $this->assertDatabaseHas('company_trials', [
+            'company_id' => $company->id,
+            'project_id' => $project->id,
+            'credits_allowance' => 100,
+            'credits_used' => 0,
+        ]);
+
+        $this->assertDatabaseMissing('saas_billing_customers', [
+            'company_id' => $company->id,
+        ]);
+
+        Carbon::setTestNow();
+    }
+
+    public function test_starting_a_trial_twice_returns_the_original_trial(): void
+    {
+        [$project, $plan, $price, $company] = $this->fixture('Idempotent Trial Product');
+        $project->update([
+            'trial_enabled' => true,
+            'trial_duration_days' => 14,
+            'trial_credits' => 500,
+        ]);
+
+        $headers = [
+            'Authorization' => 'Bearer '.$this->projectToken($project),
+            'X-Billing-Customer-Token' => $this->customerToken($project, $company),
+        ];
+
+        $first = $this->postJson('/api/v1/billing/customer/trial', [], $headers);
+        $second = $this->postJson('/api/v1/billing/customer/trial', [], $headers);
+
+        $first->assertCreated();
+        $second
+            ->assertOk()
+            ->assertJsonPath('created', false)
+            ->assertJsonPath('data.started_at', $first->json('data.started_at'));
+
+        $this->assertDatabaseCount('company_trials', 1);
+    }
+
+    public function test_trial_state_expires_from_server_time_without_a_scheduled_job(): void
+    {
+        [$project, $plan, $price, $company] = $this->fixture('Expiration Product');
+        $project->update([
+            'trial_enabled' => true,
+            'trial_duration_days' => 1,
+            'trial_credits' => 10,
+        ]);
+
+        $headers = [
+            'Authorization' => 'Bearer '.$this->projectToken($project),
+            'X-Billing-Customer-Token' => $this->customerToken($project, $company),
+        ];
+
+        Carbon::setTestNow('2026-09-05 18:00:00');
+        $this->postJson('/api/v1/billing/customer/trial', [], $headers)
+            ->assertCreated();
+
+        Carbon::setTestNow('2026-09-06 18:00:00');
+        $this->getJson('/api/v1/billing/customer/trial', $headers)
+            ->assertOk()
+            ->assertJsonPath('data.status', CompanyTrial::STATUS_EXPIRED);
+
+        $this->assertDatabaseHas('company_trials', [
+            'project_id' => $project->id,
+            'company_id' => $company->id,
+            'status' => CompanyTrial::STATUS_EXPIRED,
+        ]);
+
+        Carbon::setTestNow();
+    }
+
+    public function test_trial_cannot_start_when_project_trials_are_disabled(): void
+    {
+        [$project, $plan, $price, $company] = $this->fixture('Disabled Trial Product');
+
+        $this
+            ->withToken($this->projectToken($project))
+            ->withHeader('X-Billing-Customer-Token', $this->customerToken($project, $company))
+            ->postJson('/api/v1/billing/customer/trial')
+            ->assertUnprocessable()
+            ->assertJsonPath('message', 'Trials are not enabled for this SaaS Project.');
+
+        $this->assertDatabaseCount('company_trials', 0);
     }
 
     private function fixture(string $name): array

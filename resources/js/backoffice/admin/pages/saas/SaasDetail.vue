@@ -62,9 +62,18 @@ const showDeleteConfirm = ref(false)
 const deletingPlan = ref(null)
 const showPlanModal = ref(false)
 const showPriceModal = ref(false)
+const showCredentialModal = ref(false)
+const showTokenModal = ref(false)
+const credentialName = ref('')
+const generatedProjectToken = ref('')
+const tokenCopied = ref(false)
+const projectCredentials = ref([])
+const credentialLoading = ref(false)
+const credentialSaving = ref(false)
+const revokingCredentialId = ref(null)
+const credentialToRevoke = ref(null)
 const trialSaving = ref(false)
 const featureSearch = ref('')
-const planAutosaveTimer = ref(null)
 const trialAutosaveTimer = ref(null)
 const suppressPlanAutosave = ref(false)
 const lastSavedPlanSnapshot = ref('')
@@ -350,8 +359,6 @@ function closePlanModal() {
         return
     }
 
-    clearPlanAutosaveTimer()
-
     showPlanModal.value = false
     editingPlan.value = null
     errors.value = {}
@@ -442,6 +449,196 @@ function editPlan(plan) {
     requestAnimationFrame(() => {
         suppressPlanAutosave.value = false
     })
+}
+
+
+function formatCredentialDate(value) {
+    if (!value) {
+        return 'Never'
+    }
+
+    return new Intl.DateTimeFormat(
+        'en-GB',
+        {
+            day: '2-digit',
+            month: '2-digit',
+            year: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit'
+        }
+    ).format(
+        new Date(value)
+    )
+}
+
+
+async function loadProjectCredentials() {
+    if (!project.value?.id) {
+        projectCredentials.value = []
+        return
+    }
+
+    credentialLoading.value = true
+
+    try {
+        const response = await api.get(
+            `/saas/projects/${project.value.id}/billing-api/project-credentials`
+        )
+
+        projectCredentials.value =
+            response.data?.data ||
+            []
+    } catch (exception) {
+        showError(
+            errorMessage(
+                exception
+            )
+        )
+    } finally {
+        credentialLoading.value = false
+    }
+}
+
+const credentialColumns = [
+    {
+        key: 'name',
+        label: 'Name'
+    },
+    {
+        key: 'created_at',
+        label: 'Created'
+    },
+    {
+        key: 'last_used_at',
+        label: 'Last used'
+    },
+    {
+        key: 'actions',
+        label: ''
+    }
+]
+
+
+function openCredentialModal() {
+    credentialName.value =
+        `${project.value?.name || 'SaaS'} production billing API`
+
+    showCredentialModal.value = true
+}
+
+
+function closeCredentialModal() {
+    if (!credentialSaving.value) {
+        showCredentialModal.value = false
+    }
+}
+
+
+async function generateProjectCredential() {
+    if (
+        credentialSaving.value ||
+        !project.value?.id
+    ) {
+        return
+    }
+
+    credentialSaving.value = true
+
+    try {
+        const response = await api.post(
+            `/saas/projects/${project.value.id}/billing-api/project-credentials`,
+            {
+                name: credentialName.value.trim()
+            }
+        )
+
+        generatedProjectToken.value =
+            response.data?.data?.token ||
+            ''
+
+        tokenCopied.value = false
+        showCredentialModal.value = false
+        showTokenModal.value = true
+
+        await loadProjectCredentials()
+    } catch (exception) {
+        errors.value =
+            validationErrors(
+                exception
+            )
+
+        showError(
+            errorMessage(
+                exception
+            )
+        )
+    } finally {
+        credentialSaving.value = false
+    }
+}
+
+
+async function copyProjectToken() {
+    if (!generatedProjectToken.value) {
+        return
+    }
+
+    try {
+        await navigator.clipboard.writeText(
+            generatedProjectToken.value
+        )
+
+        tokenCopied.value = true
+        showSuccessToast.value = true
+    } catch {
+        showError(
+            'The token could not be copied. Copy it manually before closing this dialog.'
+        )
+    }
+}
+
+
+function closeTokenModal() {
+    showTokenModal.value = false
+    generatedProjectToken.value = ''
+    tokenCopied.value = false
+}
+
+
+function requestRevokeCredential(credential) {
+    credentialToRevoke.value = credential
+}
+
+
+async function revokeProjectCredential() {
+    const credential = credentialToRevoke.value
+
+    if (
+        !credential?.id ||
+        !project.value?.id ||
+        revokingCredentialId.value
+    ) {
+        return
+    }
+
+    revokingCredentialId.value = credential.id
+
+    try {
+        await api.delete(
+            `/saas/projects/${project.value.id}/billing-api/project-credentials/${credential.id}`
+        )
+
+        credentialToRevoke.value = null
+        await loadProjectCredentials()
+    } catch (exception) {
+        showError(
+            errorMessage(
+                exception
+            )
+        )
+    } finally {
+        revokingCredentialId.value = null
+    }
 }
 
 
@@ -539,25 +736,6 @@ function isTextField(target) {
     ].includes(
         target?.tagName
     )
-}
-
-
-function handlePlanFocusOut(event) {
-    if (
-        !isTextField(
-            event.target
-        ) ||
-        !canAutosavePlan()
-    ) {
-        return
-    }
-
-    clearPlanAutosaveTimer()
-
-    void savePlan({
-        close: false,
-        toast: false
-    })
 }
 
 
@@ -691,7 +869,8 @@ function closePriceModal() {
 
 function savePrice() {
     const value = {
-        ...priceForm
+        ...priceForm,
+        active: true
     }
 
     const duplicate =
@@ -774,15 +953,6 @@ function handleFeatureSelect(option) {
 
 
 function removePrice(index) {
-    if (
-        planForm.prices.length <= 1
-    ) {
-        planForm.prices[0] =
-            blankPrice()
-
-        return
-    }
-
     planForm.prices.splice(
         index,
         1
@@ -984,72 +1154,6 @@ function getPlanSnapshot() {
 }
 
 
-function clearPlanAutosaveTimer() {
-    if (
-        planAutosaveTimer.value
-    ) {
-        clearTimeout(
-            planAutosaveTimer.value
-        )
-
-        planAutosaveTimer.value =
-            null
-    }
-}
-
-
-function canAutosavePlan() {
-    const hasName =
-        String(
-            planForm.name ||
-            ''
-        ).trim() !== ''
-
-    const hasPrice =
-        planForm.prices.some(
-            price =>
-                cents(
-                    price.amount
-                ) > 0
-        )
-
-    return hasName && hasPrice
-}
-
-
-function schedulePlanAutosave() {
-    if (
-        suppressPlanAutosave.value ||
-        !showPlanModal.value ||
-        saving.value ||
-        !autosaveEnabled.value ||
-        !canAutosavePlan()
-    ) {
-        return
-    }
-
-    const snapshot =
-        getPlanSnapshot()
-
-    if (
-        snapshot ===
-        lastSavedPlanSnapshot.value
-    ) {
-        return
-    }
-
-    clearPlanAutosaveTimer()
-
-    planAutosaveTimer.value =
-        setTimeout(() => {
-            void savePlan({
-                close: false,
-                toast: false
-            })
-        }, 1200)
-}
-
-
 async function load() {
     loading.value = true
     error.value = ''
@@ -1084,6 +1188,8 @@ async function load() {
         applyTrialSettings(
             project.value
         )
+
+        await loadProjectCredentials()
 
         metrics.value =
             projectResponse.data?.metrics ||
@@ -1259,26 +1365,8 @@ async function savePlan(options = {}) {
         saving.value = false
         setStatus('idle')
 
-        if (
-            showPlanModal.value &&
-            getPlanSnapshot() !==
-                lastSavedPlanSnapshot.value
-        ) {
-            schedulePlanAutosave()
-        }
     }
 }
-
-
-watch(
-    planForm,
-    () => {
-        schedulePlanAutosave()
-    },
-    {
-        deep: true
-    }
-)
 
 
 watch(
@@ -1293,7 +1381,6 @@ watch(
 
 
 onBeforeUnmount(() => {
-    clearPlanAutosaveTimer()
     clearTrialAutosaveTimer()
 })
 
@@ -1722,6 +1809,110 @@ useAdminPageHeader({
 
             </section>
 
+
+            <!-- ===================================================== -->
+            <!-- BILLING API -->
+            <!-- ===================================================== -->
+
+            <section
+                class="
+                    space-y-6
+                "
+            >
+
+                <AdminDataTable
+                    title="Billing API"
+                    :columns="credentialColumns"
+                    :rows="projectCredentials"
+                    :loading="credentialLoading"
+                    empty-title="No project credentials yet."
+                    empty-text="Generate a project credential to access the billing API."
+                    add-label=" "
+                    @add="openCredentialModal"
+                >
+
+                    <!-- NAME -->
+
+                    <template
+                        #cell-name="{
+                            value
+                        }"
+                    >
+
+                        <span class="p font-medium">
+                            {{ value || '—' }}
+                        </span>
+
+                    </template>
+
+
+                    <!-- CREATED -->
+
+                    <template
+                        #cell-created_at="{
+                            value
+                        }"
+                    >
+
+                        <span class="p">
+                            {{
+                                formatCredentialDate(
+                                    value
+                                )
+                            }}
+                        </span>
+
+                    </template>
+
+
+                    <!-- LAST USED -->
+
+                    <template
+                        #cell-last_used_at="{
+                            value
+                        }"
+                    >
+
+                        <span class="p">
+                            {{
+                                formatCredentialDate(
+                                    value
+                                )
+                            }}
+                        </span>
+
+                    </template>
+
+
+                    <!-- ACTIONS -->
+
+                    <template
+                        #cell-actions="{
+                            row
+                        }"
+                    >
+
+                        <Button
+                            v-if="row.active"
+                            type="button"
+                            text="Revoke"
+                            align="left"
+                            class="
+                                text-red-600
+                                hover:text-red-700
+                            "
+                            @click.stop="
+                                requestRevokeCredential(
+                                    row
+                                )
+                            "
+                        />
+
+                    </template>
+
+                </AdminDataTable>
+
+            </section>
 
             <!-- ===================================================== -->
             <!-- PLANS -->
@@ -2158,7 +2349,6 @@ useAdminPageHeader({
                         sm:p-6
                     "
                     @submit.prevent="savePlan"
-                    @focusout="handlePlanFocusOut"
                 >
 
                     <!-- BASIC INFORMATION -->
@@ -2395,7 +2585,7 @@ useAdminPageHeader({
                                         text-left
                                     "
                                 >
-                                    Danger Zone
+                                    Product status
                                 </h3>
 
                                 <FormField
@@ -2456,23 +2646,11 @@ useAdminPageHeader({
                             Danger zone
                         </h3>
 
-
-                        <Button
-                            v-if="editingPlan"
-                            type="button"
-                            text="Deactivate plan in Stripe"
-                            class="
-                                uppercase
-                                text-red-600
-                                hover:text-red-700
-                            "
-                            @click="
-                                requestDeletePlan(
-                                    editingPlan
-                                )
-                            "
-                            align="left"
-                            variant="dark"
+                        <FormField
+                            id="saas-plan-active"
+                            v-model="planForm.active"
+                            type="toggle"
+                            label="Product active"
                         />
 
                     </section>
@@ -2508,7 +2686,7 @@ useAdminPageHeader({
                                 type="submit"
                                 :text="
                                     editingPlan
-                                        ? 'Done'
+                                        ? 'Save changes'
                                         : 'Create plan'
                                 "
                                 :loading="saving"
@@ -2528,6 +2706,100 @@ useAdminPageHeader({
                 </form>
 
             </Modal>
+
+
+            <Modal
+                :open="showCredentialModal"
+                title="Generate Project Credential"
+                subtitle="Create a server-to-server credential for this SaaS Project."
+                aria-label="Generate Project Credential"
+                close-label="Close credential form"
+                panel-class="
+                    border
+                    border-accent
+                    bg-light
+                    shadow-xl
+                "
+                @close="closeCredentialModal"
+            >
+                <form
+                    class="space-y-6"
+                    @submit.prevent="generateProjectCredential"
+                >
+                    <FormField
+                        id="saas-project-credential-name"
+                        v-model="credentialName"
+                        type="text"
+                        label="Credential name"
+                        placeholder="Production billing API"
+                        required
+                        autofocus
+                    />
+
+                    <div class="flex flex-col gap-3">
+                        <Button
+                            type="button"
+                            text="Cancel"
+                            @click="closeCredentialModal"
+                            align="right"
+                        />
+                        <Button
+                            type="submit"
+                            text="Generate Credential"
+                            variant="dark"
+                            :loading="credentialSaving"
+                            loading-text="Generating..."
+                            align="right"
+                        />
+                    </div>
+                </form>
+            </Modal>
+
+
+            <Modal
+                :open="showTokenModal"
+                title="Project Credential Created"
+                subtitle="Copy this token now. It will not be shown again."
+                aria-label="Project Credential Created"
+                close-label="Close token dialog"
+                panel-class="
+                    border
+                    border-accent
+                    bg-light
+                    shadow-xl
+                "
+                @close="closeTokenModal"
+            >
+                <div class="space-y-6">
+
+                    <div class="break-all border border-accent bg-accent p-4 font-mono text-xs text-light">
+                        {{ generatedProjectToken }}
+                    </div>
+
+                    <div class="flex items-center justify-end gap-3">
+                        <Button
+                            type="button"
+                            text="Copy Token"
+                            variant="dark"
+                            @click="copyProjectToken"
+                            align="right"
+                        />
+                    </div>
+                </div>
+            </Modal>
+
+
+            <AdminConfirmDialog
+                :open="Boolean(credentialToRevoke)"
+                title="Revoke Project Credential?"
+                :text="`
+                    Revoke ${credentialToRevoke?.name || 'this credential'}? It will immediately stop working for Billing API requests.
+                `"
+                confirm-label="Revoke Credential"
+                :busy="Boolean(revokingCredentialId)"
+                @close="credentialToRevoke = null"
+                @confirm="revokeProjectCredential"
+            />
 
 
             <!-- ===================================================== -->

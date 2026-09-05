@@ -48,6 +48,10 @@ Route::prefix('api')->group(function () {
             Route::get('/plans', [BillingController::class, 'plans']);
             Route::get('/customer/subscriptions', [BillingController::class, 'customer'])
                 ->middleware('billing.api:required');
+            Route::get('/customer/trial', [BillingController::class, 'trial'])
+                ->middleware('billing.api:required');
+            Route::post('/customer/trial', [BillingController::class, 'startTrial'])
+                ->middleware('billing.api:required');
             Route::post('/checkout', [BillingController::class, 'checkout'])
                 ->middleware('billing.api:required');
         });

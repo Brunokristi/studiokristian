@@ -16,7 +16,7 @@ class ApplicationTrialService
             return null;
         }
 
-        return CompanyTrial::query()->firstOrCreate(
+        $trial = CompanyTrial::query()->firstOrCreate(
             [
                 'company_id' => $company->id,
                 'project_id' => $project->id,
@@ -29,6 +29,8 @@ class ApplicationTrialService
                 'credits_used' => 0,
             ]
         );
+
+        return $this->expireIfNeeded($trial);
     }
 
     public function consume(CompanyTrial $trial, int $credits): CompanyTrial
@@ -62,7 +64,7 @@ class ApplicationTrialService
     {
         if (
             $trial->status === CompanyTrial::STATUS_ACTIVE &&
-            $trial->expires_at?->isPast()
+            ! $trial->expires_at?->isFuture()
         ) {
             $trial->update([
                 'status' => CompanyTrial::STATUS_EXPIRED,
@@ -70,6 +72,18 @@ class ApplicationTrialService
         }
 
         return $trial;
+    }
+
+    public function forCompany(Company $company, Project $project): ?CompanyTrial
+    {
+        $trial = CompanyTrial::query()
+            ->where('company_id', $company->id)
+            ->where('project_id', $project->id)
+            ->first();
+
+        return $trial
+            ? $this->expireIfNeeded($trial)
+            : null;
     }
 
     public function markConverted(Company $company, Project $project): void

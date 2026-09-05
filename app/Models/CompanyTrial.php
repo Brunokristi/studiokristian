@@ -47,8 +47,7 @@ class CompanyTrial extends Model
     public function isActive(): bool
     {
         return $this->status === self::STATUS_ACTIVE &&
-            $this->expires_at?->isFuture() &&
-            $this->credits_used < $this->credits_allowance;
+            $this->expires_at?->isFuture();
     }
 
     public function creditsRemaining(): int

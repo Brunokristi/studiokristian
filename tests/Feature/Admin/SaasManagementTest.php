@@ -93,7 +93,7 @@ class SaasManagementTest extends TestCase
             $mock->shouldReceive('updateProduct')->once()->andReturn($this->stripeObject('prod_professional'));
             $mock->shouldReceive('createPrice')->once()->andReturn($this->stripeObject('price_monthly_v2'));
             $mock->shouldReceive('deactivateProduct')->once();
-            $mock->shouldReceive('deactivatePrice')->times(5);
+            $mock->shouldReceive('deactivatePrice')->times(3);
         });
 
         $admin = User::factory()->create([
@@ -182,10 +182,9 @@ class SaasManagementTest extends TestCase
             'name' => 'Professional',
         ]);
 
-        $this->assertDatabaseHas('saas_plan_prices', [
+        $this->assertDatabaseMissing('saas_plan_prices', [
             'id' => $priceId,
             'stripe_price_id' => 'price_monthly',
-            'active' => false,
         ]);
 
         $this->assertDatabaseHas('saas_plan_prices', [

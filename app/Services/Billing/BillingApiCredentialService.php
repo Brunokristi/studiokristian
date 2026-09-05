@@ -35,12 +35,20 @@ class BillingApiCredentialService
         return $this->response($credential, $token);
     }
 
+    public function revokeProjectCredential(SaasProjectApiCredential $credential): void
+    {
+        $credential->update([
+            'revoked_at' => now(),
+        ]);
+    }
+
     private function response(SaasProjectApiCredential|SaasCustomerApiCredential $credential, string $token): array
     {
         return [
             'id' => $credential->id,
             'name' => $credential->name,
             'token' => $token,
+            'created_at' => $credential->created_at?->toIso8601String(),
         ];
     }
 }

@@ -5,11 +5,12 @@ namespace App\Http\Controllers\Api\Billing;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\Api\BillingPlanResource;
 use App\Http\Resources\Api\BillingSubscriptionResource;
-use App\Models\CompanyTrial;
+use App\Http\Resources\Api\BillingTrialResource;
 use App\Models\SaasPlan;
 use App\Models\SaasPlanPrice;
 use App\Models\SaasSubscription;
 use App\Services\Billing\StripeBillingService;
+use App\Services\Billing\ApplicationTrialService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Throwable;
@@ -30,7 +31,7 @@ class BillingController extends Controller
         return BillingPlanResource::collection($plans);
     }
 
-    public function customer(Request $request)
+    public function customer(Request $request, ApplicationTrialService $trials)
     {
         $project = $request->attributes->get('billing_project');
         $company = $request->attributes->get('billing_company');
@@ -42,23 +43,51 @@ class BillingController extends Controller
             ->latest('updated_at')
             ->get();
 
-        $trial = CompanyTrial::query()
-            ->where('project_id', $project->id)
-            ->where('company_id', $company->id)
-            ->latest('started_at')
-            ->first();
+        $trial = $trials->forCompany(
+            $company,
+            $project
+        );
 
         return response()->json([
             'subscriptions' => BillingSubscriptionResource::collection($subscriptions),
-            'trial' => $trial ? [
-                'status' => $trial->status,
-                'started_at' => $trial->started_at?->toIso8601String(),
-                'expires_at' => $trial->expires_at?->toIso8601String(),
-                'credits_allowance' => $trial->credits_allowance,
-                'credits_used' => $trial->credits_used,
-                'credits_remaining' => $trial->creditsRemaining(),
-            ] : null,
+            'trial' => $trial
+                ? new BillingTrialResource($trial)
+                : null,
         ]);
+    }
+
+    public function trial(Request $request, ApplicationTrialService $trials): JsonResponse
+    {
+        $project = $request->attributes->get('billing_project');
+        $company = $request->attributes->get('billing_company');
+        $trial = $trials->forCompany($company, $project);
+
+        return response()->json([
+            'data' => $trial
+                ? new BillingTrialResource($trial)
+                : null,
+        ]);
+    }
+
+    public function startTrial(Request $request, ApplicationTrialService $trials): JsonResponse
+    {
+        $project = $request->attributes->get('billing_project');
+        $company = $request->attributes->get('billing_company');
+
+        if (! $project->trial_enabled) {
+            return response()->json([
+                'message' => 'Trials are not enabled for this SaaS Project.',
+            ], 422);
+        }
+
+        $existing = $trials->forCompany($company, $project);
+
+        $trial = $trials->startFor($company, $project);
+
+        return response()->json([
+            'data' => new BillingTrialResource($trial),
+            'created' => $existing === null,
+        ], $existing === null ? 201 : 200);
     }
 
     public function checkout(Request $request, StripeBillingService $stripe): JsonResponse

@@ -108,7 +108,18 @@ There is no Stripe Customer or Stripe Subscription required for an application t
 
 ## 4. Issue A Project Credential
 
-A StudioKristian administrator issues a project credential through the admin API.
+A StudioKristian administrator can issue a project credential from the StudioKristian UI:
+
+```text
+SaaS Projects
+    -> open the SaaS Project
+    -> Billing API
+    -> Generate Project Credential
+```
+
+Enter a descriptive name such as `ADOCare production billing API`. The token is displayed once in a dedicated dialog with a Copy Token action.
+
+The same operation is available through the admin API.
 
 The admin must already be authenticated as a StudioKristian administrator.
 
@@ -138,6 +149,15 @@ Response:
 Store the token in the SaaS application's server-side secret store.
 
 Never put the project credential in browser JavaScript, mobile app bundles, public repositories, or client-visible HTML.
+
+The Billing API section also lists safe metadata for existing credentials:
+
+- Name
+- Created date
+- Last used date
+- Active/revoked status
+
+Existing plaintext tokens cannot be retrieved. An administrator can revoke an active credential from the same section. Revocation immediately prevents future Billing API authentication with that token.
 
 The token is sent on every Billing API request as:
 
@@ -297,6 +317,58 @@ Response example:
 When there is no application trial, `trial` is `null`.
 
 When there is no paid subscription, `subscriptions` is an empty array.
+
+## 7a. Start The Application Trial
+
+Starting a trial requires both the Project Credential and the Company credential:
+
+```http
+POST /api/v1/billing/customer/trial
+Authorization: Bearer PROJECT_TOKEN
+X-Billing-Customer-Token: CUSTOMER_TOKEN
+Content-Type: application/json
+```
+
+The request body is empty. Do not send start dates, end dates, duration, credits, Company IDs, Project IDs, or Stripe IDs. StudioKristian resolves the Company and SaaS Project from the credentials and reads the trial configuration from the SaaS Project.
+
+Example response:
+
+```json
+{
+    "data": {
+        "status": "active",
+        "started_at": "2026-09-05T18:00:00+00:00",
+        "ends_at": "2026-10-05T18:00:00+00:00",
+        "credit_allowance": 100,
+        "credits_used": 0,
+        "credits_remaining": 100
+    },
+    "created": true
+}
+```
+
+Calling the endpoint again returns the existing trial and does not restart it:
+
+```json
+{
+    "data": {
+        "status": "active"
+    },
+    "created": false
+}
+```
+
+The dedicated trial state endpoint is:
+
+```http
+GET /api/v1/billing/customer/trial
+Authorization: Bearer PROJECT_TOKEN
+X-Billing-Customer-Token: CUSTOMER_TOKEN
+```
+
+Expiration is evaluated using StudioKristian server time whenever the trial is read. At or after `ends_at`, the returned status is `expired`; no scheduled job is required for correctness.
+
+Trial creation does not create a Stripe Customer, Stripe Payment Method, Stripe Checkout Session, or Stripe Subscription. The application trial is separate from paid billing.
 
 ## 8. Start Paid Checkout
 

@@ -235,6 +235,16 @@ Route::prefix('admin/client-portal')
                     [BillingApiCredentialController::class, 'project']
                 );
 
+                Route::get(
+                    '/saas/projects/{project}/billing-api/project-credentials',
+                    [BillingApiCredentialController::class, 'index']
+                );
+
+                Route::delete(
+                    '/saas/projects/{project}/billing-api/project-credentials/{credential}',
+                    [BillingApiCredentialController::class, 'revoke']
+                );
+
                 Route::post(
                     '/saas/projects/{project}/billing-api/customer-credentials',
                     [BillingApiCredentialController::class, 'customer']

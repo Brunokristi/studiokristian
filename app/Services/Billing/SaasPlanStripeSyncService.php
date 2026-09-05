@@ -90,11 +90,8 @@ class SaasPlanStripeSyncService
             $this->stripe->deactivateProduct($plan);
 
             foreach ($plan->prices as $price) {
-                $price->update([
-                    'active' => false,
-                ]);
-
                 $this->stripe->deactivatePrice($price);
+                $price->delete();
             }
         });
     }
@@ -112,7 +109,7 @@ class SaasPlanStripeSyncService
                 'amount' => (int) $priceData['amount'],
                 'currency' => strtoupper((string) $priceData['currency']),
                 'interval' => (string) $priceData['interval'],
-                'active' => (bool) $priceData['active'],
+                'active' => true,
             ];
 
             if ($priceId) {
@@ -132,8 +129,9 @@ class SaasPlanStripeSyncService
                         'stripe_price_id' => $stripePrice->id,
                     ]);
 
-                    $seen[] = $price->id;
                     $seen[] = $newPrice->id;
+
+                    $price->delete();
 
                     continue;
                 }
@@ -166,11 +164,8 @@ class SaasPlanStripeSyncService
             ->whereNotIn('id', $seen)
             ->get()
             ->each(function (SaasPlanPrice $price): void {
-                $price->update([
-                    'active' => false,
-                ]);
-
                 $this->stripe->deactivatePrice($price);
+                $price->delete();
             });
     }
 
