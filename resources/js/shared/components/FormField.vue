@@ -9,6 +9,7 @@ import {
     watch
 } from 'vue'
 
+
 const props =
     defineProps({
 
@@ -49,6 +50,11 @@ const props =
         },
 
         placeholder: {
+            type: String,
+            default: ''
+        },
+
+        suffix: {
             type: String,
             default: ''
         },
@@ -138,17 +144,7 @@ const tokenInput =
 
 /*
 |--------------------------------------------------------------------------
-| IMPORTANT
-|--------------------------------------------------------------------------
-|
-| This is completely separate from modelValue.
-|
-| When autocomplete is multiple:
-|
-| modelValue = selected values
-|
-| autocompleteInput = what the user is currently typing
-|
+| Autocomplete input
 |--------------------------------------------------------------------------
 */
 
@@ -251,6 +247,12 @@ const tokenList =
     })
 
 
+/*
+|--------------------------------------------------------------------------
+| Standard input
+|--------------------------------------------------------------------------
+*/
+
 function handleInput(
     event
 ) {
@@ -284,10 +286,10 @@ function handleInput(
 
 
     /*
-     * AUTOCOMPLETE
+     * Multiple autocomplete.
      *
-     * Never write the typed value into modelValue
-     * when this is a multiple autocomplete.
+     * The typed text is kept separately
+     * from modelValue.
      */
 
     if (
@@ -314,7 +316,7 @@ function handleInput(
 
 
     /*
-     * Single-value autocomplete.
+     * Single autocomplete.
      */
 
     autocompleteInput.value =
@@ -345,6 +347,12 @@ function handleInput(
 }
 
 
+/*
+|--------------------------------------------------------------------------
+| Keyboard
+|--------------------------------------------------------------------------
+*/
+
 function handleKeydown(
     event
 ) {
@@ -359,6 +367,7 @@ function handleKeydown(
 
         isAutocompleteOpen.value =
             false
+
     }
 
 
@@ -369,6 +378,12 @@ function handleKeydown(
 
 }
 
+
+/*
+|--------------------------------------------------------------------------
+| Focus
+|--------------------------------------------------------------------------
+*/
 
 function handleFocus(
     event
@@ -393,6 +408,12 @@ function handleFocus(
 }
 
 
+/*
+|--------------------------------------------------------------------------
+| Blur
+|--------------------------------------------------------------------------
+*/
+
 function handleBlur(
     event
 ) {
@@ -404,6 +425,12 @@ function handleBlur(
 
 }
 
+
+/*
+|--------------------------------------------------------------------------
+| Textarea
+|--------------------------------------------------------------------------
+*/
 
 function handleTextareaInput(
     event
@@ -456,16 +483,28 @@ function resizeTextarea() {
 watch(
     () => props.modelValue,
     () => {
+
         if (
-            props.type === 'textarea'
+            props.type ===
+            'textarea'
         ) {
+
             resizeTextarea()
+
         }
+
     },
     {
         immediate: true
     }
 )
+
+
+/*
+|--------------------------------------------------------------------------
+| Select
+|--------------------------------------------------------------------------
+*/
 
 function toggleSelect() {
 
@@ -584,12 +623,6 @@ function handleSelectOption(
         )
 
 
-        emit(
-            'select',
-            option
-        )
-
-
         return
 
     }
@@ -658,6 +691,12 @@ function removeSelectedOption(
 }
 
 
+/*
+|--------------------------------------------------------------------------
+| Autocomplete
+|--------------------------------------------------------------------------
+*/
+
 function isAutocompleteOptionSelected(
     option
 ) {
@@ -690,20 +729,12 @@ function handleAutocompleteOption(
 ) {
 
     /*
-     * Multiple autocomplete
+     * Multiple autocomplete.
      */
 
     if (
         props.multiple
     ) {
-
-        /*
-         * Create a NEW array from the current
-         * selection.
-         *
-         * We never use the autocomplete input
-         * as the model value.
-         */
 
         const currentValues =
             Array.isArray(
@@ -726,15 +757,6 @@ function handleAutocompleteOption(
                     )
             )
 
-
-        /*
-         * Do not toggle here.
-         *
-         * Selecting an autocomplete option means
-         * ADD it.
-         *
-         * Removal is done with the pill's × button.
-         */
 
         if (
             !alreadySelected
@@ -766,7 +788,7 @@ function handleAutocompleteOption(
 
 
         /*
-         * Clear ONLY the search input.
+         * Clear only the search input.
          */
 
         autocompleteInput.value =
@@ -778,9 +800,8 @@ function handleAutocompleteOption(
 
 
         /*
-         * Re-open the dropdown after Vue has updated
-         * the selection. This makes it possible to
-         * keep adding services without clicking again.
+         * Re-open the dropdown after Vue
+         * has updated the selection.
          */
 
         nextTick(() => {
@@ -834,6 +855,12 @@ function handleAutocompleteOption(
 }
 
 
+/*
+|--------------------------------------------------------------------------
+| Outside click
+|--------------------------------------------------------------------------
+*/
+
 function handleDocumentClick(
     event
 ) {
@@ -862,6 +889,12 @@ function handleDocumentClick(
 
 }
 
+
+/*
+|--------------------------------------------------------------------------
+| File
+|--------------------------------------------------------------------------
+*/
 
 function handleFileChange(
     event
@@ -917,6 +950,12 @@ function openFilePicker() {
 
 }
 
+
+/*
+|--------------------------------------------------------------------------
+| Tokens
+|--------------------------------------------------------------------------
+*/
 
 function addToken() {
 
@@ -984,6 +1023,34 @@ function handleTokenEnter(
 }
 
 
+/*
+|--------------------------------------------------------------------------
+| Checkbox / Toggle
+|--------------------------------------------------------------------------
+*/
+
+function handleBooleanChange(
+    event
+) {
+
+    const value =
+        event.target.checked
+
+
+    emit(
+        'update:modelValue',
+        value
+    )
+
+
+    emit(
+        'change',
+        value
+    )
+
+}
+
+
 onMounted(() => {
 
     document.addEventListener(
@@ -991,8 +1058,10 @@ onMounted(() => {
         handleDocumentClick
     )
 
+
     if (
-        props.type === 'textarea'
+        props.type ===
+        'textarea'
     ) {
 
         resizeTextarea()
@@ -1021,116 +1090,489 @@ onBeforeUnmount(() => {
         class="w-full"
     >
 
-        <!-- Label -->
+        <!-- ===================================================== -->
+        <!-- CHECKBOX -->
+        <!-- ===================================================== -->
 
-        <label
-            v-if="label"
-            :for="id"
+        <div
+            v-if="
+                type === 'checkbox'
+            "
             class="
-                h3
-                mb-2
-                block
+                w-full
             "
         >
 
-            {{ label }}
+            <label
+                :for="id"
+                class="
+                    flex
+                    cursor-pointer
+                    items-center
+                    gap-3
+                "
+                :class="{
+                    'cursor-not-allowed opacity-50':
+                        disabled
+                }"
+            >
 
-            <span
-                v-if="required"
+                <input
+                    :id="id"
+                    :name="name"
+                    type="checkbox"
+                    :checked="
+                        Boolean(
+                            modelValue
+                        )
+                    "
+                    :required="required"
+                    :autofocus="autofocus"
+                    :disabled="disabled"
+                    :readonly="readonly"
+                    class="
+                        h-4
+                        w-4
+                        border-accent
+                        text-accent
+                        focus:ring-accent
+                    "
+                    @change="
+                        handleBooleanChange
+                    "
+                >
+
+                <span
+                    v-if="label"
+                    class="p"
+                >
+                    {{ label }}
+
+                    <span
+                        v-if="required"
+                        class="text-accent"
+                        aria-hidden="true"
+                    >
+                        *
+                    </span>
+                </span>
+
+            </label>
+
+        </div>
+
+
+        <!-- ===================================================== -->
+        <!-- TOGGLE -->
+        <!-- ===================================================== -->
+
+        <div
+            v-else-if="
+                type === 'toggle'
+            "
+            class="
+                w-full
+            "
+        >
+
+            <label
+                :for="id"
+                class="
+                    flex
+                    cursor-pointer
+                    items-center
+                    justify-between
+                    gap-4
+                "
+                :class="{
+                    'cursor-not-allowed opacity-50':
+                        disabled
+                }"
+            >
+
+                <span
+                    v-if="label"
+                    class="
+                        h3
+                    "
+                >
+                    {{ label }}
+
+                    <span
+                        v-if="required"
+                        class="text-accent"
+                        aria-hidden="true"
+                    >
+                        *
+                    </span>
+                </span>
+
+
+                <span
+                    class="
+                        relative
+                        inline-flex
+                        h-[22px]
+                        w-[42px]
+                        shrink-0
+                        items-center
+                    "
+                >
+
+                    <input
+                        :id="id"
+                        :name="name"
+                        type="checkbox"
+                        role="switch"
+                        :checked="
+                            Boolean(
+                                modelValue
+                            )
+                        "
+                        :required="required"
+                        :autofocus="autofocus"
+                        :disabled="disabled"
+                        :readonly="readonly"
+                        class="
+                            peer
+                            absolute
+                            inset-0
+                            h-full
+                            w-full
+                            cursor-pointer
+                            opacity-0
+                        "
+                        @change="
+                            handleBooleanChange
+                        "
+                    >
+
+                    <span
+                        class="
+                            pointer-events-none
+                            absolute
+                            inset-0
+                            border
+                            border-dark
+                            bg-transparent
+                            transition-colors
+                            duration-200
+                            peer-checked:border-accent
+                            peer-checked:bg-accent
+                        "
+                    ></span>
+
+                    <span
+                        class="
+                            pointer-events-none
+                            absolute
+                            left-[2px]
+                            h-[18px]
+                            w-[18px]
+                            rounded-full
+                            bg-dark
+                            transition-transform
+                            duration-200
+                            peer-checked:translate-x-[20px]
+                            peer-checked:bg-light
+                        "
+                    ></span>
+
+                </span>
+
+            </label>
+
+        </div>
+
+
+        <!-- ===================================================== -->
+        <!-- LABEL -->
+        <!-- ===================================================== -->
+
+        <div
+            v-else-if="
+                label
+            "
+            class="
+                mb-2
+            "
+        >
+
+            <label
+                :for="id"
+                class="h3 block"
+            >
+                {{ label }}
+
+                <span
+                    v-if="required"
+                    class="text-accent"
+                    aria-hidden="true"
+                >
+                    *
+                </span>
+            </label>
+
+        </div>
+
+
+        <!-- ===================================================== -->
+        <!-- SELECT -->
+        <!-- ===================================================== -->
+
+        <div
+            v-if="
+                type === 'select'
+            "
+            class="
+                relative
+            "
+        >
+
+            <button
+                :id="id"
+                type="button"
+                :disabled="disabled"
                 class="
                     p
-                    text-accent
+                    flex
+                    h-6
+                    w-full
+                    items-center
+                    justify-between
+                    border-0
+                    border-b
+                    border-dark
+                    bg-transparent
+                    px-0
+                    py-0
+                    text-left
+                    outline-none
+                    transition-colors
+                    duration-200
+                    hover:border-accent
+                    focus:border-accent
+                    focus:outline-none
+                    focus:ring-0
+                    disabled:cursor-not-allowed
+                    disabled:opacity-50
                 "
-                aria-hidden="true"
+                :class="{
+                    'border-red-600':
+                        error
+                }"
+                @click="
+                    toggleSelect
+                "
+                @keydown="
+                    handleKeydown
+                "
             >
-                *
-            </span>
 
-        </label>
+                <span
+                    class="
+                        min-w-0
+                        flex-1
+                        truncate
+                    "
+                >
 
+                    <template
+                        v-if="
+                            multiple
+                        "
+                    >
 
-        <!-- Standard inputs -->
+                        {{
+                            selectedOptions.length
+                                ? selectedOptions
+                                    .map(
+                                        option =>
+                                            option.label
+                                    )
+                                    .join(', ')
+                                : placeholder
+                        }}
 
-        <input
-            v-if="
-                type === 'text' ||
-                type === 'search' ||
-                type === 'email' ||
-                type === 'password' ||
-                type === 'date'
-            "
-            :id="id"
-            :name="name"
-            :type="type"
-            :value="
-                typeof modelValue === 'string' ||
-                typeof modelValue === 'number'
-                    ? modelValue
-                    : ''
-            "
-            :placeholder="placeholder"
-            :autocomplete="autocomplete"
-            :required="required"
-            :autofocus="autofocus"
-            :disabled="disabled"
-            :readonly="readonly"
-            :aria-invalid="
-                error
-                    ? 'true'
-                    : undefined
-            "
-            class="
-                p
-                box-border
-                h-6
-                w-full
-                border-0
-                border-b
-                border-dark
-                bg-transparent
-                px-0
-                py-0
-                leading-6
-                text-dark
-                outline-none
-                transition-colors
-                duration-200
-                placeholder:text-dark/30
-                focus:border-accent
-                focus:outline-none
-                focus:ring-0
-                disabled:cursor-not-allowed
-                disabled:opacity-50
-            "
-            :class="{
-                'border-red-600':
-                    error
-            }"
-            @input="
-                handleInput
-            "
-            @keydown="
-                handleKeydown
-            "
-            @focus="
-                handleFocus
-            "
-            @blur="
-                handleBlur
-            "
-        >
+                    </template>
 
 
-        <!-- Autocomplete -->
+                    <template
+                        v-else
+                    >
+
+                        {{
+                            selectedLabel ||
+                            placeholder
+                        }}
+
+                    </template>
+
+                </span>
+
+
+                <span
+                    class="
+                        ml-3
+                        shrink-0
+                        font-mono
+                        text-xs
+                    "
+                >
+                    +
+                </span>
+
+            </button>
+
+
+            <div
+                v-if="
+                    isSelectOpen
+                "
+                class="
+                    absolute
+                    left-0
+                    right-0
+                    top-full
+                    z-50
+                    mt-2
+                    max-h-60
+                    overflow-y-auto
+                    border
+                    border-accent
+                    bg-light
+                    shadow-lg
+                "
+            >
+
+                <button
+                    v-for="
+                        option in options
+                    "
+                    :key="
+                        option.value
+                    "
+                    type="button"
+                    class="
+                        p
+                        flex
+                        w-full
+                        items-center
+                        justify-between
+                        px-3
+                        py-2
+                        text-left
+                        transition-colors
+                        hover:bg-accent
+                        hover:text-light
+                    "
+                    :class="{
+                        'bg-accent text-light':
+                            isOptionSelected(
+                                option
+                            )
+                    }"
+                    @click="
+                        handleSelectOption(
+                            option
+                        )
+                    "
+                >
+
+                    <span>
+                        {{ option.label }}
+                    </span>
+
+                    <span
+                        v-if="
+                            isOptionSelected(
+                                option
+                            )
+                        "
+                        class="font-mono"
+                    >
+                        ✓
+                    </span>
+
+                </button>
+
+            </div>
+
+
+            <div
+                v-if="
+                    multiple &&
+                    selectedOptions.length
+                "
+                class="
+                    mt-3
+                    flex
+                    flex-wrap
+                    gap-2
+                "
+            >
+
+                <span
+                    v-for="
+                        option in selectedOptions
+                    "
+                    :key="
+                        option.value
+                    "
+                    class="
+                        inline-flex
+                        items-center
+                        gap-2
+                        bg-accent
+                        px-2
+                        py-1
+                        font-mono
+                        text-[10px]
+                        font-bold
+                        uppercase
+                        text-light
+                    "
+                >
+
+                    {{ option.label }}
+
+                    <button
+                        type="button"
+                        class="
+                            leading-none
+                            transition-opacity
+                            hover:opacity-60
+                        "
+                        @click="
+                            removeSelectedOption(
+                                option.value
+                            )
+                        "
+                    >
+                        ×
+                    </button>
+
+                </span>
+
+            </div>
+
+        </div>
+
+
+        <!-- ===================================================== -->
+        <!-- AUTOCOMPLETE -->
+        <!-- ===================================================== -->
 
         <div
             v-else-if="
                 type === 'autocomplete'
             "
-            class="relative"
+            class="
+                relative
+            "
         >
 
-            <!-- Selected pills -->
+            <!-- Multiple selected values -->
 
             <div
                 v-if="
@@ -1150,9 +1592,7 @@ onBeforeUnmount(() => {
                         option in selectedOptions
                     "
                     :key="
-                        String(
-                            option.value
-                        )
+                        option.value
                     "
                     class="
                         inline-flex
@@ -1165,14 +1605,11 @@ onBeforeUnmount(() => {
                         text-[10px]
                         font-bold
                         uppercase
-                        leading-none
                         text-light
                     "
                 >
 
-                    <span>
-                        {{ option.label }}
-                    </span>
+                    {{ option.label }}
 
                     <button
                         type="button"
@@ -1181,8 +1618,6 @@ onBeforeUnmount(() => {
                             transition-opacity
                             hover:opacity-60
                         "
-                        aria-label="Remove"
-                        @mousedown.prevent
                         @click="
                             removeSelectedOption(
                                 option.value
@@ -1197,44 +1632,24 @@ onBeforeUnmount(() => {
             </div>
 
 
-            <!-- Autocomplete input -->
-
             <input
                 :id="id"
                 :name="name"
-                type="text"
                 :value="
                     multiple
                         ? autocompleteInput
                         : (
-                            typeof modelValue === 'string' ||
-                            typeof modelValue === 'number'
-                                ? modelValue
-                                : ''
+                            autocompleteInput ||
+                            modelValue
                         )
                 "
-                :placeholder="
-                    placeholder
-                "
+                type="text"
+                :placeholder="placeholder"
                 :autocomplete="autocomplete"
-                :required="
-                    required &&
-                    !multiple
-                "
-                :autofocus="autofocus"
                 :disabled="disabled"
                 :readonly="readonly"
-                :aria-invalid="
-                    error
-                        ? 'true'
-                        : undefined
-                "
-                :aria-expanded="
-                    isAutocompleteOpen
-                        ? 'true'
-                        : 'false'
-                "
-                role="combobox"
+                :required="required"
+                :autofocus="autofocus"
                 class="
                     p
                     box-border
@@ -1278,15 +1693,37 @@ onBeforeUnmount(() => {
             >
 
 
-            <!-- Autocomplete dropdown -->
+            <!-- Loading -->
+
+            <div
+                v-if="
+                    loading
+                "
+                class="
+                    absolute
+                    right-0
+                    top-1/2
+                    -translate-y-1/2
+                "
+            >
+                <span
+                    class="
+                        font-mono
+                        text-xs
+                    "
+                >
+                    ...
+                </span>
+            </div>
+
+
+            <!-- Suggestions -->
 
             <div
                 v-if="
                     isAutocompleteOpen &&
-                    (
-                        loading ||
-                        options.length
-                    )
+                    options.length &&
+                    !loading
                 "
                 class="
                     absolute
@@ -1298,34 +1735,18 @@ onBeforeUnmount(() => {
                     max-h-60
                     overflow-y-auto
                     border
-                    border-dark
+                    border-accent
                     bg-light
+                    shadow-lg
                 "
-                role="listbox"
             >
-
-                <div
-                    v-if="loading"
-                    class="
-                        p
-                        px-4
-                        py-3
-                        text-dark/40
-                    "
-                >
-                    Searching...
-                </div>
-
 
                 <button
                     v-for="
                         option in options
                     "
-                    v-else
                     :key="
-                        String(
-                            option.value
-                        )
+                        option.value
                     "
                     type="button"
                     class="
@@ -1334,61 +1755,37 @@ onBeforeUnmount(() => {
                         w-full
                         items-center
                         justify-between
-                        border-0
-                        px-4
-                        py-3
+                        px-3
+                        py-2
                         text-left
                         transition-colors
-                        duration-200
-                        hover:bg-dark
+                        hover:bg-accent
                         hover:text-light
                     "
                     :class="{
-                        'bg-dark text-light':
-                            multiple &&
+                        'bg-accent text-light':
                             isAutocompleteOptionSelected(
                                 option
                             )
                     }"
-                    role="option"
-                    :aria-selected="
-                        multiple
-                            ? isAutocompleteOptionSelected(
-                                option
-                            )
-                            : false
-                    "
-                    @mousedown.prevent="
+                    @click="
                         handleAutocompleteOption(
                             option
                         )
                     "
                 >
 
-                    <span
-                        :class="{
-                            'font-bold':
-                                option.create
-                        }"
-                    >
+                    <span>
                         {{ option.label }}
                     </span>
 
-
                     <span
                         v-if="
-                            multiple &&
                             isAutocompleteOptionSelected(
                                 option
                             )
                         "
-                        class="
-                            ml-4
-                            shrink-0
-                            font-mono
-                            text-xs
-                        "
-                        aria-hidden="true"
+                        class="font-mono"
                     >
                         ✓
                     </span>
@@ -1400,37 +1797,32 @@ onBeforeUnmount(() => {
         </div>
 
 
-        <!-- Textarea -->
+        <!-- ===================================================== -->
+        <!-- TEXTAREA -->
+        <!-- ===================================================== -->
 
         <textarea
             v-else-if="
                 type === 'textarea'
             "
-            :id="id"
             ref="textareaRef"
+            :id="id"
             :name="name"
-            :value="
-                typeof modelValue === 'string' ||
-                typeof modelValue === 'number'
-                    ? modelValue
-                    : ''
-            "
+            :value="modelValue"
             :placeholder="placeholder"
-            :required="required"
-            :autofocus="autofocus"
+            :autocomplete="autocomplete"
             :disabled="disabled"
             :readonly="readonly"
-            :aria-invalid="
-                error
-                    ? 'true'
-                    : undefined
-            "
+            :required="required"
+            :autofocus="autofocus"
             rows="1"
             class="
                 p
-                box-border
+                block
+                min-h-6
                 w-full
                 resize-none
+                appearance-none
                 overflow-hidden
                 border-0
                 border-b
@@ -1469,284 +1861,9 @@ onBeforeUnmount(() => {
         ></textarea>
 
 
-        <!-- Select -->
-
-        <div
-            v-else-if="
-                type === 'select'
-            "
-            class="relative"
-        >
-
-            <div
-                v-if="
-                    multiple &&
-                    selectedOptions.length
-                "
-                class="
-                    mb-3
-                    flex
-                    flex-wrap
-                    gap-2
-                "
-            >
-
-                <span
-                    v-for="
-                        option in selectedOptions
-                    "
-                    :key="
-                        String(
-                            option.value
-                        )
-                    "
-                    class="
-                        inline-flex
-                        items-center
-                        gap-2
-                        bg-accent
-                        px-2
-                        py-1
-                        font-mono
-                        text-[10px]
-                        font-bold
-                        uppercase
-                        leading-none
-                        text-light
-                    "
-                >
-
-                    {{ option.label }}
-
-                    <button
-                        type="button"
-                        class="
-                            leading-none
-                            transition-opacity
-                            hover:opacity-60
-                        "
-                        aria-label="Remove"
-                        @click="
-                            removeSelectedOption(
-                                option.value
-                            )
-                        "
-                    >
-                        ×
-                    </button>
-
-                </span>
-
-            </div>
-
-
-            <button
-                :id="id"
-                type="button"
-                :disabled="disabled"
-                class="
-                    p
-                    box-border
-                    flex
-                    min-h-6
-                    w-full
-                    appearance-none
-                    items-center
-                    justify-between
-                    border-0
-                    border-b
-                    border-dark
-                    bg-transparent
-                    px-0
-                    py-0
-                    text-left
-                    text-dark
-                    outline-none
-                    transition-colors
-                    duration-200
-                    hover:border-accent
-                    focus:border-accent
-                    focus:outline-none
-                    focus:ring-0
-                    disabled:cursor-not-allowed
-                    disabled:opacity-50
-                "
-                :class="{
-                    'border-red-600':
-                        error
-                }"
-                :aria-expanded="
-                    isSelectOpen
-                        ? 'true'
-                        : 'false'
-                "
-                @click="
-                    toggleSelect
-                "
-            >
-
-                <span
-                    class="
-                        min-w-0
-                        flex-1
-                        truncate
-                    "
-                    :class="{
-                        'text-dark/30':
-                            multiple
-                                ? !selectedOptions.length
-                                : !selectedLabel
-                    }"
-                >
-
-                    {{
-                        multiple
-                            ? (
-                                selectedOptions.length
-                                    ? `${selectedOptions.length} selected`
-                                    : placeholder ||
-                                      'Select options'
-                            )
-                            : (
-                                selectedLabel ||
-                                placeholder ||
-                                'Select an option'
-                            )
-                    }}
-
-                </span>
-
-
-                <span
-                    class="
-                        ml-3
-                        shrink-0
-                        font-mono
-                        text-xs
-                        leading-none
-                        transition-transform
-                        duration-200
-                    "
-                    :class="{
-                        'rotate-180':
-                            isSelectOpen
-                    }"
-                    aria-hidden="true"
-                >
-                    ↓
-                </span>
-
-            </button>
-
-
-            <div
-                v-if="
-                    isSelectOpen
-                "
-                class="
-                    absolute
-                    left-0
-                    right-0
-                    top-full
-                    z-50
-                    mt-2
-                    max-h-60
-                    overflow-y-auto
-                    border
-                    border-dark
-                    bg-light
-                "
-                role="listbox"
-                :aria-multiselectable="
-                    multiple
-                        ? 'true'
-                        : undefined
-                "
-            >
-
-                <button
-                    v-for="
-                        option in options
-                    "
-                    :key="
-                        option.value
-                    "
-                    type="button"
-                    class="
-                        p
-                        flex
-                        w-full
-                        items-center
-                        justify-between
-                        border-0
-                        px-4
-                        py-3
-                        text-left
-                        transition-colors
-                        duration-200
-                        hover:bg-dark
-                        hover:text-light
-                    "
-                    :class="
-                        isOptionSelected(option)
-                            ? 'bg-dark text-light'
-                            : 'bg-light text-dark'
-                    "
-                    role="option"
-                    :aria-selected="
-                        isOptionSelected(
-                            option
-                        )
-                    "
-                    @mousedown.prevent="
-                        handleSelectOption(
-                            option
-                        )
-                    "
-                >
-
-                    <span>
-                        {{ option.label }}
-                    </span>
-
-                    <span
-                        v-if="
-                            multiple &&
-                            isOptionSelected(
-                                option
-                            )
-                        "
-                        class="
-                            ml-4
-                            font-mono
-                            text-xs
-                        "
-                    >
-                        ✓
-                    </span>
-
-                </button>
-
-                <p
-                    v-if="
-                        !options.length
-                    "
-                    class="
-                        p
-                        px-4
-                        py-3
-                        text-dark/40
-                    "
-                >
-                    No options available.
-                </p>
-
-            </div>
-
-        </div>
-
-
-        <!-- File -->
+        <!-- ===================================================== -->
+        <!-- FILE -->
+        <!-- ===================================================== -->
 
         <template
             v-else-if="
@@ -1755,30 +1872,29 @@ onBeforeUnmount(() => {
         >
 
             <input
-                :id="id"
                 ref="fileInput"
+                :id="id"
                 :name="name"
                 type="file"
-                :multiple="multiple"
                 :accept="fileAccept"
-                :required="required"
+                :multiple="multiple"
                 :disabled="disabled"
+                :required="required"
                 class="hidden"
                 @change="
                     handleFileChange
                 "
             >
 
+
             <button
                 type="button"
                 :disabled="disabled"
                 class="
                     p
-                    box-border
                     flex
                     h-6
                     w-full
-                    appearance-none
                     items-center
                     justify-between
                     border-0
@@ -1787,7 +1903,6 @@ onBeforeUnmount(() => {
                     bg-transparent
                     px-0
                     py-0
-                    leading-6
                     text-left
                     text-dark
                     outline-none
@@ -1826,6 +1941,7 @@ onBeforeUnmount(() => {
 
                 </span>
 
+
                 <span
                     class="
                         ml-3
@@ -1842,7 +1958,9 @@ onBeforeUnmount(() => {
         </template>
 
 
-        <!-- Tokens -->
+        <!-- ===================================================== -->
+        <!-- TOKENS -->
+        <!-- ===================================================== -->
 
         <div
             v-else-if="
@@ -1891,6 +2009,7 @@ onBeforeUnmount(() => {
 
                     {{ token }}
 
+
                     <button
                         type="button"
                         aria-label="Remove"
@@ -1911,6 +2030,7 @@ onBeforeUnmount(() => {
                 </span>
 
             </div>
+
 
             <input
                 :id="id"
@@ -1963,10 +2083,123 @@ onBeforeUnmount(() => {
         </div>
 
 
-        <!-- Error -->
+        <!-- ===================================================== -->
+        <!-- STANDARD INPUT -->
+        <!-- ===================================================== -->
+
+        <div
+            v-else-if="
+                ![
+                    'checkbox',
+                    'toggle',
+                    'select',
+                    'autocomplete',
+                    'textarea',
+                    'file',
+                    'tokens'
+                ].includes(
+                    type
+                )
+            "
+            class="
+                relative
+                w-full
+            "
+        >
+
+            <input
+                :id="id"
+                :name="name"
+                :type="type"
+                :value="
+                    typeof modelValue === 'boolean'
+                        ? ''
+                        : modelValue
+                "
+                :placeholder="placeholder"
+                :autocomplete="autocomplete"
+                :disabled="disabled"
+                :readonly="readonly"
+                :required="required"
+                :autofocus="autofocus"
+                :class="[
+                    'p',
+                    'box-border',
+                    'h-6',
+                    'w-full',
+                    'appearance-none',
+                    'border-0',
+                    'border-b',
+                    'border-dark',
+                    'bg-transparent',
+                    'px-0',
+                    'py-0',
+                    'leading-6',
+                    'text-dark',
+                    'outline-none',
+                    'transition-colors',
+                    'duration-200',
+                    'placeholder:text-dark/30',
+                    'focus:border-accent',
+                    'focus:outline-none',
+                    'focus:ring-0',
+                    'disabled:cursor-not-allowed',
+                    'disabled:opacity-50',
+                    {
+                        'pr-16':
+                            suffix
+                    },
+                    {
+                        'border-red-600':
+                            error
+                    }
+                ]"
+                @input="
+                    handleInput
+                "
+                @keydown="
+                    handleKeydown
+                "
+                @focus="
+                    handleFocus
+                "
+                @blur="
+                    handleBlur
+                "
+            >
+
+
+            <!-- Suffix -->
+
+            <span
+                v-if="
+                    suffix
+                "
+                class="
+                    pointer-events-none
+                    absolute
+                    inset-y-0
+                    right-0
+                    flex
+                    items-center
+                    p
+                    text-dark/50
+                "
+            >
+                {{ suffix }}
+            </span>
+
+        </div>
+
+
+        <!-- ===================================================== -->
+        <!-- COMMON ERROR -->
+        <!-- ===================================================== -->
 
         <p
-            v-if="error"
+            v-if="
+                error
+            "
             class="
                 p
                 mt-2

@@ -1,5 +1,10 @@
 <script setup>
 defineProps({
+    label: {
+        type: String,
+        default: ''
+    },
+
     text: {
         type: String,
         default: ''
@@ -26,7 +31,7 @@ defineProps({
         "
     >
         <slot>
-            {{ text }}
+            {{ label || text }}
         </slot>
     </span>
 </template>

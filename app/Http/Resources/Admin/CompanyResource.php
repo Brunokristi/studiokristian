@@ -18,6 +18,7 @@ class CompanyResource extends JsonResource
             'vat_number' => $this->vat_number,
             'address' => $this->address,
             'status' => $this->status,
+            'stripe_customer_id' => $this->stripe_customer_id,
             'internal_notes' => $this->internal_notes,
             'archived_at' => $this->archived_at?->toIso8601String(),
             'contacts_count' => $this->whenCounted('contacts'),

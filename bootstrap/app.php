@@ -16,6 +16,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'admin' => \App\Http\Middleware\AdminOnly::class,
             'admin_or_coworker' => \App\Http\Middleware\AdminOrCoworker::class,
             'client.access' => \App\Http\Middleware\EnsureClientPortalAccess::class,
+            'billing.api' => \App\Http\Middleware\AuthenticateBillingApi::class,
         ]);
 
         $middleware->redirectGuestsTo(function (Request $request): string {
@@ -37,6 +38,9 @@ return Application::configure(basePath: dirname(__DIR__))
         // Public contact form is unauthenticated JSON API, not a session-backed form.
         $middleware->validateCsrfTokens(except: [
             'api/contact',
+            'api/webhooks/stripe',
+            'api/billing/checkout-sessions',
+            'api/v1/billing/*',
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

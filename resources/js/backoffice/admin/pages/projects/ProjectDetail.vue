@@ -250,6 +250,7 @@ const projectForm =
         summary: '',
         internal_notes: '',
         portal_status: 'draft',
+        is_saas: false,
         started_at: '',
         completed_at: '',
         contact_ids: [],
@@ -1505,6 +1506,11 @@ function getProjectAutosaveSnapshot() {
                 'draft'
             ),
 
+        is_saas:
+            Boolean(
+                projectForm.is_saas
+            ),
+
         started_at:
             String(
                 projectForm.started_at ||
@@ -2029,6 +2035,11 @@ function applyProjectToForm(
             portal_status:
                 projectData.status ||
                 'draft',
+
+            is_saas:
+                Boolean(
+                    projectData.is_saas
+                ),
 
             started_at:
                 projectData.started_at ||
@@ -2703,6 +2714,9 @@ async function load() {
                     portal_status:
                         'draft',
 
+                    is_saas:
+                        false,
+
                     started_at:
                         '',
 
@@ -2849,6 +2863,9 @@ async function saveProjectForm() {
 
             portal_status:
                 projectForm.portal_status,
+
+            is_saas:
+                projectForm.is_saas,
 
             started_at:
                 projectForm.started_at,
@@ -6087,6 +6104,14 @@ useAdminPageHeader({
                                     errors.portal_status?.[0] ||
                                     ''
                                 "
+                            />
+
+                            <FormField
+                                id="project-is-saas"
+                                v-model="projectForm.is_saas"
+                                type="toggle"
+                                label="Is SaaS"
+                                :error="errors.is_saas?.[0] || ''"
                             />
 
 

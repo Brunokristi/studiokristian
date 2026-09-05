@@ -3,10 +3,13 @@
 use Illuminate\Support\Facades\Route;
 
 use App\Http\Controllers\PublicSite\ContactController;
+use App\Http\Controllers\Billing\CheckoutSessionController;
+use App\Http\Controllers\Api\Billing\BillingController;
 use App\Http\Controllers\PublicSite\HomeController;
 use App\Http\Controllers\PublicSite\ProjectController;
 use App\Http\Controllers\PublicSite\SeoController;
 use App\Http\Controllers\PublicSite\ServiceController;
+use App\Http\Controllers\Webhooks\StripeWebhookController;
 
 
 /*
@@ -39,6 +42,16 @@ Route::get(
 
 Route::prefix('api')->group(function () {
 
+    Route::prefix('v1/billing')
+        ->middleware(['billing.api', 'throttle:60,1'])
+        ->group(function () {
+            Route::get('/plans', [BillingController::class, 'plans']);
+            Route::get('/customer/subscriptions', [BillingController::class, 'customer'])
+                ->middleware('billing.api:required');
+            Route::post('/checkout', [BillingController::class, 'checkout'])
+                ->middleware('billing.api:required');
+        });
+
     Route::get(
         '/projects',
         [ProjectController::class, 'index']
@@ -63,4 +76,14 @@ Route::prefix('api')->group(function () {
         '/contact',
         [ContactController::class, 'store']
     )->middleware('throttle:5,1');
+
+    Route::post(
+        '/webhooks/stripe',
+        StripeWebhookController::class
+    )->name('webhooks.stripe');
+
+    Route::post(
+        '/billing/checkout-sessions',
+        CheckoutSessionController::class
+    )->middleware('throttle:30,1')->name('billing.checkout-sessions.store');
 });

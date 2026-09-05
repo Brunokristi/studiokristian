@@ -173,6 +173,14 @@ const adminNavigation = [
     },
 
     {
+        label: 'SaaS',
+        route: {
+            name: 'saas.projects.index'
+        },
+        match: 'saas'
+    },
+
+    {
         label: 'Coworkers',
         route: {
             name: 'coworkers.index'

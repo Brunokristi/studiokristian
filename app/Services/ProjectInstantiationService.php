@@ -78,6 +78,7 @@ class ProjectInstantiationService
                                 'live_url',
                                 'hex_color',
                                 'logo_path',
+                                'is_saas',
                             ])
                             ->all(),
 
@@ -100,6 +101,9 @@ class ProjectInstantiationService
 
                         'is_published' =>
                             false,
+
+                        'is_saas' =>
+                            (bool) ($data['is_saas'] ?? false),
 
                         'company_id' =>
                             $company->id,

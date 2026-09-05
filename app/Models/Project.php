@@ -22,6 +22,10 @@ class Project extends Model
         'service_product_id',
         'portal_status',
         'is_published',
+        'is_saas',
+        'trial_enabled',
+        'trial_duration_days',
+        'trial_credits',
         'project_code',
         'name',
         'name_translations',
@@ -45,6 +49,10 @@ class Project extends Model
         'started_at' => 'date',
         'completed_at' => 'date',
         'is_published' => 'boolean',
+        'is_saas' => 'boolean',
+        'trial_enabled' => 'boolean',
+        'trial_duration_days' => 'integer',
+        'trial_credits' => 'integer',
     ];
 
     public function company(): BelongsTo
@@ -176,5 +184,41 @@ class Project extends Model
         return $this->hasMany(
             ProjectFolderSignature::class
         );
+    }
+
+    public function saasPlans(): HasMany
+    {
+        return $this->hasMany(
+            SaasPlan::class,
+            'project_id'
+        )->orderBy('sort_order');
+    }
+
+    public function saasSubscriptions(): HasMany
+    {
+        return $this->hasMany(
+            SaasSubscription::class,
+            'project_id'
+        );
+    }
+
+    public function companyTrials(): HasMany
+    {
+        return $this->hasMany(CompanyTrial::class);
+    }
+
+    public function billingApiCredentials(): HasMany
+    {
+        return $this->hasMany(SaasProjectApiCredential::class);
+    }
+
+    public function billingCustomerCredentials(): HasMany
+    {
+        return $this->hasMany(SaasCustomerApiCredential::class);
+    }
+
+    public function billingCustomers(): HasMany
+    {
+        return $this->hasMany(SaasBillingCustomer::class);
     }
 }

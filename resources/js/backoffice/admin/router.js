@@ -12,6 +12,8 @@ import PortfolioDetail from './pages/portfolio/PortfolioDetail.vue'
 import CoworkersIndex from './pages/coworkers/CoworkersIndex.vue'
 import CoworkerDetail from './pages/coworkers/CoworkerDetail.vue'
 import InternalStorage from './pages/internal-storage/InternalStorage.vue'
+import SaasIndex from './pages/saas/SaasIndex.vue'
+import SaasDetail from './pages/saas/SaasDetail.vue'
 
 const router = createRouter({
     history: createWebHistory('/admin/client-portal/'),
@@ -36,6 +38,8 @@ const router = createRouter({
         { path: '/coworkers/:id', name: 'coworkers.show', component: CoworkerDetail, props: true },
         { path: '/coworkers/:id/edit', name: 'coworkers.edit', component: CoworkerDetail, props: true },
         { path: '/internal-storage', name: 'internal-storage.index', component: InternalStorage },
+        { path: '/saas', name: 'saas.projects.index', component: SaasIndex },
+        { path: '/saas/projects/:id', name: 'saas.projects.show', component: SaasDetail, props: true },
         { path: '/portfolio', name: 'portfolio.index', component: PortfolioIndex },
         { path: '/projects/:id/portfolio', name: 'portfolio.edit', component: PortfolioDetail, props: true },
     ],

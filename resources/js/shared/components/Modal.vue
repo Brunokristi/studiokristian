@@ -145,7 +145,7 @@ function handleBackdropClick() {
 
                             <p
                                 v-if="subtitle"
-                                class="p mt-2 text-dark uppercase"
+                                class="p mt-2 text-dark"
                             >
                                 {{ subtitle }}
                             </p>

@@ -13,6 +13,11 @@ use App\Http\Controllers\Admin\ProjectController;
 use App\Http\Controllers\Admin\ProjectCoworkerController;
 use App\Http\Controllers\Admin\ProjectFileController;
 use App\Http\Controllers\Admin\ProjectTicketController;
+use App\Http\Controllers\Admin\SaasCustomerController;
+use App\Http\Controllers\Admin\SaasPlanController;
+use App\Http\Controllers\Admin\BillingApiCredentialController;
+use App\Http\Controllers\Admin\SaasProjectController;
+use App\Http\Controllers\Admin\SaasSubscriptionController;
 use App\Http\Controllers\Admin\ServiceController;
 use App\Http\Controllers\Admin\ServiceProductController;
 use App\Http\Controllers\Admin\ServiceProductTemplateController;
@@ -207,6 +212,78 @@ Route::prefix('admin/client-portal')
                     '/projects/{project}/publishing',
                     [ProjectController::class, 'publish']
                 )->name('projects.publish');
+
+
+                /*
+                |--------------------------------------------------------------------------
+                | SaaS Management
+                |--------------------------------------------------------------------------
+                */
+
+                Route::get(
+                    '/saas/projects',
+                    [SaasProjectController::class, 'index']
+                )->name('saas.projects.index');
+
+                Route::get(
+                    '/saas/projects/{project}',
+                    [SaasProjectController::class, 'show']
+                )->name('saas.projects.show');
+
+                Route::post(
+                    '/saas/projects/{project}/billing-api/project-credentials',
+                    [BillingApiCredentialController::class, 'project']
+                );
+
+                Route::post(
+                    '/saas/projects/{project}/billing-api/customer-credentials',
+                    [BillingApiCredentialController::class, 'customer']
+                );
+
+                Route::put(
+                    '/saas/projects/{project}/trial-settings',
+                    [SaasProjectController::class, 'updateTrialSettings']
+                )->name('saas.projects.trial-settings.update');
+
+                Route::get(
+                    '/saas/projects/{project}/plans',
+                    [SaasPlanController::class, 'index']
+                )->name('saas.projects.plans.index');
+
+                Route::post(
+                    '/saas/projects/{project}/plans',
+                    [SaasPlanController::class, 'store']
+                )->name('saas.projects.plans.store');
+
+                Route::put(
+                    '/saas/plans/{plan}',
+                    [SaasPlanController::class, 'update']
+                )->name('saas.plans.update');
+
+                Route::delete(
+                    '/saas/plans/{plan}',
+                    [SaasPlanController::class, 'destroy']
+                )->name('saas.plans.destroy');
+
+                Route::get(
+                    '/saas/projects/{project}/customers',
+                    [SaasCustomerController::class, 'index']
+                )->name('saas.projects.customers.index');
+
+                Route::get(
+                    '/saas/projects/{project}/subscriptions',
+                    [SaasSubscriptionController::class, 'index']
+                )->name('saas.projects.subscriptions.index');
+
+                Route::get(
+                    '/saas/projects/{project}/revenue',
+                    [SaasProjectController::class, 'revenue']
+                )->name('saas.projects.revenue');
+
+                Route::delete(
+                    '/saas/projects/{project}',
+                    [SaasProjectController::class, 'destroy']
+                )->name('saas.projects.destroy');
 
 
                 /*
@@ -628,6 +705,7 @@ Route::prefix('admin/client-portal')
             'path',
             'clients(?:/.*)?'
             . '|projects(?:/.*)?'
+            . '|saas(?:/.*)?'
             . '|service-products(?:/.*)?'
             . '|coworkers(?:/.*)?'
             . '|internal-storage(?:/.*)?'

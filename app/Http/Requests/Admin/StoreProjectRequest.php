@@ -31,6 +31,7 @@ class StoreProjectRequest extends AdminClientPortalRequest
             'summary' => ['nullable', 'string', 'max:5000'],
             'internal_notes' => ['nullable', 'string', 'max:10000'],
             'portal_status' => ['required', 'in:draft,active,on_hold,completed,archived'],
+            'is_saas' => ['sometimes', 'boolean'],
             'started_at' => ['nullable', 'date'],
             'completed_at' => ['nullable', 'date', 'after_or_equal:started_at'],
             'contact_ids' => ['array'],
