@@ -4,6 +4,7 @@ namespace App\Services\Billing;
 
 use App\Models\Company;
 use App\Models\SaasInvoice;
+use App\Models\SaasPayment;
 use App\Models\SaasBillingCustomer;
 use App\Models\SaasPlanPrice;
 use App\Models\SaasSubscription;
@@ -26,6 +27,14 @@ class StripeWebhookService
             'invoice.payment_failed' => $this->syncInvoice($event->data->object, false),
             default => $this->acknowledgeUnsupported($event),
         };
+    }
+
+    public function syncInvoiceFromStripe(StripeObject $invoice): void
+    {
+        $this->syncInvoice(
+            $invoice,
+            ($invoice->status ?? null) === 'paid'
+        );
     }
 
     private function handleCheckoutSessionCompleted(StripeObject $session): void
@@ -197,7 +206,7 @@ class StripeWebhookService
                 ->first()
             : null;
 
-        SaasInvoice::query()->updateOrCreate(
+        $localInvoice = SaasInvoice::query()->updateOrCreate(
             [
                 'stripe_invoice_id' => $stripeInvoiceId,
             ],
@@ -213,8 +222,16 @@ class StripeWebhookService
                 'status' => (string) ($invoice->status ?? ($paid ? 'paid' : 'open')),
                 'paid_at' => $paid ? ($this->timestamp($invoice->status_transitions?->paid_at ?? null) ?: now()) : null,
                 'attempted_at' => $this->timestamp($invoice->webhooks_delivered_at ?? null) ?: now(),
+                'invoice_number' => $invoice->number ?? null,
+                'invoice_date' => $this->timestamp($invoice->created ?? null),
+                'period_start' => $this->timestamp($invoice->period_start ?? null),
+                'period_end' => $this->timestamp($invoice->period_end ?? null),
+                'hosted_invoice_url' => $invoice->hosted_invoice_url ?? null,
+                'invoice_pdf_url' => $invoice->invoice_pdf ?? null,
             ]
         );
+
+        $this->syncPayment($localInvoice, $invoice, $subscription, $paid);
 
         if (! $subscription) {
             Log::info('Stripe invoice did not match a local subscription.', [
@@ -243,6 +260,38 @@ class StripeWebhookService
                 'status' => SaasSubscription::STATUS_PAST_DUE,
             ]);
         }
+    }
+
+    private function syncPayment(SaasInvoice $invoice, StripeObject $stripeInvoice, ?SaasSubscription $subscription, bool $paid): void
+    {
+        $paymentIntentId = $this->stripeId($stripeInvoice->payment_intent ?? null);
+        $paymentIntent = is_object($stripeInvoice->payment_intent)
+            ? $stripeInvoice->payment_intent
+            : null;
+        $paymentMethod = $paymentIntent?->payment_method_details ?? $stripeInvoice->payment_method_details ?? null;
+        $charge = $paymentIntent?->latest_charge ?? $stripeInvoice->charge ?? null;
+
+        $attributes = $paymentIntentId
+            ? ['stripe_payment_intent_id' => $paymentIntentId]
+            : ['saas_invoice_id' => $invoice->id];
+
+        SaasPayment::query()->updateOrCreate(
+            $attributes,
+            [
+                'project_id' => $invoice->project_id,
+                'company_id' => $invoice->company_id,
+                'saas_subscription_id' => $subscription?->id,
+                'saas_invoice_id' => $invoice->id,
+                'stripe_charge_id' => $this->stripeId($charge?->id ?? $charge),
+                'amount' => (int) ($invoice->amount_paid ?: $invoice->amount_due),
+                'currency' => $invoice->currency,
+                'status' => $paid ? 'paid' : (string) ($stripeInvoice->status ?: 'failed'),
+                'paid_at' => $paid ? $invoice->paid_at : null,
+                'payment_method_type' => $paymentMethod?->type ?? null,
+                'payment_method_brand' => $paymentMethod?->card?->brand ?? null,
+                'payment_method_last4' => $paymentMethod?->card?->last4 ?? null,
+            ]
+        );
     }
 
     private function acknowledgeUnsupported(Event $event): void

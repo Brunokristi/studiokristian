@@ -194,6 +194,14 @@ class Project extends Model
         )->orderBy('sort_order');
     }
 
+    public function saasFeatures(): HasMany
+    {
+        return $this->hasMany(
+            SaasFeature::class,
+            'project_id'
+        )->orderBy('sort_order');
+    }
+
     public function saasSubscriptions(): HasMany
     {
         return $this->hasMany(
@@ -220,5 +228,15 @@ class Project extends Model
     public function billingCustomers(): HasMany
     {
         return $this->hasMany(SaasBillingCustomer::class);
+    }
+
+    public function saasInvoices(): HasMany
+    {
+        return $this->hasMany(SaasInvoice::class);
+    }
+
+    public function saasPayments(): HasMany
+    {
+        return $this->hasMany(SaasPayment::class);
     }
 }

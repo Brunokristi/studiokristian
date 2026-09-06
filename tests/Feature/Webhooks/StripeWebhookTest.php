@@ -6,6 +6,7 @@ use App\Models\Company;
 use App\Models\Project;
 use App\Models\SaasPlan;
 use App\Models\SaasPlanPrice;
+use App\Models\SaasPayment;
 use App\Models\SaasSubscription;
 use App\Models\ServiceProduct;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -229,6 +230,12 @@ class StripeWebhookTest extends TestCase
                 'amount_paid' => 4900,
                 'currency' => 'eur',
                 'status' => 'paid',
+                'number' => 'INV-1001',
+                'created' => 1_700_000_000,
+                'period_start' => 1_700_000_000,
+                'period_end' => 1_702_592_000,
+                'hosted_invoice_url' => 'https://invoice.stripe.test/in_1001',
+                'invoice_pdf' => 'https://invoice.stripe.test/in_1001.pdf',
                 'status_transitions' => [
                     'paid_at' => 1_700_000_000,
                 ],
@@ -248,6 +255,14 @@ class StripeWebhookTest extends TestCase
             'stripe_invoice_id' => 'in_test',
             'amount_paid' => 4900,
             'currency' => 'EUR',
+            'status' => 'paid',
+            'invoice_number' => 'INV-1001',
+            'hosted_invoice_url' => 'https://invoice.stripe.test/in_1001',
+        ]);
+        $this->assertDatabaseHas('saas_payments', [
+            'saas_invoice_id' => SaasPayment::query()->firstOrFail()->saas_invoice_id,
+            'company_id' => $company->id,
+            'amount' => 4900,
             'status' => 'paid',
         ]);
         $this->assertDatabaseHas('saas_subscriptions', [

@@ -24,6 +24,9 @@ class SaasPlanResource extends JsonResource
                     $this->prices->where('active', true)->values()
                 )
             ),
+            'entitlement_values' => $this->whenLoaded('planFeatures', fn () =>
+                SaasPlanFeatureValueResource::collection($this->planFeatures)
+            ),
             'subscriptions_count' => $this->whenCounted('subscriptions'),
             'created_at' => $this->created_at?->toIso8601String(),
             'updated_at' => $this->updated_at?->toIso8601String(),

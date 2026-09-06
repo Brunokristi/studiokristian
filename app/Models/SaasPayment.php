@@ -6,7 +6,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
-class SaasInvoice extends Model
+class SaasPayment extends Model
 {
     use HasFactory;
 
@@ -14,31 +14,21 @@ class SaasInvoice extends Model
         'project_id',
         'company_id',
         'saas_subscription_id',
-        'stripe_invoice_id',
-        'invoice_number',
-        'stripe_customer_id',
-        'stripe_subscription_id',
-        'amount_due',
-        'amount_paid',
+        'saas_invoice_id',
+        'stripe_payment_intent_id',
+        'stripe_charge_id',
+        'amount',
         'currency',
         'status',
         'paid_at',
-        'attempted_at',
-        'invoice_date',
-        'period_start',
-        'period_end',
-        'hosted_invoice_url',
-        'invoice_pdf_url',
+        'payment_method_type',
+        'payment_method_brand',
+        'payment_method_last4',
     ];
 
     protected $casts = [
-        'amount_due' => 'integer',
-        'amount_paid' => 'integer',
+        'amount' => 'integer',
         'paid_at' => 'datetime',
-        'attempted_at' => 'datetime',
-        'invoice_date' => 'datetime',
-        'period_start' => 'datetime',
-        'period_end' => 'datetime',
     ];
 
     public function project(): BelongsTo
@@ -56,8 +46,8 @@ class SaasInvoice extends Model
         return $this->belongsTo(SaasSubscription::class, 'saas_subscription_id');
     }
 
-    public function payments()
+    public function invoice(): BelongsTo
     {
-        return $this->hasMany(SaasPayment::class, 'saas_invoice_id');
+        return $this->belongsTo(SaasInvoice::class, 'saas_invoice_id');
     }
 }

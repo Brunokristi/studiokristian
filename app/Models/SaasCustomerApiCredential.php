@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class SaasCustomerApiCredential extends Model
 {
-    protected $fillable = ['project_id', 'company_id', 'name', 'token_hash', 'last_used_at', 'revoked_at'];
+    protected $fillable = ['project_id', 'company_id', 'external_reference', 'name', 'token_hash', 'last_used_at', 'revoked_at'];
 
     protected $hidden = ['token_hash'];
 

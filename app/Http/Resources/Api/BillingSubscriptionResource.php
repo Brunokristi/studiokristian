@@ -20,6 +20,7 @@ class BillingSubscriptionResource extends JsonResource
                 'name' => $this->plan?->name,
                 'slug' => $this->plan?->slug,
             ],
+            'entitlements' => $this->plan?->entitlementsApiArray() ?? [],
             'price' => [
                 'id' => $this->price?->id,
                 'amount' => $this->price?->amount,

@@ -12,7 +12,8 @@ use Throwable;
 class SaasPlanStripeSyncService
 {
     public function __construct(
-        private readonly StripeBillingService $stripe
+        private readonly StripeBillingService $stripe,
+        private readonly SaasPlanEntitlementService $entitlements
     ) {}
 
     /**
@@ -25,7 +26,7 @@ class SaasPlanStripeSyncService
         try {
             return DB::transaction(function () use ($project, $data, &$createdStripeProductId): SaasPlan {
                 $plan = $project->saasPlans()->create([
-                    ...collect($data)->except('prices')->all(),
+                    ...collect($data)->except(['prices', 'entitlements'])->all(),
                     'stripe_product_id' => null,
                 ]);
 
@@ -37,8 +38,9 @@ class SaasPlanStripeSyncService
                 ]);
 
                 $this->syncPrices($plan->fresh(), $data['prices'] ?? []);
+                $this->entitlements->sync($plan->fresh(), $data['entitlements'] ?? []);
 
-                return $plan->fresh(['prices']);
+                return $plan->fresh(['prices', 'planFeatures.feature']);
             });
         } catch (Throwable $exception) {
             if ($createdStripeProductId) {
@@ -60,7 +62,7 @@ class SaasPlanStripeSyncService
     {
         return DB::transaction(function () use ($plan, $data): SaasPlan {
             $plan->update([
-                ...collect($data)->except('prices')->all(),
+                ...collect($data)->except(['prices', 'entitlements'])->all(),
             ]);
 
             $product = $this->stripe->updateProduct($plan->fresh());
@@ -72,8 +74,9 @@ class SaasPlanStripeSyncService
             }
 
             $this->syncPrices($plan->fresh(), $data['prices'] ?? []);
+            $this->entitlements->sync($plan->fresh(), $data['entitlements'] ?? []);
 
-            return $plan->fresh(['prices'])->loadCount('subscriptions');
+            return $plan->fresh(['prices', 'planFeatures.feature'])->loadCount('subscriptions');
         });
     }
 

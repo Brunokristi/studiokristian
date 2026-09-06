@@ -15,6 +15,7 @@ use App\Http\Controllers\Admin\ProjectFileController;
 use App\Http\Controllers\Admin\ProjectTicketController;
 use App\Http\Controllers\Admin\SaasCustomerController;
 use App\Http\Controllers\Admin\SaasPlanController;
+use App\Http\Controllers\Admin\SaasFeatureController;
 use App\Http\Controllers\Admin\BillingApiCredentialController;
 use App\Http\Controllers\Admin\SaasProjectController;
 use App\Http\Controllers\Admin\SaasSubscriptionController;
@@ -260,6 +261,26 @@ Route::prefix('admin/client-portal')
                     [SaasPlanController::class, 'index']
                 )->name('saas.projects.plans.index');
 
+                Route::get(
+                    '/saas/projects/{project}/features',
+                    [SaasFeatureController::class, 'index']
+                );
+
+                Route::post(
+                    '/saas/projects/{project}/features',
+                    [SaasFeatureController::class, 'store']
+                );
+
+                Route::put(
+                    '/saas/features/{feature}',
+                    [SaasFeatureController::class, 'update']
+                );
+
+                Route::delete(
+                    '/saas/features/{feature}',
+                    [SaasFeatureController::class, 'destroy']
+                );
+
                 Route::post(
                     '/saas/projects/{project}/plans',
                     [SaasPlanController::class, 'store']
@@ -281,9 +302,29 @@ Route::prefix('admin/client-portal')
                 )->name('saas.projects.customers.index');
 
                 Route::get(
+                    '/saas/projects/{project}/customers/{company}',
+                    [SaasCustomerController::class, 'show']
+                );
+
+                Route::post(
+                    '/saas/projects/{project}/customers/{company}/sync-stripe-history',
+                    [SaasCustomerController::class, 'syncStripeHistory']
+                );
+
+                Route::get(
                     '/saas/projects/{project}/subscriptions',
                     [SaasSubscriptionController::class, 'index']
                 )->name('saas.projects.subscriptions.index');
+
+                Route::get(
+                    '/saas/projects/{project}/invoices',
+                    [SaasCustomerController::class, 'invoices']
+                );
+
+                Route::get(
+                    '/saas/projects/{project}/payments',
+                    [SaasCustomerController::class, 'payments']
+                );
 
                 Route::get(
                     '/saas/projects/{project}/revenue',

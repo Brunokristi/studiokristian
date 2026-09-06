@@ -42,4 +42,23 @@ class SaasPlan extends Model
     {
         return $this->hasMany(SaasSubscription::class);
     }
+
+    public function planFeatures(): HasMany
+    {
+        return $this->hasMany(SaasPlanFeature::class);
+    }
+
+    /**
+     * Entitlements keyed by the project's stable feature key, e.g.
+     * ['ai_credits_monthly' => ['type' => 'limit', 'value' => 500, 'unit' => 'credits']].
+     */
+    public function entitlementsApiArray(): array
+    {
+        return $this->planFeatures
+            ->filter(fn (SaasPlanFeature $planFeature) => $planFeature->feature?->active)
+            ->mapWithKeys(fn (SaasPlanFeature $planFeature) => [
+                $planFeature->feature->key => $planFeature->toApiValue(),
+            ])
+            ->all();
+    }
 }

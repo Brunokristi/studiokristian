@@ -83,6 +83,25 @@ const project = ref(null)
 const metrics = ref({})
 const plans = ref([])
 const editingPlan = ref(null)
+const projectFeatures = ref([])
+const featureLoading = ref(false)
+const featureSaving = ref(false)
+const showFeatureModal = ref(false)
+const editingFeature = ref(null)
+const featureToDelete = ref(null)
+const deletingFeatureId = ref(null)
+const planEntitlements = reactive({})
+
+
+const featureForm = reactive({
+    key: '',
+    name: '',
+    description: '',
+    type: 'limit',
+    unit: '',
+    active: true,
+    sort_order: 0
+})
 
 
 const planForm = reactive({
@@ -124,6 +143,46 @@ const planColumns = [
     {
         key: 'active',
         label: 'Status'
+    }
+]
+
+
+const featureColumns = [
+    {
+        key: 'key',
+        label: 'Key'
+    },
+    {
+        key: 'name',
+        label: 'Name'
+    },
+    {
+        key: 'type',
+        label: 'Type'
+    },
+    {
+        key: 'unit',
+        label: 'Unit'
+    },
+    {
+        key: 'active',
+        label: 'Status'
+    },
+    {
+        key: 'actions',
+        label: ''
+    }
+]
+
+
+const featureTypeOptions = [
+    {
+        label: 'Boolean',
+        value: 'boolean'
+    },
+    {
+        label: 'Limit',
+        value: 'limit'
     }
 ]
 
@@ -184,6 +243,26 @@ const subscriptionColumns = [
 ]
 
 
+const paymentColumns = [
+    { key: 'company', label: 'Company' },
+    { key: 'paid_at', label: 'Date' },
+    { key: 'amount', label: 'Amount' },
+    { key: 'status', label: 'Status' },
+    { key: 'payment_method', label: 'Method' },
+    { key: 'saas_invoice_id', label: 'Invoice' }
+]
+
+
+const invoiceColumns = [
+    { key: 'company', label: 'Company' },
+    { key: 'invoice_number', label: 'Invoice' },
+    { key: 'invoice_date', label: 'Date' },
+    { key: 'amount_paid', label: 'Amount' },
+    { key: 'status', label: 'Status' },
+    { key: 'actions', label: '' }
+]
+
+
 const {
     rows: customers,
     meta: customersMeta,
@@ -204,10 +283,41 @@ const {
 )
 
 
+const {
+    rows: payments,
+    meta: paymentsMeta,
+    loading: paymentsLoading,
+    state: paymentsState
+} = useServerTable(
+    `/saas/projects/${props.id}/payments`
+)
+
+
+const {
+    rows: invoices,
+    meta: invoicesMeta,
+    loading: invoicesLoading,
+    state: invoicesState
+} = useServerTable(
+    `/saas/projects/${props.id}/invoices`
+)
+
+
 const pageTitle = computed(() =>
     project.value?.name ||
     'SaaS project'
 )
+
+
+function openCustomerBilling(customer) {
+    router.push({
+        name: 'saas.projects.customer',
+        params: {
+            id: props.id,
+            companyId: customer.id
+        }
+    })
+}
 
 
 const intervalOptions = [
@@ -343,6 +453,8 @@ function resetPlanForm() {
         }
     )
 
+    rebuildPlanEntitlements()
+
     lastSavedPlanSnapshot.value =
         getPlanSnapshot()
 }
@@ -435,6 +547,8 @@ function applyPlanToForm(plan) {
         }
     )
 
+    rebuildPlanEntitlements(plan.entitlement_values || [])
+
     lastSavedPlanSnapshot.value =
         getPlanSnapshot()
 }
@@ -498,6 +612,185 @@ async function loadProjectCredentials() {
         credentialLoading.value = false
     }
 }
+
+
+/*
+|--------------------------------------------------------------------------
+| Entitlements
+|--------------------------------------------------------------------------
+*/
+
+async function loadProjectFeatures() {
+    if (!project.value?.id) {
+        projectFeatures.value = []
+        return
+    }
+
+    featureLoading.value = true
+
+    try {
+        const response = await api.get(
+            `/saas/projects/${project.value.id}/features`
+        )
+
+        projectFeatures.value =
+            response.data?.data ||
+            []
+    } catch (exception) {
+        showError(
+            errorMessage(
+                exception
+            )
+        )
+    } finally {
+        featureLoading.value = false
+    }
+}
+
+
+function rebuildPlanEntitlements(existingValues = []) {
+    const values = {}
+
+    for (const feature of projectFeatures.value) {
+        const existing = existingValues.find(
+            value => value.feature_id === feature.id
+        )
+
+        values[feature.id] = {
+            boolean_value: existing?.boolean_value ?? false,
+            limit_value: existing?.limit_value ?? '',
+            is_unlimited: existing?.is_unlimited ?? false
+        }
+    }
+
+    Object.keys(planEntitlements).forEach(
+        key => delete planEntitlements[key]
+    )
+
+    Object.assign(planEntitlements, values)
+}
+
+
+function openCreateFeatureModal() {
+    editingFeature.value = null
+
+    Object.assign(featureForm, {
+        key: '',
+        name: '',
+        description: '',
+        type: 'limit',
+        unit: '',
+        active: true,
+        sort_order: projectFeatures.value.length
+    })
+
+    showFeatureModal.value = true
+}
+
+
+function editFeature(feature) {
+    editingFeature.value = feature
+
+    Object.assign(featureForm, {
+        key: feature.key || '',
+        name: feature.name || '',
+        description: feature.description || '',
+        type: feature.type || 'limit',
+        unit: feature.unit || '',
+        active: Boolean(feature.active),
+        sort_order: feature.sort_order ?? 0
+    })
+
+    showFeatureModal.value = true
+}
+
+
+function closeFeatureModal() {
+    if (featureSaving.value) {
+        return
+    }
+
+    showFeatureModal.value = false
+    editingFeature.value = null
+}
+
+
+async function saveFeature() {
+    if (featureSaving.value || !project.value?.id) {
+        return
+    }
+
+    featureSaving.value = true
+    errors.value = {}
+
+    const payload = {
+        key: featureForm.key.trim(),
+        name: featureForm.name.trim(),
+        description: featureForm.description,
+        type: featureForm.type,
+        unit: featureForm.unit || null,
+        active: Boolean(featureForm.active),
+        sort_order: Number(featureForm.sort_order || 0)
+    }
+
+    try {
+        if (editingFeature.value?.id) {
+            await api.put(
+                `/saas/features/${editingFeature.value.id}`,
+                payload
+            )
+        } else {
+            await api.post(
+                `/saas/projects/${project.value.id}/features`,
+                payload
+            )
+        }
+
+        showFeatureModal.value = false
+        editingFeature.value = null
+
+        await loadProjectFeatures()
+    } catch (exception) {
+        errors.value = validationErrors(exception)
+
+        showError(
+            errorMessage(exception)
+        )
+    } finally {
+        featureSaving.value = false
+    }
+}
+
+
+function requestDeleteFeature(feature) {
+    featureToDelete.value = feature
+}
+
+
+async function deleteFeature() {
+    const feature = featureToDelete.value
+
+    if (!feature?.id || deletingFeatureId.value) {
+        return
+    }
+
+    deletingFeatureId.value = feature.id
+
+    try {
+        await api.delete(`/saas/features/${feature.id}`)
+
+        featureToDelete.value = null
+
+        await loadProjectFeatures()
+    } catch (exception) {
+        showError(
+            errorMessage(exception)
+        )
+    } finally {
+        deletingFeatureId.value = null
+    }
+}
+
 
 const credentialColumns = [
     {
@@ -1142,7 +1435,33 @@ function planPayload() {
                             price.active
                         )
                 })
-            )
+            ),
+
+        entitlements:
+            projectFeatures.value
+                .filter(feature => feature.active)
+                .map(feature => {
+                    const value = planEntitlements[feature.id] || {}
+
+                    if (feature.type === 'boolean') {
+                        return {
+                            feature_id: feature.id,
+                            boolean_value: Boolean(value.boolean_value)
+                        }
+                    }
+
+                    if (value.is_unlimited) {
+                        return {
+                            feature_id: feature.id,
+                            is_unlimited: true
+                        }
+                    }
+
+                    return {
+                        feature_id: feature.id,
+                        limit_value: Number(value.limit_value || 0)
+                    }
+                })
     }
 }
 
@@ -1190,6 +1509,7 @@ async function load() {
         )
 
         await loadProjectCredentials()
+        await loadProjectFeatures()
 
         metrics.value =
             projectResponse.data?.metrics ||
@@ -1915,6 +2235,54 @@ useAdminPageHeader({
             </section>
 
             <!-- ===================================================== -->
+            <!-- FEATURE DEFINITIONS -->
+            <!-- ===================================================== -->
+
+            <section class="space-y-6">
+
+                <AdminDataTable
+                    title="Feature definitions"
+                    :columns="featureColumns"
+                    :rows="projectFeatures"
+                    :loading="featureLoading"
+                    empty-title="No feature definitions yet."
+                    empty-text="Define the features plans can configure, such as user limits or AI credits. Each plan sets its own value."
+                    add-label="Add feature"
+                    @add="openCreateFeatureModal"
+                    @row-click="editFeature"
+                >
+
+                    <template #cell-type="{ value }">
+                        <span class="p capitalize">{{ value }}</span>
+                    </template>
+
+                    <template #cell-unit="{ value }">
+                        <span class="p">{{ value || '—' }}</span>
+                    </template>
+
+                    <template #cell-active="{ value }">
+                        <Tag
+                            size="sm"
+                            tone="neutral"
+                            :label="value ? 'active' : 'inactive'"
+                        />
+                    </template>
+
+                    <template #cell-actions="{ row }">
+                        <Button
+                            type="button"
+                            text="Delete"
+                            align="left"
+                            class="text-red-600 hover:text-red-700"
+                            @click.stop="requestDeleteFeature(row)"
+                        />
+                    </template>
+
+                </AdminDataTable>
+
+            </section>
+
+            <!-- ===================================================== -->
             <!-- PLANS -->
             <!-- ===================================================== -->
 
@@ -2068,7 +2436,8 @@ useAdminPageHeader({
                     :loading="customersLoading"
                     :meta="customersMeta"
                     empty-title="No customers yet."
-                    empty-text="Companies with an active subscription will appear here."
+                    empty-text="Companies with billing activity will appear here."
+                    @row-click="openCustomerBilling"
                     @page-change="
                         page =>
                             customersState.page =
@@ -2089,7 +2458,7 @@ useAdminPageHeader({
                             "
                         >
                             {{
-                                row.company?.name ||
+                                row.name ||
                                 '—'
                             }}
                         </span>
@@ -2105,7 +2474,7 @@ useAdminPageHeader({
 
                         <span class="p">
                             {{
-                                row.plan?.name ||
+                                row.plan ||
                                 '—'
                             }}
                         </span>
@@ -2266,6 +2635,127 @@ useAdminPageHeader({
 
                 </AdminDataTable>
 
+            </section>
+
+
+            <!-- ===================================================== -->
+            <!-- PAYMENTS -->
+            <!-- ===================================================== -->
+
+            <section class="space-y-6">
+                <AdminDataTable
+                    v-model:search="paymentsState.search"
+                    title="Payments"
+                    search-placeholder="Search payments"
+                    :columns="paymentColumns"
+                    :rows="payments"
+                    :loading="paymentsLoading"
+                    :meta="paymentsMeta"
+                    empty-title="No payments yet."
+                    empty-text="Paid invoices will appear here after Stripe webhooks are processed."
+                    @page-change="page => paymentsState.page = page"
+                >
+                    <template #cell-company="{ row }">
+                        <span class="p font-medium">
+                            {{ row.company?.name || '—' }}
+                        </span>
+                    </template>
+
+                    <template #cell-paid_at="{ value }">
+                        <span class="p">{{ formatDate(value) }}</span>
+                    </template>
+
+                    <template #cell-amount="{ row, value }">
+                        <span class="p">
+                            {{ money(value, row.currency) }}
+                        </span>
+                    </template>
+
+                    <template #cell-status="{ value }">
+                        <Tag
+                            size="sm"
+                            tone="neutral"
+                            :label="value || 'unknown'"
+                        />
+                    </template>
+
+                    <template #cell-payment_method="{ row }">
+                        <span class="p uppercase">
+                            {{ row.payment_method_brand ? `${row.payment_method_brand} •••• ${row.payment_method_last4 || ''}` : '—' }}
+                        </span>
+                    </template>
+                </AdminDataTable>
+            </section>
+
+
+            <!-- ===================================================== -->
+            <!-- INVOICES -->
+            <!-- ===================================================== -->
+
+            <section class="space-y-6">
+                <AdminDataTable
+                    v-model:search="invoicesState.search"
+                    title="Invoices"
+                    search-placeholder="Search invoices"
+                    :columns="invoiceColumns"
+                    :rows="invoices"
+                    :loading="invoicesLoading"
+                    :meta="invoicesMeta"
+                    empty-title="No invoices yet."
+                    empty-text="Stripe invoices will appear here after webhook synchronization."
+                    @page-change="page => invoicesState.page = page"
+                >
+                    <template #cell-company="{ row }">
+                        <span class="p font-medium">
+                            {{ row.company?.name || '—' }}
+                        </span>
+                    </template>
+
+                    <template #cell-invoice_number="{ value }">
+                        <span class="p">{{ value || '—' }}</span>
+                    </template>
+
+                    <template #cell-invoice_date="{ value }">
+                        <span class="p">{{ formatDate(value) }}</span>
+                    </template>
+
+                    <template #cell-amount_paid="{ row, value }">
+                        <span class="p">
+                            {{ money(value, row.currency) }}
+                        </span>
+                    </template>
+
+                    <template #cell-status="{ value }">
+                        <Tag
+                            size="sm"
+                            tone="neutral"
+                            :label="value || 'unknown'"
+                        />
+                    </template>
+
+                    <template #cell-actions="{ row }">
+                        <div class="flex gap-3">
+                            <a
+                                v-if="row.hosted_invoice_url"
+                                :href="row.hosted_invoice_url"
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                class="p text-accent"
+                            >
+                                view
+                            </a>
+                            <a
+                                v-if="row.invoice_pdf_url"
+                                :href="row.invoice_pdf_url"
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                class="p text-accent"
+                            >
+                                PDF
+                            </a>
+                        </div>
+                    </template>
+                </AdminDataTable>
             </section>
 
 
@@ -2500,6 +2990,59 @@ useAdminPageHeader({
 
                         </AdminDataTable>
 
+                    </section>
+
+
+                    <!-- ENTITLEMENTS -->
+
+                    <section
+                        v-if="projectFeatures.filter(feature => feature.active).length"
+                        class="space-y-6"
+                    >
+                        <h3 class="h2 text-accent text-left">
+                            Entitlements
+                        </h3>
+
+                        <p class="p uppercase text-dark/50">
+                            This plan's own value for each feature defined on the SaaS Project.
+                        </p>
+
+                        <div
+                            v-for="feature in projectFeatures.filter(feature => feature.active)"
+                            :key="feature.id"
+                            class="space-y-3 border border-accent p-4"
+                        >
+                            <FormField
+                                v-if="feature.type === 'boolean'"
+                                :id="`saas-plan-entitlement-${feature.id}`"
+                                v-model="planEntitlements[feature.id].boolean_value"
+                                type="toggle"
+                                :label="feature.name"
+                            />
+
+                            <template v-else>
+                                <div class="flex items-center justify-between gap-4">
+                                    <span class="p font-medium">
+                                        {{ feature.name }}<template v-if="feature.unit"> ({{ feature.unit }})</template>
+                                    </span>
+
+                                    <FormField
+                                        :id="`saas-plan-entitlement-${feature.id}-unlimited`"
+                                        v-model="planEntitlements[feature.id].is_unlimited"
+                                        type="toggle"
+                                        label="Unlimited"
+                                    />
+                                </div>
+
+                                <FormField
+                                    v-if="!planEntitlements[feature.id].is_unlimited"
+                                    :id="`saas-plan-entitlement-${feature.id}`"
+                                    v-model="planEntitlements[feature.id].limit_value"
+                                    type="number"
+                                    label="Value"
+                                />
+                            </template>
+                        </div>
                     </section>
 
 
@@ -2799,6 +3342,112 @@ useAdminPageHeader({
                 :busy="Boolean(revokingCredentialId)"
                 @close="credentialToRevoke = null"
                 @confirm="revokeProjectCredential"
+            />
+
+
+            <Modal
+                :open="showFeatureModal"
+                :title="editingFeature ? 'Edit feature definition' : 'Add feature definition'"
+                subtitle="Feature definitions belong to this SaaS Project. Each plan configures its own value for every feature."
+                aria-label="Feature definition editor"
+                close-label="Close feature definition editor"
+                panel-class="
+                    border
+                    border-accent
+                    bg-light
+                    shadow-xl
+                "
+                @close="closeFeatureModal"
+            >
+                <form
+                    class="space-y-6"
+                    @submit.prevent="saveFeature"
+                >
+                    <FormField
+                        id="saas-feature-key"
+                        v-model="featureForm.key"
+                        type="text"
+                        label="Key"
+                        placeholder="ai_credits_monthly"
+                        required
+                        :error="errors.key?.[0] || ''"
+                    />
+
+                    <FormField
+                        id="saas-feature-name"
+                        v-model="featureForm.name"
+                        type="text"
+                        label="Name"
+                        placeholder="AI credits / month"
+                        required
+                        :error="errors.name?.[0] || ''"
+                    />
+
+                    <FormField
+                        id="saas-feature-description"
+                        v-model="featureForm.description"
+                        type="textarea"
+                        label="Description"
+                        :error="errors.description?.[0] || ''"
+                    />
+
+                    <div class="grid gap-5 sm:grid-cols-2">
+                        <FormField
+                            id="saas-feature-type"
+                            v-model="featureForm.type"
+                            type="select"
+                            label="Type"
+                            :options="featureTypeOptions"
+                            required
+                            :error="errors.type?.[0] || ''"
+                        />
+
+                        <FormField
+                            id="saas-feature-unit"
+                            v-model="featureForm.unit"
+                            type="text"
+                            label="Unit"
+                            placeholder="credits"
+                            :error="errors.unit?.[0] || ''"
+                        />
+                    </div>
+
+                    <FormField
+                        id="saas-feature-active"
+                        v-model="featureForm.active"
+                        type="toggle"
+                        label="Active"
+                    />
+
+                    <div class="flex justify-end gap-3 border-t border-accent pt-5">
+                        <Button
+                            type="button"
+                            text="Cancel"
+                            @click="closeFeatureModal"
+                        />
+
+                        <Button
+                            type="submit"
+                            :text="editingFeature ? 'Save feature' : 'Add feature'"
+                            variant="dark"
+                            :loading="featureSaving"
+                            loading-text="Saving..."
+                        />
+                    </div>
+                </form>
+            </Modal>
+
+
+            <AdminConfirmDialog
+                :open="Boolean(featureToDelete)"
+                title="Delete feature definition?"
+                :text="`
+                    Delete ${featureToDelete?.name || 'this feature'}? Plans will no longer be able to configure it.
+                `"
+                confirm-label="Delete feature"
+                :busy="Boolean(deletingFeatureId)"
+                @close="featureToDelete = null"
+                @confirm="deleteFeature"
             />
 
 

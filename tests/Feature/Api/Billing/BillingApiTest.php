@@ -10,6 +10,8 @@ use App\Models\SaasPlanPrice;
 use App\Models\SaasProjectApiCredential;
 use App\Models\SaasSubscription;
 use App\Models\CompanyTrial;
+use App\Models\SaasInvoice;
+use App\Models\SaasPayment;
 use App\Models\ServiceProduct;
 use App\Services\Billing\StripeBillingService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -93,7 +95,8 @@ class BillingApiTest extends TestCase
                 'cancel_url' => 'https://product.test/cancel',
             ])
             ->assertCreated()
-            ->assertJsonPath('id', 'cs_generic');
+            ->assertJsonPath('id', 'cs_generic')
+            ->assertJsonPath('url', 'https://checkout.stripe.com/cs_generic');
     }
 
     public function test_customer_can_start_one_application_trial_from_project_configuration(): void
@@ -208,6 +211,297 @@ class BillingApiTest extends TestCase
             ->assertJsonPath('message', 'Trials are not enabled for this SaaS Project.');
 
         $this->assertDatabaseCount('company_trials', 0);
+    }
+
+    public function test_customer_can_retrieve_only_its_payment_and_invoice_history(): void
+    {
+        [$project, $plan, $price, $company] = $this->fixture('History Product');
+        [$otherCompany] = $this->companyCredential($project, 'Other History Company');
+
+        $invoice = SaasInvoice::query()->create([
+            'project_id' => $project->id,
+            'company_id' => $company->id,
+            'stripe_invoice_id' => 'in_history_company',
+            'invoice_number' => 'INV-45',
+            'invoice_date' => now(),
+            'amount_due' => 4500,
+            'amount_paid' => 4500,
+            'currency' => 'EUR',
+            'status' => 'paid',
+        ]);
+
+        SaasPayment::query()->create([
+            'project_id' => $project->id,
+            'company_id' => $company->id,
+            'saas_invoice_id' => $invoice->id,
+            'amount' => 4500,
+            'currency' => 'EUR',
+            'status' => 'paid',
+            'paid_at' => now(),
+        ]);
+
+        SaasInvoice::query()->create([
+            'project_id' => $project->id,
+            'company_id' => $otherCompany->id,
+            'stripe_invoice_id' => 'in_history_other',
+            'amount_due' => 9900,
+            'amount_paid' => 9900,
+            'currency' => 'EUR',
+            'status' => 'paid',
+        ]);
+
+        $headers = [
+            'Authorization' => 'Bearer '.$this->projectToken($project),
+            'X-Billing-Customer-Token' => $this->customerToken($project, $company),
+        ];
+
+        $this->getJson('/api/v1/billing/customer/invoices', $headers)
+            ->assertOk()
+            ->assertJsonPath('data.0.number', 'INV-45')
+            ->assertJsonMissing(['amount_paid' => 9900]);
+
+        $this->getJson('/api/v1/billing/customer/payments', $headers)
+            ->assertOk()
+            ->assertJsonPath('data.0.amount', 4500)
+            ->assertJsonMissing(['amount' => 9900]);
+    }
+
+    public function test_self_service_provisioning_creates_customer_credential_and_company(): void
+    {
+        [$project] = $this->fixture('Self Service Product');
+        $token = $this->projectToken($project);
+
+        $response = $this
+            ->withToken($token)
+            ->postJson('/api/v1/billing/customer-credentials', [
+                'external_reference' => 'adocare-company-42',
+                'name' => 'ADOCare Company 42',
+            ]);
+
+        $response->assertCreated();
+        $response->assertJsonPath('data.already_provisioned', false);
+        $this->assertNotEmpty($response->json('data.token'));
+
+        $credential = SaasCustomerApiCredential::query()
+            ->where('project_id', $project->id)
+            ->where('external_reference', 'adocare-company-42')
+            ->first();
+
+        $this->assertNotNull($credential);
+        $this->assertNotNull($credential->company_id);
+        $this->assertEquals('ADOCare Company 42', $credential->company->name);
+    }
+
+    public function test_self_service_provisioning_is_idempotent(): void
+    {
+        [$project] = $this->fixture('Idempotent Product');
+        $token = $this->projectToken($project);
+
+        $first = $this
+            ->withToken($token)
+            ->postJson('/api/v1/billing/customer-credentials', [
+                'external_reference' => 'adocare-company-7',
+            ]);
+        $first->assertCreated();
+
+        $second = $this
+            ->withToken($token)
+            ->postJson('/api/v1/billing/customer-credentials', [
+                'external_reference' => 'adocare-company-7',
+            ]);
+
+        $second->assertOk();
+        $second->assertJsonPath('data.already_provisioned', true);
+        $second->assertJsonPath('data.id', $first->json('data.id'));
+        $this->assertNull($second->json('data.token'));
+
+        $this->assertEquals(1, SaasCustomerApiCredential::query()
+            ->where('project_id', $project->id)
+            ->where('external_reference', 'adocare-company-7')
+            ->count());
+        $this->assertEquals(1, Company::query()->where('name', 'like', '%adocare-company-7%')->count());
+    }
+
+    public function test_self_service_provisioning_requires_project_token(): void
+    {
+        $this->postJson('/api/v1/billing/customer-credentials', [
+            'external_reference' => 'adocare-company-1',
+        ])->assertUnauthorized();
+    }
+
+    public function test_self_service_provisioning_isolates_by_project(): void
+    {
+        [$projectA] = $this->fixture('Project A');
+        [$projectB] = $this->fixture('Project B');
+
+        $this->withToken($this->projectToken($projectA))
+            ->postJson('/api/v1/billing/customer-credentials', ['external_reference' => 'shared-ref'])
+            ->assertCreated();
+
+        // Same external_reference, different Project - must not collide/reuse the other Project's credential.
+        $response = $this->withToken($this->projectToken($projectB))
+            ->postJson('/api/v1/billing/customer-credentials', ['external_reference' => 'shared-ref']);
+
+        $response->assertCreated();
+        $response->assertJsonPath('data.already_provisioned', false);
+    }
+
+    public function test_self_service_provisioning_uses_billing_profile_not_credential_name(): void
+    {
+        [$project] = $this->fixture('Billing Profile Product');
+
+        $response = $this
+            ->withToken($this->projectToken($project))
+            ->postJson('/api/v1/billing/customer-credentials', [
+                'external_reference' => 'adocare-company-29',
+                'name' => 'Company 29 billing session',
+                'billing_profile' => [
+                    'name' => 'ADOCare s.r.o.',
+                    'email' => 'billing@adocare.test',
+                    'phone' => '+421900000000',
+                    'address' => [
+                        'line1' => 'Hlavná 1',
+                        'city' => 'Bratislava',
+                        'postal_code' => '81101',
+                        'country' => 'SK',
+                    ],
+                    'ico' => '12345678',
+                    'dic' => '2023456789',
+                    'ic_dph' => 'SK2023456789',
+                ],
+            ]);
+
+        $response->assertCreated();
+
+        $credential = SaasCustomerApiCredential::query()
+            ->where('project_id', $project->id)
+            ->where('external_reference', 'adocare-company-29')
+            ->first();
+
+        // The technical credential label is preserved on the credential itself...
+        $this->assertEquals('Company 29 billing session', $credential->name);
+
+        // ...but the Company's legal identity comes from the billing profile, never that label.
+        $company = $credential->company;
+        $this->assertEquals('ADOCare s.r.o.', $company->name);
+        $this->assertEquals('billing@adocare.test', $company->billing_email);
+        $this->assertEquals('+421900000000', $company->billing_phone);
+        $this->assertEquals('Hlavná 1', $company->billing_address_line1);
+        $this->assertEquals('Bratislava', $company->billing_address_city);
+        $this->assertEquals('81101', $company->billing_address_postal_code);
+        $this->assertEquals('SK', $company->billing_address_country);
+        $this->assertEquals('12345678', $company->registration_number);
+        $this->assertEquals('2023456789', $company->tax_number);
+        $this->assertEquals('SK2023456789', $company->vat_number);
+    }
+
+    public function test_self_service_provisioning_repeat_call_repairs_existing_company(): void
+    {
+        [$project] = $this->fixture('Repair Product');
+        $token = $this->projectToken($project);
+
+        $this->withToken($token)
+            ->postJson('/api/v1/billing/customer-credentials', [
+                'external_reference' => 'adocare-company-repair',
+                'name' => 'Company 99 billing session',
+            ])
+            ->assertCreated();
+
+        // A Company was created before any real billing profile existed - it still has the
+        // technical label as its name, exactly like the real "Company 29 billing session" bug.
+        $credential = SaasCustomerApiCredential::query()
+            ->where('external_reference', 'adocare-company-repair')
+            ->first();
+        $this->assertEquals('Company 99 billing session', $credential->company->name);
+
+        // Re-provisioning (idempotent) with a billing_profile now repairs the existing Company -
+        // no second credential/Company is created.
+        $repair = $this
+            ->withToken($token)
+            ->postJson('/api/v1/billing/customer-credentials', [
+                'external_reference' => 'adocare-company-repair',
+                'billing_profile' => ['name' => 'Real Legal Name s.r.o.', 'email' => 'billing@real.test'],
+            ]);
+
+        $repair->assertOk();
+        $repair->assertJsonPath('data.already_provisioned', true);
+
+        $this->assertEquals(1, SaasCustomerApiCredential::query()
+            ->where('external_reference', 'adocare-company-repair')
+            ->count());
+
+        $company = $credential->company->fresh();
+        $this->assertEquals('Real Legal Name s.r.o.', $company->name);
+        $this->assertEquals('billing@real.test', $company->billing_email);
+    }
+
+    public function test_update_profile_repairs_existing_stripe_customer_without_duplicating(): void
+    {
+        [$project, , , $company] = $this->fixture('Repair Existing Customer Product');
+        $billingCustomer = \App\Models\SaasBillingCustomer::query()->create([
+            'project_id' => $project->id,
+            'company_id' => $company->id,
+            'stripe_customer_id' => 'cus_existing_123',
+        ]);
+
+        $this->mock(StripeBillingService::class, function (MockInterface $mock) use ($company): void {
+            $mock->shouldReceive('createOrUpdateCustomer')
+                ->once()
+                ->withArgs(fn (Company $c, $email, $projectId) => $c->is($company) && $email === null)
+                ->andReturn(StripeObject::constructFrom(['id' => 'cus_existing_123']));
+        });
+
+        $response = $this
+            ->withToken($this->projectToken($project))
+            ->withHeader('X-Billing-Customer-Token', $this->customerToken($project, $company))
+            ->patchJson('/api/v1/billing/customer/profile', [
+                'name' => 'Repaired Legal Name s.r.o.',
+                'email' => 'billing@repaired.test',
+                'ico' => '87654321',
+            ]);
+
+        $response->assertOk();
+
+        $company->refresh();
+        $this->assertEquals('Repaired Legal Name s.r.o.', $company->name);
+        $this->assertEquals('billing@repaired.test', $company->billing_email);
+        $this->assertEquals('87654321', $company->registration_number);
+
+        // Still exactly one SaasBillingCustomer row - no duplicate Stripe Customer created.
+        $this->assertEquals(1, \App\Models\SaasBillingCustomer::query()
+            ->where('project_id', $project->id)
+            ->where('company_id', $company->id)
+            ->count());
+    }
+
+    public function test_update_profile_does_not_call_stripe_when_no_customer_exists_yet(): void
+    {
+        [$project, , , $company] = $this->fixture('No Stripe Customer Yet Product');
+
+        $this->mock(StripeBillingService::class, function (MockInterface $mock): void {
+            $mock->shouldNotReceive('createOrUpdateCustomer');
+        });
+
+        $response = $this
+            ->withToken($this->projectToken($project))
+            ->withHeader('X-Billing-Customer-Token', $this->customerToken($project, $company))
+            ->patchJson('/api/v1/billing/customer/profile', [
+                'name' => 'Some Company s.r.o.',
+            ]);
+
+        $response->assertOk();
+        $this->assertEquals('Some Company s.r.o.', $company->fresh()->name);
+    }
+
+    public function test_update_profile_requires_customer_token(): void
+    {
+        [$project] = $this->fixture('No Token Product');
+
+        // A missing/invalid Customer Credential (project token alone is not enough) is 403,
+        // matching AuthenticateBillingApi's existing behavior for every other customer-scoped route.
+        $this->withToken($this->projectToken($project))
+            ->patchJson('/api/v1/billing/customer/profile', ['name' => 'X'])
+            ->assertForbidden();
     }
 
     private function fixture(string $name): array

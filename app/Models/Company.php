@@ -13,6 +13,8 @@ class Company extends Model
     protected $fillable = [
         'name', 'registration_number', 'tax_number', 'vat_number', 'address', 'status',
         'internal_notes', 'archived_at', 'stripe_customer_id',
+        'billing_email', 'billing_phone', 'billing_address_line1', 'billing_address_line2',
+        'billing_address_city', 'billing_address_postal_code', 'billing_address_country',
     ];
 
     protected function casts(): array
@@ -53,6 +55,16 @@ class Company extends Model
     public function billingCustomers(): HasMany
     {
         return $this->hasMany(SaasBillingCustomer::class);
+    }
+
+    public function saasInvoices(): HasMany
+    {
+        return $this->hasMany(SaasInvoice::class);
+    }
+
+    public function saasPayments(): HasMany
+    {
+        return $this->hasMany(SaasPayment::class);
     }
 
     public function getDisplayLabelAttribute(): string

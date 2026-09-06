@@ -152,19 +152,43 @@ class StripeBillingService
     }
 
     /**
+     * Create/update the Stripe Customer for a Company using its real billing profile - never
+     * the technical Customer Credential name. Updates the existing Stripe Customer in place
+     * when one already exists for this (project, company) so subscriptions/invoices stay
+     * attached to the same customer instead of a duplicate being created.
+     *
      * @throws ApiErrorException
      */
     public function createOrUpdateCustomer(Company $company, ?string $email = null, ?int $projectId = null): StripeObject
     {
         $payload = [
-            'name' => $company->display_label,
-            'metadata' => [
+            'name' => $company->name,
+            'metadata' => array_filter([
                 'company_id' => (string) $company->id,
-            ],
+                'registration_number' => $company->registration_number,
+                'tax_number' => $company->tax_number,
+            ]),
         ];
 
-        if ($email) {
-            $payload['email'] = $email;
+        $resolvedEmail = $email ?: $company->billing_email;
+        if ($resolvedEmail) {
+            $payload['email'] = $resolvedEmail;
+        }
+
+        if ($company->billing_phone) {
+            $payload['phone'] = $company->billing_phone;
+        }
+
+        $address = array_filter([
+            'line1' => $company->billing_address_line1,
+            'line2' => $company->billing_address_line2,
+            'city' => $company->billing_address_city,
+            'postal_code' => $company->billing_address_postal_code,
+            'country' => $company->billing_address_country,
+        ]);
+
+        if ($address) {
+            $payload['address'] = $address;
         }
 
         $billingCustomer = $projectId
@@ -179,27 +203,88 @@ class StripeBillingService
             (! $projectId ? $company->stripe_customer_id : null);
 
         if ($stripeCustomerId) {
-            return $this->stripe->customers->update(
-                $stripeCustomerId,
-                $payload
-            );
+            try {
+                $customer = $this->stripe->customers->update(
+                    $stripeCustomerId,
+                    $payload
+                );
+            } catch (ApiErrorException $e) {
+                // The stored Stripe Customer id is stale (e.g. deleted directly in Stripe, or
+                // test-mode data was reset) - self-heal by minting a replacement instead of
+                // permanently blocking checkout/profile sync for this Company.
+                if ($e->getStripeCode() !== 'resource_missing') {
+                    throw $e;
+                }
+
+                Log::warning('Stripe Customer id no longer exists - creating a replacement.', [
+                    'company_id' => $company->id,
+                    'stale_stripe_customer_id' => $stripeCustomerId,
+                ]);
+
+                $stripeCustomerId = null;
+            }
         }
 
-        $customer = $this->stripe->customers->create($payload);
+        if (!$stripeCustomerId) {
+            $customer = $this->stripe->customers->create($payload);
 
-        if ($projectId) {
-            SaasBillingCustomer::query()->create([
-                'project_id' => $projectId,
-                'company_id' => $company->id,
-                'stripe_customer_id' => $customer->id,
-            ]);
-        } else {
-            $company->update([
-                'stripe_customer_id' => $customer->id,
-            ]);
+            if ($projectId) {
+                SaasBillingCustomer::query()->updateOrCreate(
+                    ['project_id' => $projectId, 'company_id' => $company->id],
+                    ['stripe_customer_id' => $customer->id]
+                );
+            } else {
+                $company->update([
+                    'stripe_customer_id' => $customer->id,
+                ]);
+            }
         }
+
+        $this->syncVatTaxId($customer->id, $company->vat_number);
 
         return $customer;
+    }
+
+    public function listInvoicesForCustomer(string $stripeCustomerId): array
+    {
+        return $this->stripe->invoices->all([
+            'customer' => $stripeCustomerId,
+            'limit' => 100,
+        ])->data ?? [];
+    }
+
+    /**
+     * IC DPH/VAT ID uses Stripe's native EU VAT tax-id mechanism (generic `eu_vat` type -
+     * Stripe has no dedicated Slovak type). IČO/DIČ are not Stripe-native tax ID types, so
+     * they only live in `metadata` above, never here.
+     */
+    private function syncVatTaxId(string $stripeCustomerId, ?string $vatNumber): void
+    {
+        if (!$vatNumber || !preg_match('/^[A-Za-z]{2}[A-Za-z0-9]{2,12}$/', $vatNumber)) {
+            return;
+        }
+
+        $value = strtoupper($vatNumber);
+
+        try {
+            $existing = $this->stripe->customers->allTaxIds($stripeCustomerId, ['limit' => 10]);
+
+            foreach ($existing->data as $taxId) {
+                if ($taxId->type === 'eu_vat' && $taxId->value === $value) {
+                    return;
+                }
+            }
+
+            $this->stripe->customers->createTaxId($stripeCustomerId, [
+                'type' => 'eu_vat',
+                'value' => $value,
+            ]);
+        } catch (ApiErrorException $e) {
+            Log::warning('Failed to sync Stripe customer VAT tax id.', [
+                'stripe_customer_id' => $stripeCustomerId,
+                'message' => $e->getMessage(),
+            ]);
+        }
     }
 
     /**

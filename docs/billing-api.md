@@ -29,6 +29,33 @@ Authorization: Bearer PROJECT_TOKEN
 
 Only active plans and active prices belonging to the authenticated SaaS Project are returned. Price IDs are internal StudioKristian IDs. Stripe IDs are never returned.
 
+## Customer Credential Provisioning (self-service)
+
+```http
+POST /api/v1/billing/customer-credentials
+Authorization: Bearer PROJECT_TOKEN
+Content-Type: application/json
+
+{
+    "external_reference": "42",
+    "name": "ADOCare Company 42"
+}
+```
+
+Lets a SaaS product provision its own Customer Credentials without a StudioKristian admin session. `external_reference` is the SaaS product's own opaque tenant id (e.g. its local Company id) and is unique per Project - StudioKristian creates a Company to scope subscriptions/trials to on first use.
+
+Idempotent: calling again with the same `external_reference` never mints a second credential or Company. The response distinguishes the two cases:
+
+```json
+{ "data": { "id": 8, "name": "ADOCare Company 42", "token": "customer-token-returned-once", "created_at": "...", "already_provisioned": false } }
+```
+
+```json
+{ "data": { "id": 8, "name": "ADOCare Company 42", "already_provisioned": true } }
+```
+
+`token` is only ever present on first issuance (`already_provisioned: false`, HTTP 201) - it cannot be retrieved again afterwards, matching admin-issued credentials. A `200` with `already_provisioned: true` means the caller already has (or already lost) the token from the original call.
+
 ## Customer Billing State
 
 ```http

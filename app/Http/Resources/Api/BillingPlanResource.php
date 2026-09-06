@@ -21,6 +21,7 @@ class BillingPlanResource extends JsonResource
                 'interval' => $price->interval,
                 'active' => (bool) $price->active,
             ])->values(),
+            'entitlements' => $this->entitlementsApiArray(),
         ];
     }
 }

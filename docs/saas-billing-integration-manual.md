@@ -318,6 +318,17 @@ When there is no application trial, `trial` is `null`.
 
 When there is no paid subscription, `subscriptions` is an empty array.
 
+The same response also includes `payments` and `invoices`. Dedicated endpoints are available when the application wants to load them separately:
+
+```http
+GET /api/v1/billing/customer/payments
+GET /api/v1/billing/customer/invoices
+Authorization: Bearer PROJECT_TOKEN
+X-Billing-Customer-Token: CUSTOMER_TOKEN
+```
+
+Payment response items contain the paid date, amount, currency, status, safe payment-method summary, and related internal invoice ID. Invoice response items contain the invoice number, date, amounts, currency, status, billing period, and Stripe-hosted view/PDF URLs when Stripe provides them. Stripe IDs and secrets are not returned.
+
 ## 7a. Start The Application Trial
 
 Starting a trial requires both the Project Credential and the Company credential:

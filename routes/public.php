@@ -46,11 +46,18 @@ Route::prefix('api')->group(function () {
         ->middleware(['billing.api', 'throttle:60,1'])
         ->group(function () {
             Route::get('/plans', [BillingController::class, 'plans']);
+            Route::post('/customer-credentials', [BillingController::class, 'provisionCustomerCredential']);
             Route::get('/customer/subscriptions', [BillingController::class, 'customer'])
+                ->middleware('billing.api:required');
+            Route::get('/customer/payments', [BillingController::class, 'payments'])
+                ->middleware('billing.api:required');
+            Route::get('/customer/invoices', [BillingController::class, 'invoices'])
                 ->middleware('billing.api:required');
             Route::get('/customer/trial', [BillingController::class, 'trial'])
                 ->middleware('billing.api:required');
             Route::post('/customer/trial', [BillingController::class, 'startTrial'])
+                ->middleware('billing.api:required');
+            Route::patch('/customer/profile', [BillingController::class, 'updateProfile'])
                 ->middleware('billing.api:required');
             Route::post('/checkout', [BillingController::class, 'checkout'])
                 ->middleware('billing.api:required');
