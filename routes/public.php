@@ -9,6 +9,7 @@ use App\Http\Controllers\PublicSite\HomeController;
 use App\Http\Controllers\PublicSite\ProjectController;
 use App\Http\Controllers\PublicSite\SeoController;
 use App\Http\Controllers\PublicSite\ServiceController;
+use App\Http\Controllers\Webhooks\ProjectBillingWebhookController;
 use App\Http\Controllers\Webhooks\StripeWebhookController;
 
 
@@ -100,6 +101,11 @@ Route::prefix('api')->group(function () {
         '/webhooks/stripe',
         StripeWebhookController::class
     )->name('webhooks.stripe');
+
+    Route::post(
+        '/webhooks/stripe/project-billing',
+        ProjectBillingWebhookController::class
+    )->name('webhooks.stripe.project-billing');
 
     Route::post(
         '/billing/checkout-sessions',

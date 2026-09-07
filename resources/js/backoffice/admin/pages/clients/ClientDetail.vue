@@ -108,7 +108,13 @@ const form =
         vat_number: '',
         address: '',
         status: 'active',
-        internal_notes: ''
+        internal_notes: '',
+        billing_email: '',
+        billing_phone: '',
+        billing_address_line1: '',
+        billing_address_city: '',
+        billing_address_postal_code: '',
+        billing_address_country: ''
     })
 
 
@@ -536,7 +542,25 @@ async function loadClient() {
                     'active',
 
                 internal_notes:
-                    client.internal_notes || ''
+                    client.internal_notes || '',
+
+                billing_email:
+                    client.billing_email || '',
+
+                billing_phone:
+                    client.billing_phone || '',
+
+                billing_address_line1:
+                    client.billing_address_line1 || '',
+
+                billing_address_city:
+                    client.billing_address_city || '',
+
+                billing_address_postal_code:
+                    client.billing_address_postal_code || '',
+
+                billing_address_country:
+                    client.billing_address_country || ''
             }
         )
 
@@ -643,7 +667,19 @@ async function submit() {
                 status:
                     response.data.data.status || 'active',
                 internal_notes:
-                    response.data.data.internal_notes || ''
+                    response.data.data.internal_notes || '',
+                billing_email:
+                    response.data.data.billing_email || '',
+                billing_phone:
+                    response.data.data.billing_phone || '',
+                billing_address_line1:
+                    response.data.data.billing_address_line1 || '',
+                billing_address_city:
+                    response.data.data.billing_address_city || '',
+                billing_address_postal_code:
+                    response.data.data.billing_address_postal_code || '',
+                billing_address_country:
+                    response.data.data.billing_address_country || ''
             }
         )
 
@@ -1024,6 +1060,115 @@ useAdminPageHeader({
                                 label="IČ DPH"
                                 :error="
                                     errors.vat_number?.[0] ||
+                                    ''
+                                "
+                            />
+                        </div>
+
+
+                        <!-- Billing profile used for invoices and Stripe -->
+
+                        <div
+                            class="
+                                grid
+                                grid-cols-1
+                                gap-6
+                                sm:grid-cols-2
+                            "
+                        >
+                            <FormField
+                                id="client-billing-email"
+                                v-model="
+                                    form.billing_email
+                                "
+                                name="billing_email"
+                                type="text"
+                                label="Billing email"
+                                hint="Used for invoices and the Stripe customer."
+                                :error="
+                                    errors.billing_email?.[0] ||
+                                    ''
+                                "
+                            />
+
+                            <FormField
+                                id="client-billing-phone"
+                                v-model="
+                                    form.billing_phone
+                                "
+                                name="billing_phone"
+                                type="text"
+                                label="Billing phone"
+                                :error="
+                                    errors.billing_phone?.[0] ||
+                                    ''
+                                "
+                            />
+                        </div>
+
+
+                        <FormField
+                            id="client-billing-line1"
+                            v-model="
+                                form.billing_address_line1
+                            "
+                            name="billing_address_line1"
+                            type="text"
+                            label="Billing street"
+                            :error="
+                                errors.billing_address_line1?.[0] ||
+                                ''
+                            "
+                        />
+
+
+                        <div
+                            class="
+                                grid
+                                grid-cols-1
+                                gap-6
+                                sm:grid-cols-3
+                            "
+                        >
+                            <FormField
+                                id="client-billing-city"
+                                v-model="
+                                    form.billing_address_city
+                                "
+                                name="billing_address_city"
+                                type="text"
+                                label="Billing city"
+                                :error="
+                                    errors.billing_address_city?.[0] ||
+                                    ''
+                                "
+                            />
+
+                            <FormField
+                                id="client-billing-postal"
+                                v-model="
+                                    form.billing_address_postal_code
+                                "
+                                name="billing_address_postal_code"
+                                type="text"
+                                label="Postal code"
+                                :error="
+                                    errors.billing_address_postal_code?.[0] ||
+                                    ''
+                                "
+                            />
+
+                            <FormField
+                                id="client-billing-country"
+                                v-model="
+                                    form.billing_address_country
+                                "
+                                name="billing_address_country"
+                                type="text"
+                                label="Country code"
+                                hint="Two letters, e.g. SK."
+                                :error="
+                                    errors.billing_address_country?.[0] ||
                                     ''
                                 "
                             />

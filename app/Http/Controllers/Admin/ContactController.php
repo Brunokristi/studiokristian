@@ -37,7 +37,7 @@ class ContactController extends Controller
 
         if (! $contact->hasPortalAccess()) {
             return response()->json([
-                'message' => 'This contact does not have portal access enabled.',
+                'message' => $this->portalAccessBlockReason($company, $contact),
             ], 422);
         }
 
@@ -49,6 +49,26 @@ class ContactController extends Controller
         );
 
         return response()->noContent();
+    }
+
+    /**
+     * Names the specific blocker so the admin knows what to change.
+     */
+    private function portalAccessBlockReason(Company $company, ClientContact $contact): string
+    {
+        if ($company->status !== 'active') {
+            return 'This client is archived, so its contacts cannot access the portal. Restore the client first.';
+        }
+
+        if (! $contact->active) {
+            return 'This contact is inactive. Activate the contact before sending an invitation.';
+        }
+
+        if ($contact->access_revoked_at !== null) {
+            return 'This contact\'s portal access was revoked. Restore access before sending an invitation.';
+        }
+
+        return 'This contact does not have portal access enabled.';
     }
 
     public function update(

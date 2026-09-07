@@ -6014,6 +6014,26 @@ useAdminPageHeader({
 
                         </div>
 
+
+                        <div
+                            v-if="
+                                projectReady
+                            "
+                        >
+
+                            <Button
+                                text="Billing"
+                                variant="secondary"
+                                @click="
+                                    router.push({
+                                        name: 'projects.billing',
+                                        params: { id: String(project.id) }
+                                    })
+                                "
+                            />
+
+                        </div>
+
                     </div>
 
 

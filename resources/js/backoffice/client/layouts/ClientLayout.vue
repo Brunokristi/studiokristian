@@ -47,6 +47,14 @@ const navigation = [
             'dashboard',
             'project'
         ]
+    },
+
+    {
+        key: 'invoices',
+        href: 'invoices',
+        pages: [
+            'invoices'
+        ]
     }
 ]
 
@@ -83,6 +91,11 @@ const copy = {
     projects: {
         en: 'Projects',
         sk: 'Projekty'
+    },
+
+    invoices: {
+        en: 'Invoices',
+        sk: 'Faktúry'
     },
 
     language: {
@@ -430,6 +443,7 @@ function toggleMenu() {
 
                             <a
                                 :href="
+                                    page.urls[item.href] ||
                                     page.urls.dashboard
                                 "
                                 class="

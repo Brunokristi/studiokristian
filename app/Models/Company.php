@@ -27,6 +27,24 @@ class Company extends Model
         return $this->hasMany(ClientContact::class);
     }
 
+    /**
+     * Billing email falls back to the first active contact when no dedicated
+     * billing email is set, so invoices remain sendable.
+     */
+    public function resolveBillingEmail(): ?string
+    {
+        if ($this->billing_email) {
+            return $this->billing_email;
+        }
+
+        return $this->contacts()
+            ->whereNotNull('email')
+            ->where('email', '!=', '')
+            ->orderByDesc('active')
+            ->orderBy('id')
+            ->value('email');
+    }
+
     public function projects(): HasMany
     {
         return $this->hasMany(Project::class);

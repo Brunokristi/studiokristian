@@ -26,6 +26,8 @@ return [
         'key' => env('STRIPE_KEY'),
         'secret' => env('STRIPE_SECRET'),
         'webhook_secret' => env('STRIPE_WEBHOOK_SECRET'),
+        // Optional dedicated endpoint secret for Custom Project Billing.
+        'project_billing_webhook_secret' => env('STRIPE_PROJECT_BILLING_WEBHOOK_SECRET'),
     ],
 
     'studiokristian' => [

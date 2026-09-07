@@ -7,10 +7,13 @@ use App\Http\Requests\Admin\StoreCompanyRequest;
 use App\Http\Requests\Admin\UpdateCompanyRequest;
 use App\Http\Resources\Admin\CompanyResource;
 use App\Models\Company;
+use App\Models\ProjectBillingCustomer;
+use App\Services\ProjectBilling\StripeProjectBillingGateway;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 use Illuminate\Http\Response;
+use Throwable;
 
 class CompanyController extends Controller
 {
@@ -50,12 +53,46 @@ class CompanyController extends Controller
 
     public function update(UpdateCompanyRequest $request, Company $company): CompanyResource
     {
+        $previousBillingEmail = $company->billing_email;
+
         $company->update($request->validated());
+
+        // Keep archived_at in step with status however the status was changed.
         if ($company->status !== 'archived') {
             $company->update(['archived_at' => null]);
+        } elseif ($company->archived_at === null) {
+            $company->update(['archived_at' => now()]);
         }
 
+        $this->syncBillingIdentityToStripe($company->fresh(), $previousBillingEmail);
+
         return new CompanyResource($company->fresh()->loadCount(['contacts', 'projects']));
+    }
+
+    /**
+     * Pushes billing identity changes to an existing project-billing Stripe Customer.
+     * Never provisions one - that stays part of the billing flows.
+     */
+    private function syncBillingIdentityToStripe(Company $company, ?string $previousBillingEmail): void
+    {
+        if ($previousBillingEmail === $company->billing_email) {
+            return;
+        }
+
+        $hasStripeCustomer = ProjectBillingCustomer::query()
+            ->where('company_id', $company->id)
+            ->whereNotNull('stripe_customer_id')
+            ->exists();
+
+        if (! $hasStripeCustomer) {
+            return;
+        }
+
+        try {
+            app(StripeProjectBillingGateway::class)->resolveCustomer($company);
+        } catch (Throwable $exception) {
+            report($exception);
+        }
     }
 
     public function archive(Company $company): Response

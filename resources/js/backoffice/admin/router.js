@@ -4,6 +4,7 @@ import ClientsIndex from './pages/clients/ClientsIndex.vue'
 import ClientDetail from './pages/clients/ClientDetail.vue'
 import ContactDetail from './pages/contacts/ContactDetail.vue'
 import ProjectDetail from './pages/projects/ProjectDetail.vue'
+import ProjectBilling from './pages/projects/ProjectBilling.vue'
 import ProjectsIndex from './pages/projects/ProjectsIndex.vue'
 import ServiceProductsIndex from './pages/service-products/ServiceProductsIndex.vue'
 import ServiceProductDetail from './pages/service-products/ServiceProductDetail.vue'
@@ -30,6 +31,7 @@ const router = createRouter({
         { path: '/projects/create', name: 'projects.create', component: ProjectDetail },
         { path: '/projects/:id', name: 'projects.show', component: ProjectDetail, props: true },
         { path: '/projects/:id/edit', name: 'projects.edit', component: ProjectDetail, props: true },
+        { path: '/projects/:id/billing', name: 'projects.billing', component: ProjectBilling, props: true },
         { path: '/service-products', name: 'service-products.index', component: ServiceProductsIndex },
         { path: '/service-products/create', name: 'service-products.create', component: ServiceProductDetail, props: { create: true } },
         { path: '/service-products/:id', name: 'service-products.show', component: ServiceProductDetail, props: true },

@@ -18,6 +18,15 @@ class StripeWebhookService
 {
     public function process(Event $event): void
     {
+        if ($this->belongsToAnotherBillingDomain($event)) {
+            Log::info('Stripe webhook ignored - object belongs to another billing domain.', [
+                'stripe_event_id' => $event->id,
+                'type' => $event->type,
+            ]);
+
+            return;
+        }
+
         match ($event->type) {
             'checkout.session.completed' => $this->handleCheckoutSessionCompleted($event->data->object),
             'customer.subscription.created',
@@ -331,6 +340,17 @@ class StripeWebhookService
             'stripe_event_id' => $event->id,
             'type' => $event->type,
         ]);
+    }
+
+    /**
+     * Custom Project Billing tags its Stripe objects so SaaS sync never adopts them.
+     */
+    private function belongsToAnotherBillingDomain(Event $event): bool
+    {
+        $object = $event->data->object ?? null;
+        $domain = $object?->metadata?->billing_domain ?? null;
+
+        return is_string($domain) && $domain !== '';
     }
 
     private function priceFromSubscription(StripeObject $subscription): ?SaasPlanPrice

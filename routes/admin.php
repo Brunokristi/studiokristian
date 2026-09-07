@@ -13,6 +13,8 @@ use App\Http\Controllers\Admin\ProjectController;
 use App\Http\Controllers\Admin\ProjectCoworkerController;
 use App\Http\Controllers\Admin\ProjectFileController;
 use App\Http\Controllers\Admin\ProjectTicketController;
+use App\Http\Controllers\Admin\ProjectBilling\BillingProductController;
+use App\Http\Controllers\Admin\ProjectBilling\ProjectBillingController;
 use App\Http\Controllers\Admin\SaasCustomerController;
 use App\Http\Controllers\Admin\SaasPlanController;
 use App\Http\Controllers\Admin\SaasFeatureController;
@@ -250,6 +252,42 @@ Route::prefix('admin/client-portal')
                     '/saas/projects/{project}/billing-api/customer-credentials',
                     [BillingApiCredentialController::class, 'customer']
                 );
+
+                /*
+                |--------------------------------------------------------------------------
+                | Custom Project Billing (separate domain from SaaS billing)
+                |--------------------------------------------------------------------------
+                */
+
+                Route::get('/billing-products', [BillingProductController::class, 'index'])
+                    ->name('billing-products.index');
+                Route::post('/billing-products', [BillingProductController::class, 'store'])
+                    ->name('billing-products.store');
+                Route::put('/billing-products/{billingProduct}', [BillingProductController::class, 'update'])
+                    ->name('billing-products.update');
+                Route::delete('/billing-products/{billingProduct}', [BillingProductController::class, 'destroy'])
+                    ->name('billing-products.destroy');
+
+                Route::get('/projects/{project}/billing', [ProjectBillingController::class, 'show'])
+                    ->name('projects.billing.show');
+                Route::post('/projects/{project}/billing/items', [ProjectBillingController::class, 'storeItem'])
+                    ->name('projects.billing.items.store');
+                Route::put('/projects/{project}/billing/items/{item}', [ProjectBillingController::class, 'updateItem'])
+                    ->name('projects.billing.items.update');
+                Route::delete('/projects/{project}/billing/items/{item}', [ProjectBillingController::class, 'destroyItem'])
+                    ->name('projects.billing.items.destroy');
+                Route::post('/projects/{project}/billing/invoices', [ProjectBillingController::class, 'storeInvoice'])
+                    ->name('projects.billing.invoices.store');
+                Route::post('/projects/{project}/billing/invoices/{invoice}/send', [ProjectBillingController::class, 'sendInvoice'])
+                    ->name('projects.billing.invoices.send');
+                Route::get('/projects/{project}/billing/invoices/{invoice}/pdf', [ProjectBillingController::class, 'downloadInvoicePdf'])
+                    ->name('projects.billing.invoices.pdf');
+                Route::post('/projects/{project}/billing/subscription', [ProjectBillingController::class, 'startSubscription'])
+                    ->name('projects.billing.subscription.store');
+                Route::post('/projects/{project}/billing/subscription/{subscription}/cancel', [ProjectBillingController::class, 'cancelSubscription'])
+                    ->name('projects.billing.subscription.cancel');
+                Route::post('/projects/{project}/billing/subscription/{subscription}/pause', [ProjectBillingController::class, 'pauseSubscription'])
+                    ->name('projects.billing.subscription.pause');
 
                 Route::put(
                     '/saas/projects/{project}/trial-settings',

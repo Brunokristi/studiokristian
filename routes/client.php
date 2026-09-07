@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Client\DashboardController;
+use App\Http\Controllers\Client\InvoiceController;
 use App\Http\Controllers\Client\ProjectController;
 use App\Http\Controllers\Client\ProjectDocumentSignatureController;
 use App\Http\Controllers\Client\ProjectFileController;
@@ -44,6 +45,28 @@ Route::prefix('client')
             '/projects/{project}',
             [ProjectController::class, 'show']
         )->name('projects.show');
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | Invoices
+        |--------------------------------------------------------------------------
+        */
+
+        Route::get(
+            '/invoices',
+            [InvoiceController::class, 'index']
+        )->name('invoices.index');
+
+        Route::get(
+            '/invoices/{invoice}/pay',
+            [InvoiceController::class, 'pay']
+        )->name('invoices.pay');
+
+        Route::get(
+            '/invoices/{invoice}/pdf',
+            [InvoiceController::class, 'downloadPdf']
+        )->name('invoices.pdf');
 
 
         /*

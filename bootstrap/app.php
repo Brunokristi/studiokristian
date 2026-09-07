@@ -39,6 +39,7 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->validateCsrfTokens(except: [
             'api/contact',
             'api/webhooks/stripe',
+            'api/webhooks/stripe/project-billing',
             'api/billing/checkout-sessions',
             'api/v1/billing/*',
         ]);

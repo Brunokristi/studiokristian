@@ -6,6 +6,7 @@ use App\Models\ClientContact;
 use App\Models\Project;
 use App\Models\ProjectFile;
 use App\Models\ProjectFolder;
+use App\Models\ProjectInvoice;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
 
@@ -224,6 +225,50 @@ class ClientPortalViewData
         );
     }
 
+    public function invoices(
+        Request $request,
+        ClientContact $contact,
+        Collection $invoices
+    ): array {
+        return $this->page(
+            $request,
+            'invoices',
+            'Invoices',
+            $contact,
+            [
+                'company_name' => $contact->company->name,
+
+                'invoices' => $invoices
+                    ->map(fn (ProjectInvoice $invoice) => [
+                        'id' => $invoice->id,
+                        'number' => $invoice->invoice_number,
+                        'project_name' => $invoice->project?->name,
+                        'status' => $invoice->status,
+                        'payment_status' => $invoice->payment_status,
+                        'is_payable' => $invoice->status === ProjectInvoice::STATUS_OPEN,
+                        'is_overdue' => $invoice->isOverdue(),
+                        'currency' => $invoice->currency,
+                        'total' => (int) $invoice->total,
+                        'amount_due' => (int) $invoice->amount_due,
+                        'issue_date' => $invoice->getAttribute('issue_date')?->toDateString(),
+                        'due_date' => $invoice->getAttribute('due_date')?->toDateString(),
+                        'paid_at' => $invoice->getAttribute('paid_at')?->toIso8601String(),
+
+                        'pay_url' => route(
+                            'client.invoices.pay',
+                            $invoice
+                        ),
+
+                        'pdf_url' => route(
+                            'client.invoices.pdf',
+                            $invoice
+                        ),
+                    ])
+                    ->values(),
+            ]
+        );
+    }
+
     private function page(
         Request $request,
         string $page,
@@ -256,6 +301,10 @@ class ClientPortalViewData
             'urls' => [
                 'dashboard' => route(
                     'client.dashboard'
+                ),
+
+                'invoices' => route(
+                    'client.invoices.index'
                 ),
 
                 'logout' => route(

@@ -4,7 +4,9 @@ namespace App\Http\Controllers\Webhooks;
 
 use App\Http\Controllers\Controller;
 use App\Models\StripeWebhookEvent;
+use App\Services\Billing\StripeEventDomainResolver;
 use App\Services\Billing\StripeWebhookService;
+use App\Services\ProjectBilling\ProjectBillingWebhookService;
 use Illuminate\Database\QueryException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -17,8 +19,12 @@ use UnexpectedValueException;
 
 class StripeWebhookController extends Controller
 {
-    public function __invoke(Request $request, StripeWebhookService $service): JsonResponse
-    {
+    public function __invoke(
+        Request $request,
+        StripeWebhookService $service,
+        StripeEventDomainResolver $domains,
+        ProjectBillingWebhookService $projectBilling
+    ): JsonResponse {
         $payload = $request->getContent();
         $signature = $request->header('Stripe-Signature', '');
         $webhookSecret = config('services.stripe.webhook_secret');
@@ -77,8 +83,13 @@ class StripeWebhookController extends Controller
 
         $duplicate = false;
 
+        // One Stripe endpoint can serve both billing domains; each event goes to its owner.
+        $handler = $domains->isProjectBilling($event)
+            ? $projectBilling
+            : $service;
+
         try {
-            DB::transaction(function () use ($service, $event, $eventId, &$webhookEvent, &$duplicate): void {
+            DB::transaction(function () use ($handler, $event, $eventId, &$webhookEvent, &$duplicate): void {
                 $webhookEvent = StripeWebhookEvent::query()
                     ->where('stripe_event_id', $eventId)
                     ->lockForUpdate()
@@ -90,7 +101,7 @@ class StripeWebhookController extends Controller
                     return;
                 }
 
-                $service->process($event);
+                $handler->process($event);
 
                 $webhookEvent->forceFill([
                     'processed_at' => now(),
