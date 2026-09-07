@@ -162,6 +162,12 @@ class StripeWebhookTest extends TestCase
             'stripe_customer_id' => 'cus_test',
             'stripe_subscription_id' => 'sub_test',
         ]);
+
+        $subscription = SaasSubscription::query()
+            ->where('stripe_subscription_id', 'sub_test')
+            ->firstOrFail();
+        $this->assertEquals(1_700_000_000, $subscription->current_period_start->timestamp);
+        $this->assertEquals(1_702_592_000, $subscription->current_period_end->timestamp);
     }
 
     public function test_checkout_session_completed_creates_subscription_placeholder_from_metadata(): void
@@ -321,6 +327,285 @@ class StripeWebhookTest extends TestCase
             'id' => $subscription->id,
             'status' => SaasSubscription::STATUS_PAST_DUE,
         ]);
+    }
+
+    public function test_subscription_schedule_phase_activation_synchronizes_local_plan_and_clears_schedule(): void
+    {
+        [$company, $price] = $this->saasPriceFixture();
+
+        $starterPrice = SaasPlanPrice::query()->create([
+            'saas_plan_id' => SaasPlan::query()->create([
+                'project_id' => $price->plan->project_id,
+                'name' => 'Starter',
+                'slug' => 'starter',
+                'active' => true,
+            ])->id,
+            'amount' => 1900,
+            'currency' => 'EUR',
+            'interval' => 'monthly',
+            'active' => true,
+            'stripe_price_id' => 'price_starter',
+        ]);
+
+        $subscription = SaasSubscription::query()->create([
+            'project_id' => $price->plan->project_id,
+            'company_id' => $company->id,
+            'saas_plan_id' => $price->saas_plan_id,
+            'saas_plan_price_id' => $price->id,
+            'scheduled_saas_plan_id' => $starterPrice->saas_plan_id,
+            'scheduled_saas_plan_price_id' => $starterPrice->id,
+            'stripe_schedule_id' => 'sub_sched_123',
+            'status' => SaasSubscription::STATUS_ACTIVE,
+            'current_period_start' => now()->subDays(30),
+            'current_period_end' => now()->subMinute(),
+            'stripe_customer_id' => 'cus_schedule',
+            'stripe_subscription_id' => 'sub_schedule',
+        ]);
+
+        // Once the scheduled phase activates, Stripe emits a plain customer.subscription.updated
+        // event on the underlying subscription reflecting the new (Starter) price.
+        $payload = $this->eventPayload(
+            'evt_schedule_phase_activated',
+            'customer.subscription.updated',
+            [
+                'id' => 'sub_schedule',
+                'object' => 'subscription',
+                'customer' => 'cus_schedule',
+                'status' => 'active',
+                'current_period_start' => now()->timestamp,
+                'current_period_end' => now()->addMonth()->timestamp,
+                'items' => [
+                    'object' => 'list',
+                    'data' => [
+                        [
+                            'id' => 'si_starter',
+                            'object' => 'subscription_item',
+                            'price' => [
+                                'id' => 'price_starter',
+                                'object' => 'price',
+                            ],
+                        ],
+                    ],
+                ],
+            ]
+        );
+
+        $this
+            ->postJson(
+                '/api/webhooks/stripe',
+                $payload,
+                [
+                    'Stripe-Signature' => $this->signatureHeader($payload),
+                ]
+            )
+            ->assertOk();
+
+        $subscription->refresh();
+
+        $this->assertEquals($starterPrice->saas_plan_id, $subscription->saas_plan_id);
+        $this->assertEquals($starterPrice->id, $subscription->saas_plan_price_id);
+        $this->assertNull($subscription->scheduled_saas_plan_id);
+        $this->assertNull($subscription->scheduled_saas_plan_price_id);
+        $this->assertNull($subscription->stripe_schedule_id);
+        $this->assertEquals(SaasSubscription::STATUS_ACTIVE, $subscription->status);
+    }
+
+    public function test_duplicate_subscription_updated_event_does_not_reapply_or_duplicate(): void
+    {
+        [$company, $price] = $this->saasPriceFixture();
+
+        $subscription = SaasSubscription::query()->create([
+            'project_id' => $price->plan->project_id,
+            'company_id' => $company->id,
+            'saas_plan_id' => $price->saas_plan_id,
+            'saas_plan_price_id' => $price->id,
+            'status' => SaasSubscription::STATUS_ACTIVE,
+            'stripe_customer_id' => 'cus_dup',
+            'stripe_subscription_id' => 'sub_dup',
+        ]);
+
+        $payload = $this->eventPayload(
+            'evt_subscription_updated_dup',
+            'customer.subscription.updated',
+            [
+                'id' => 'sub_dup',
+                'object' => 'subscription',
+                'customer' => 'cus_dup',
+                'status' => 'active',
+                'current_period_start' => now()->timestamp,
+                'current_period_end' => now()->addMonth()->timestamp,
+                'items' => [
+                    'object' => 'list',
+                    'data' => [
+                        [
+                            'id' => 'si_dup',
+                            'object' => 'subscription_item',
+                            'price' => [
+                                'id' => 'price_test',
+                                'object' => 'price',
+                            ],
+                        ],
+                    ],
+                ],
+            ]
+        );
+
+        $headers = ['Stripe-Signature' => $this->signatureHeader($payload)];
+
+        $this->postJson('/api/webhooks/stripe', $payload, $headers)->assertOk();
+        $this
+            ->postJson('/api/webhooks/stripe', $payload, $headers)
+            ->assertOk()
+            ->assertJsonPath('duplicate', true);
+
+        $this->assertDatabaseCount('saas_subscriptions', 1);
+        $this->assertEquals(1, SaasSubscription::query()->where('stripe_subscription_id', 'sub_dup')->count());
+    }
+
+    public function test_subscription_deleted_synchronizes_final_cancellation_state(): void
+    {
+        [$company, $price] = $this->saasPriceFixture();
+
+        $subscription = SaasSubscription::query()->create([
+            'project_id' => $price->plan->project_id,
+            'company_id' => $company->id,
+            'saas_plan_id' => $price->saas_plan_id,
+            'saas_plan_price_id' => $price->id,
+            'status' => SaasSubscription::STATUS_ACTIVE,
+            'cancel_at_period_end' => true,
+            'current_period_end' => now()->subMinute(),
+            'stripe_customer_id' => 'cus_end',
+            'stripe_subscription_id' => 'sub_end',
+        ]);
+
+        $payload = $this->eventPayload(
+            'evt_subscription_deleted',
+            'customer.subscription.deleted',
+            [
+                'id' => 'sub_end',
+                'object' => 'subscription',
+                'customer' => 'cus_end',
+                'status' => 'canceled',
+                'canceled_at' => now()->timestamp,
+                'ended_at' => now()->timestamp,
+            ]
+        );
+
+        $this
+            ->postJson(
+                '/api/webhooks/stripe',
+                $payload,
+                [
+                    'Stripe-Signature' => $this->signatureHeader($payload),
+                ]
+            )
+            ->assertOk();
+
+        $subscription->refresh();
+
+        $this->assertEquals(SaasSubscription::STATUS_CANCELED, $subscription->status);
+        $this->assertFalse($subscription->cancel_at_period_end);
+        $this->assertNotNull($subscription->ended_at);
+    }
+
+    public function test_failed_payment_keeps_original_failure_time_and_successful_retry_recovers_subscription(): void
+    {
+        [$company, $price] = $this->saasPriceFixture();
+        $subscription = SaasSubscription::query()->create([
+            'project_id' => $price->plan->project_id,
+            'company_id' => $company->id,
+            'saas_plan_id' => $price->saas_plan_id,
+            'saas_plan_price_id' => $price->id,
+            'status' => SaasSubscription::STATUS_ACTIVE,
+            'cancel_at_period_end' => true,
+            'stripe_customer_id' => 'cus_retry',
+            'stripe_subscription_id' => 'sub_retry',
+        ]);
+
+        \Illuminate\Support\Carbon::setTestNow('2026-09-10 14:00:00');
+        $failed = $this->invoiceEventPayload('evt_retry_failed', 'invoice.payment_failed', 'in_retry', 'sub_retry', 'cus_retry', 'open', 0);
+        $this->postJson('/api/webhooks/stripe', $failed, ['Stripe-Signature' => $this->signatureHeader($failed)])->assertOk();
+        $this->assertEquals('2026-09-10 14:00:00', $subscription->fresh()->payment_failed_at->format('Y-m-d H:i:s'));
+
+        \Illuminate\Support\Carbon::setTestNow('2026-09-12 14:00:00');
+        $failedRetry = $this->invoiceEventPayload('evt_retry_failed_again', 'invoice.payment_failed', 'in_retry', 'sub_retry', 'cus_retry', 'open', 0);
+        $this->postJson('/api/webhooks/stripe', $failedRetry, ['Stripe-Signature' => $this->signatureHeader($failedRetry)])->assertOk();
+
+        $subscription->refresh();
+        $this->assertEquals(SaasSubscription::STATUS_PAST_DUE, $subscription->status);
+        $this->assertTrue($subscription->cancel_at_period_end);
+        $this->assertEquals('2026-09-10 14:00:00', $subscription->payment_failed_at->format('Y-m-d H:i:s'));
+
+        $paid = $this->invoiceEventPayload('evt_retry_paid', 'invoice.paid', 'in_retry', 'sub_retry', 'cus_retry', 'paid', 4900);
+        $this->postJson('/api/webhooks/stripe', $paid, ['Stripe-Signature' => $this->signatureHeader($paid)])->assertOk();
+
+        $subscription->refresh();
+        $this->assertEquals(SaasSubscription::STATUS_ACTIVE, $subscription->status);
+        $this->assertNull($subscription->payment_failed_at);
+        $this->assertTrue($subscription->cancel_at_period_end);
+        $this->assertDatabaseCount('saas_invoices', 1);
+        $this->assertDatabaseCount('saas_payments', 1);
+
+        \Illuminate\Support\Carbon::setTestNow();
+    }
+
+    public function test_subscription_event_keeps_genuinely_absent_billing_periods_null(): void
+    {
+        [$company, $price] = $this->saasPriceFixture();
+        $payload = $this->eventPayload(
+            'evt_subscription_without_period',
+            'customer.subscription.created',
+            [
+                'id' => 'sub_without_period',
+                'object' => 'subscription',
+                'customer' => 'cus_without_period',
+                'status' => 'active',
+                'metadata' => ['company_id' => (string) $company->id],
+                'items' => [
+                    'object' => 'list',
+                    'data' => [[
+                        'id' => 'si_without_period',
+                        'object' => 'subscription_item',
+                        'price' => ['id' => $price->stripe_price_id, 'object' => 'price'],
+                    ]],
+                ],
+            ]
+        );
+
+        $this->postJson('/api/webhooks/stripe', $payload, [
+            'Stripe-Signature' => $this->signatureHeader($payload),
+        ])->assertOk();
+
+        $subscription = SaasSubscription::query()
+            ->where('stripe_subscription_id', 'sub_without_period')
+            ->firstOrFail();
+        $this->assertNull($subscription->current_period_start);
+        $this->assertNull($subscription->current_period_end);
+    }
+
+    private function invoiceEventPayload(
+        string $eventId,
+        string $eventType,
+        string $invoiceId,
+        string $subscriptionId,
+        string $customerId,
+        string $status,
+        int $amountPaid
+    ): array {
+        $payload = $this->eventPayload($eventId, $eventType, [
+            'id' => $invoiceId,
+            'object' => 'invoice',
+            'customer' => $customerId,
+            'subscription' => $subscriptionId,
+            'amount_due' => 4900,
+            'amount_paid' => $amountPaid,
+            'currency' => 'eur',
+            'status' => $status,
+        ]);
+
+        $payload['created'] = now()->timestamp;
+
+        return $payload;
     }
 
     private function saasPriceFixture(): array

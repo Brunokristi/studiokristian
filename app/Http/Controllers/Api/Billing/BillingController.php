@@ -16,6 +16,7 @@ use App\Models\SaasInvoice;
 use App\Models\SaasPayment;
 use App\Services\Billing\BillingApiCredentialService;
 use App\Services\Billing\StripeBillingService;
+use App\Services\Billing\SubscriptionChangeService;
 use App\Services\Billing\ApplicationTrialService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -131,7 +132,7 @@ class BillingController extends Controller
         $subscriptions = SaasSubscription::query()
             ->where('project_id', $project->id)
             ->where('company_id', $company->id)
-            ->with(['plan.planFeatures.feature', 'price'])
+            ->with(['project', 'plan.planFeatures.feature', 'price'])
             ->latest('updated_at')
             ->get();
 
@@ -268,5 +269,147 @@ class BillingController extends Controller
             'id' => $session->id,
             'url' => $session->url,
         ], 201);
+    }
+
+    public function paymentMethodPortal(Request $request, StripeBillingService $stripe): JsonResponse
+    {
+        $data = $request->validate([
+            'return_url' => ['required', 'url', 'starts_with:https://', 'max:2000'],
+        ]);
+
+        $project = $request->attributes->get('billing_project');
+        $company = $request->attributes->get('billing_company');
+        $billingCustomer = SaasBillingCustomer::query()
+            ->where('project_id', $project->id)
+            ->where('company_id', $company->id)
+            ->first();
+
+        if (! $billingCustomer?->stripe_customer_id) {
+            return response()->json(['message' => 'No billing customer is available.'], 422);
+        }
+
+        try {
+            $session = $stripe->createBillingPortalSession(
+                $billingCustomer->stripe_customer_id,
+                $data['return_url']
+            );
+        } catch (Throwable $exception) {
+            report($exception);
+
+            return response()->json(['message' => 'Unable to create payment method session.'], 422);
+        }
+
+        return response()->json(['url' => $session->url]);
+    }
+
+    /**
+     * Change the Company's existing subscription to a different price - upgrades apply
+     * immediately with Stripe-computed proration, downgrades are scheduled to take effect at
+     * the end of the current billing period (via a Stripe Subscription Schedule) so the
+     * customer keeps their current plan until then. Never creates a second subscription.
+     */
+    public function changeSubscription(Request $request, SubscriptionChangeService $subscriptions): JsonResponse
+    {
+        $data = $request->validate([
+            'plan_price_id' => ['required', 'integer'],
+        ]);
+
+        $project = $request->attributes->get('billing_project');
+        $company = $request->attributes->get('billing_company');
+
+        $subscription = SaasSubscription::query()
+            ->where('project_id', $project->id)
+            ->where('company_id', $company->id)
+            ->where('status', SaasSubscription::STATUS_ACTIVE)
+            ->with(['price', 'plan'])
+            ->latest('updated_at')
+            ->first();
+
+        if (!$subscription) {
+            return response()->json(['message' => 'No active subscription to change.'], 422);
+        }
+
+        $newPrice = SaasPlanPrice::query()
+            ->whereKey($data['plan_price_id'])
+            ->where('active', true)
+            ->whereHas('plan', fn ($query) => $query->where('project_id', $project->id)->where('active', true))
+            ->with('plan')
+            ->first();
+
+        if (!$newPrice) {
+            return response()->json(['message' => 'The selected price is not valid for this SaaS Project.'], 422);
+        }
+
+        try {
+            $subscription = $subscriptions->changePlan($subscription, $newPrice);
+        } catch (Throwable $exception) {
+            report($exception);
+
+            return response()->json(['message' => 'Unable to change the subscription.'], 422);
+        }
+
+        return response()->json(['data' => new BillingSubscriptionResource($subscription->load(['plan', 'price', 'scheduledPlan', 'scheduledPrice']))]);
+    }
+
+    /**
+     * Schedule the Company's active subscription to cancel at the end of the current billing
+     * period - never an immediate cancellation.
+     */
+    public function cancelSubscription(Request $request, SubscriptionChangeService $subscriptions): JsonResponse
+    {
+        $project = $request->attributes->get('billing_project');
+        $company = $request->attributes->get('billing_company');
+
+        $subscription = SaasSubscription::query()
+            ->where('project_id', $project->id)
+            ->where('company_id', $company->id)
+            ->where('status', SaasSubscription::STATUS_ACTIVE)
+            ->latest('updated_at')
+            ->first();
+
+        if (!$subscription) {
+            return response()->json(['message' => 'No active subscription to cancel.'], 422);
+        }
+
+        try {
+            $subscription = $subscriptions->cancelAtPeriodEnd($subscription);
+        } catch (Throwable $exception) {
+            report($exception);
+
+            return response()->json(['message' => 'Unable to cancel the subscription.'], 422);
+        }
+
+        return response()->json(['data' => new BillingSubscriptionResource($subscription->load(['plan', 'price']))]);
+    }
+
+    /**
+     * Reverse a scheduled end-of-period cancellation - the subscription continues normally.
+     */
+    public function resumeSubscription(Request $request, SubscriptionChangeService $subscriptions): JsonResponse
+    {
+        $project = $request->attributes->get('billing_project');
+        $company = $request->attributes->get('billing_company');
+
+        $subscription = SaasSubscription::query()
+            ->where('project_id', $project->id)
+            ->where('company_id', $company->id)
+            ->where('status', SaasSubscription::STATUS_ACTIVE)
+            ->where('cancel_at_period_end', true)
+            ->latest('updated_at')
+            ->first();
+
+        if (!$subscription) {
+            return response()->json(['message' => 'No scheduled cancellation to resume.'], 422);
+        }
+
+        try {
+            $subscription = $subscriptions->resume($subscription);
+        } catch (Throwable $exception) {
+            report($exception);
+
+            return response()->json(['message' => 'Unable to resume the subscription.'], 422);
+        }
+
+        return response()->json(['data' => new BillingSubscriptionResource($subscription->load(['plan', 'price']))]);
     }
 }

@@ -23,8 +23,8 @@ class StripeWebhookService
             'customer.subscription.created',
             'customer.subscription.updated' => $this->syncSubscription($event->data->object),
             'customer.subscription.deleted' => $this->syncDeletedSubscription($event->data->object),
-            'invoice.paid' => $this->syncInvoice($event->data->object, true),
-            'invoice.payment_failed' => $this->syncInvoice($event->data->object, false),
+            'invoice.paid' => $this->syncInvoice($event->data->object, true, $event->created ?? null),
+            'invoice.payment_failed' => $this->syncInvoice($event->data->object, false, $event->created ?? null),
             default => $this->acknowledgeUnsupported($event),
         };
     }
@@ -138,22 +138,43 @@ class StripeWebhookService
             ]
         );
 
+        $existing = SaasSubscription::query()
+            ->where('stripe_subscription_id', $stripeSubscriptionId)
+            ->first();
+
+        $attributes = [
+            'project_id' => $price->plan->project_id,
+            'company_id' => $company->id,
+            'saas_plan_id' => $price->saas_plan_id,
+            'saas_plan_price_id' => $price->id,
+            'status' => $this->subscriptionStatus($stripeSubscription->status ?? SaasSubscription::STATUS_INCOMPLETE),
+            'current_period_start' => $this->timestamp($stripeSubscription->current_period_start ?? null),
+            'current_period_end' => $this->timestamp($stripeSubscription->current_period_end ?? null),
+            'canceled_at' => $this->timestamp($stripeSubscription->canceled_at ?? null),
+            'ended_at' => $this->timestamp($stripeSubscription->ended_at ?? null),
+            'stripe_customer_id' => $stripeCustomerId,
+            'cancel_at_period_end' => (bool) ($stripeSubscription->cancel_at_period_end ?? false),
+        ];
+
+        if (($attributes['status'] ?? null) !== SaasSubscription::STATUS_PAST_DUE) {
+            $attributes['payment_failed_at'] = null;
+        }
+
+        if ($existing && $existing->scheduled_saas_plan_price_id) {
+            $stripeScheduleId = $this->stripeId($stripeSubscription->schedule ?? null);
+
+            if ($existing->scheduled_saas_plan_price_id === $price->id || ! $stripeScheduleId) {
+                $attributes['scheduled_saas_plan_id'] = null;
+                $attributes['scheduled_saas_plan_price_id'] = null;
+                $attributes['stripe_schedule_id'] = null;
+            }
+        }
+
         SaasSubscription::query()->updateOrCreate(
             [
                 'stripe_subscription_id' => $stripeSubscriptionId,
             ],
-            [
-                'project_id' => $price->plan->project_id,
-                'company_id' => $company->id,
-                'saas_plan_id' => $price->saas_plan_id,
-                'saas_plan_price_id' => $price->id,
-                'status' => $this->subscriptionStatus($stripeSubscription->status ?? SaasSubscription::STATUS_INCOMPLETE),
-                'current_period_start' => $this->timestamp($stripeSubscription->current_period_start ?? null),
-                'current_period_end' => $this->timestamp($stripeSubscription->current_period_end ?? null),
-                'canceled_at' => $this->timestamp($stripeSubscription->canceled_at ?? null),
-                'ended_at' => $this->timestamp($stripeSubscription->ended_at ?? null),
-                'stripe_customer_id' => $stripeCustomerId,
-            ]
+            $attributes
         );
     }
 
@@ -185,10 +206,15 @@ class StripeWebhookService
             'ended_at' => $this->timestamp($stripeSubscription->ended_at ?? null) ?: now(),
             'current_period_start' => $this->timestamp($stripeSubscription->current_period_start ?? null) ?: $subscription->current_period_start,
             'current_period_end' => $this->timestamp($stripeSubscription->current_period_end ?? null) ?: $subscription->current_period_end,
+            'cancel_at_period_end' => false,
+            'payment_failed_at' => null,
+            'scheduled_saas_plan_id' => null,
+            'scheduled_saas_plan_price_id' => null,
+            'stripe_schedule_id' => null,
         ]);
     }
 
-    private function syncInvoice(StripeObject $invoice, bool $paid): void
+    private function syncInvoice(StripeObject $invoice, bool $paid, mixed $eventCreatedAt = null): void
     {
         $stripeInvoiceId = $this->stripeId($invoice->id ?? null);
 
@@ -245,6 +271,7 @@ class StripeWebhookService
         if ($paid && $subscription->status !== SaasSubscription::STATUS_CANCELED) {
             $subscription->update([
                 'status' => SaasSubscription::STATUS_ACTIVE,
+                'payment_failed_at' => null,
             ]);
 
             if ($subscription->company && $subscription->project) {
@@ -258,6 +285,10 @@ class StripeWebhookService
         if (! $paid) {
             $subscription->update([
                 'status' => SaasSubscription::STATUS_PAST_DUE,
+                'payment_failed_at' => $subscription->payment_failed_at
+                    ?: $this->timestamp($eventCreatedAt)
+                    ?: $localInvoice->attempted_at
+                    ?: now(),
             ]);
         }
     }

@@ -54,6 +54,19 @@ class SaasProjectController extends Controller
         ];
     }
 
+    public function updateBillingSettings(Request $request, Project $project): array
+    {
+        $this->authorizeSaasProject($project);
+
+        $project->update($request->validate([
+            'payment_failure_grace_period_days' => ['required', 'integer', 'min:0', 'max:365'],
+        ]));
+
+        return [
+            'project' => new ProjectResource($project->fresh()->load(['company', 'serviceProduct'])),
+        ];
+    }
+
     public function revenue(Project $project): array
     {
         $this->authorizeSaasProject($project);

@@ -255,6 +255,10 @@ Route::prefix('admin/client-portal')
                     '/saas/projects/{project}/trial-settings',
                     [SaasProjectController::class, 'updateTrialSettings']
                 )->name('saas.projects.trial-settings.update');
+                Route::put(
+                    '/saas/projects/{project}/billing-settings',
+                    [SaasProjectController::class, 'updateBillingSettings']
+                )->name('saas.projects.billing-settings.update');
 
                 Route::get(
                     '/saas/projects/{project}/plans',

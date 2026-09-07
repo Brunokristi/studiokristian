@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Support\Carbon;
 
 class SaasSubscription extends Model
 {
@@ -38,8 +39,13 @@ class SaasSubscription extends Model
         'current_period_end',
         'canceled_at',
         'ended_at',
+        'payment_failed_at',
         'stripe_customer_id',
         'stripe_subscription_id',
+        'cancel_at_period_end',
+        'scheduled_saas_plan_id',
+        'scheduled_saas_plan_price_id',
+        'stripe_schedule_id',
     ];
 
     protected $casts = [
@@ -47,6 +53,8 @@ class SaasSubscription extends Model
         'current_period_end' => 'datetime',
         'canceled_at' => 'datetime',
         'ended_at' => 'datetime',
+        'payment_failed_at' => 'datetime',
+        'cancel_at_period_end' => 'boolean',
     ];
 
     public function project(): BelongsTo
@@ -67,5 +75,27 @@ class SaasSubscription extends Model
     public function price(): BelongsTo
     {
         return $this->belongsTo(SaasPlanPrice::class, 'saas_plan_price_id');
+    }
+
+    public function scheduledPlan(): BelongsTo
+    {
+        return $this->belongsTo(SaasPlan::class, 'scheduled_saas_plan_id');
+    }
+
+    public function scheduledPrice(): BelongsTo
+    {
+        return $this->belongsTo(SaasPlanPrice::class, 'scheduled_saas_plan_price_id');
+    }
+
+    public function gracePeriodEndsAt(): ?Carbon
+    {
+        if (! $this->payment_failed_at) {
+            return null;
+        }
+
+        return $this->payment_failed_at->copy()->addDays(
+            $this->project?->payment_failure_grace_period_days
+                ?? Project::DEFAULT_PAYMENT_FAILURE_GRACE_PERIOD_DAYS
+        );
     }
 }

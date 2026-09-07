@@ -6,6 +6,7 @@ use App\Models\Company;
 use App\Models\SaasPlan;
 use App\Models\SaasPlanPrice;
 use App\Models\SaasBillingCustomer;
+use App\Models\SaasSubscription;
 use Illuminate\Support\Facades\Log;
 use RuntimeException;
 use Stripe\Exception\ApiErrorException;
@@ -331,6 +332,75 @@ class StripeBillingService
             'plan_id' => (string) $price->saas_plan_id,
             'plan_price_id' => (string) $price->id,
         ];
+    }
+
+    /**
+     * Immediately move an existing subscription onto a different price, prorating the
+     * difference for the remainder of the current period. Stripe determines the actual
+     * proration/invoice amount - this only tells Stripe which price to switch to.
+     *
+     * @throws ApiErrorException
+     */
+    public function changeSubscriptionPriceImmediately(SaasSubscription $subscription, SaasPlanPrice $newPrice): StripeObject
+    {
+        $stripeSubscription = $this->stripe->subscriptions->retrieve($subscription->stripe_subscription_id);
+        $itemId = $stripeSubscription->items->data[0]->id;
+
+        return $this->stripe->subscriptions->update($subscription->stripe_subscription_id, [
+            'items' => [['id' => $itemId, 'price' => $newPrice->stripe_price_id]],
+            'proration_behavior' => 'create_prorations',
+        ]);
+    }
+
+    /**
+     * Schedule a subscription to move onto a different price only once the current billing
+     * period ends (used for downgrades) - the customer keeps their current plan/price until
+     * then. Uses Stripe's own Subscription Schedule mechanism rather than any local-only
+     * scheduling, so Stripe remains authoritative for when/how the change actually applies.
+     *
+     * @throws ApiErrorException
+     */
+    public function scheduleSubscriptionPriceChange(SaasSubscription $subscription, SaasPlanPrice $newPrice): StripeObject
+    {
+        $schedule = $subscription->stripe_schedule_id
+            ? $this->stripe->subscriptionSchedules->retrieve($subscription->stripe_schedule_id)
+            : $this->stripe->subscriptionSchedules->create(['from_subscription' => $subscription->stripe_subscription_id]);
+
+        $currentPhase = $schedule->phases[0];
+
+        return $this->stripe->subscriptionSchedules->update($schedule->id, [
+            'phases' => [
+                [
+                    'items' => $currentPhase->items,
+                    'start_date' => $currentPhase->start_date,
+                    'end_date' => $currentPhase->end_date,
+                ],
+                [
+                    'items' => [['price' => $newPrice->stripe_price_id, 'quantity' => 1]],
+                ],
+            ],
+        ]);
+    }
+
+    /**
+     * @throws ApiErrorException
+     */
+    public function setCancelAtPeriodEnd(SaasSubscription $subscription, bool $cancel): StripeObject
+    {
+        return $this->stripe->subscriptions->update($subscription->stripe_subscription_id, [
+            'cancel_at_period_end' => $cancel,
+        ]);
+    }
+
+    /**
+     * @throws ApiErrorException
+     */
+    public function createBillingPortalSession(string $stripeCustomerId, string $returnUrl): StripeObject
+    {
+        return $this->stripe->billingPortal->sessions->create([
+            'customer' => $stripeCustomerId,
+            'return_url' => $returnUrl,
+        ]);
     }
 
     private function stripeInterval(string $interval): string

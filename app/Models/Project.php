@@ -17,6 +17,8 @@ class Project extends Model
 {
     use HasFactory;
 
+    public const DEFAULT_PAYMENT_FAILURE_GRACE_PERIOD_DAYS = 7;
+
     protected $fillable = [
         'company_id',
         'service_product_id',
@@ -26,6 +28,7 @@ class Project extends Model
         'trial_enabled',
         'trial_duration_days',
         'trial_credits',
+        'payment_failure_grace_period_days',
         'project_code',
         'name',
         'name_translations',
@@ -53,7 +56,15 @@ class Project extends Model
         'trial_enabled' => 'boolean',
         'trial_duration_days' => 'integer',
         'trial_credits' => 'integer',
+        'payment_failure_grace_period_days' => 'integer',
     ];
+
+    public function getPaymentFailureGracePeriodDaysAttribute(mixed $value): int
+    {
+        return $value === null
+            ? self::DEFAULT_PAYMENT_FAILURE_GRACE_PERIOD_DAYS
+            : (int) $value;
+    }
 
     public function company(): BelongsTo
     {

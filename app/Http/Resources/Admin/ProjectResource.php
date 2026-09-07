@@ -24,6 +24,7 @@ class ProjectResource extends JsonResource
             'trial_enabled' => $this->trial_enabled,
             'trial_duration_days' => $this->trial_duration_days,
             'trial_credits' => $this->trial_credits,
+            'payment_failure_grace_period_days' => $this->payment_failure_grace_period_days,
             'started_at' => $this->started_at?->toDateString(),
             'completed_at' => $this->completed_at?->toDateString(),
             'archived_at' => $this->archived_at?->toIso8601String(),

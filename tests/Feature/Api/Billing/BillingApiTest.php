@@ -9,6 +9,9 @@ use App\Models\SaasPlan;
 use App\Models\SaasPlanPrice;
 use App\Models\SaasProjectApiCredential;
 use App\Models\SaasSubscription;
+use App\Models\SaasBillingCustomer;
+use App\Models\SaasFeature;
+use App\Models\SaasPlanFeature;
 use App\Models\CompanyTrial;
 use App\Models\SaasInvoice;
 use App\Models\SaasPayment;
@@ -211,6 +214,211 @@ class BillingApiTest extends TestCase
             ->assertJsonPath('message', 'Trials are not enabled for this SaaS Project.');
 
         $this->assertDatabaseCount('company_trials', 0);
+    }
+
+    public function test_upgrade_changes_subscription_price_immediately(): void
+    {
+        [$project, $plan, $price, $company] = $this->fixture('Upgrade Product');
+        $higherPrice = SaasPlanPrice::query()->create([
+            'saas_plan_id' => $plan->id,
+            'amount' => 3900,
+            'currency' => 'EUR',
+            'interval' => 'monthly',
+            'active' => true,
+            'stripe_price_id' => 'price_'.uniqid(),
+        ]);
+
+        $subscription = SaasSubscription::query()->create([
+            'project_id' => $project->id,
+            'company_id' => $company->id,
+            'saas_plan_id' => $plan->id,
+            'saas_plan_price_id' => $price->id,
+            'status' => SaasSubscription::STATUS_ACTIVE,
+            'stripe_customer_id' => 'cus_upgrade',
+            'stripe_subscription_id' => 'sub_upgrade',
+        ]);
+
+        $this->mock(StripeBillingService::class, function (MockInterface $mock) use ($higherPrice): void {
+            $mock->shouldReceive('changeSubscriptionPriceImmediately')
+                ->once()
+                ->withArgs(fn (SaasSubscription $s, SaasPlanPrice $p) => $p->is($higherPrice))
+                ->andReturn(StripeObject::constructFrom(['id' => 'sub_upgrade']));
+        });
+
+        $response = $this
+            ->withToken($this->projectToken($project))
+            ->withHeader('X-Billing-Customer-Token', $this->customerToken($project, $company))
+            ->postJson('/api/v1/billing/customer/subscription/change', ['plan_price_id' => $higherPrice->id]);
+
+        $response->assertOk();
+        $response->assertJsonPath('data.price.id', $higherPrice->id);
+        $response->assertJsonPath('data.scheduled_change', null);
+
+        $subscription->refresh();
+        $this->assertEquals($higherPrice->id, $subscription->saas_plan_price_id);
+        $this->assertNull($subscription->scheduled_saas_plan_price_id);
+    }
+
+    public function test_downgrade_schedules_subscription_change_for_period_end(): void
+    {
+        [$project, $plan, $price, $company] = $this->fixture('Downgrade Product');
+        $lowerPrice = SaasPlanPrice::query()->create([
+            'saas_plan_id' => $plan->id,
+            'amount' => 900,
+            'currency' => 'EUR',
+            'interval' => 'monthly',
+            'active' => true,
+            'stripe_price_id' => 'price_'.uniqid(),
+        ]);
+
+        $subscription = SaasSubscription::query()->create([
+            'project_id' => $project->id,
+            'company_id' => $company->id,
+            'saas_plan_id' => $plan->id,
+            'saas_plan_price_id' => $price->id,
+            'status' => SaasSubscription::STATUS_ACTIVE,
+            'current_period_end' => now()->addDays(20),
+            'stripe_customer_id' => 'cus_downgrade',
+            'stripe_subscription_id' => 'sub_downgrade',
+        ]);
+
+        $this->mock(StripeBillingService::class, function (MockInterface $mock) use ($lowerPrice): void {
+            $mock->shouldReceive('scheduleSubscriptionPriceChange')
+                ->once()
+                ->withArgs(fn (SaasSubscription $s, SaasPlanPrice $p) => $p->is($lowerPrice))
+                ->andReturn(StripeObject::constructFrom(['id' => 'sub_sched_123']));
+        });
+
+        $response = $this
+            ->withToken($this->projectToken($project))
+            ->withHeader('X-Billing-Customer-Token', $this->customerToken($project, $company))
+            ->postJson('/api/v1/billing/customer/subscription/change', ['plan_price_id' => $lowerPrice->id]);
+
+        $response->assertOk();
+        // The customer stays on the CURRENT price - it only becomes effective at period end.
+        $response->assertJsonPath('data.price.id', $price->id);
+        $response->assertJsonPath('data.scheduled_change.price.id', $lowerPrice->id);
+
+        $subscription->refresh();
+        $this->assertEquals($price->id, $subscription->saas_plan_price_id);
+        $this->assertEquals($lowerPrice->id, $subscription->scheduled_saas_plan_price_id);
+        $this->assertEquals('sub_sched_123', $subscription->stripe_schedule_id);
+    }
+
+    public function test_cancel_schedules_cancellation_at_period_end_without_ending_access(): void
+    {
+        [$project, $plan, $price, $company] = $this->fixture('Cancel Product');
+
+        SaasSubscription::query()->create([
+            'project_id' => $project->id,
+            'company_id' => $company->id,
+            'saas_plan_id' => $plan->id,
+            'saas_plan_price_id' => $price->id,
+            'status' => SaasSubscription::STATUS_ACTIVE,
+            'current_period_end' => now()->addDays(10),
+            'stripe_customer_id' => 'cus_cancel',
+            'stripe_subscription_id' => 'sub_cancel',
+        ]);
+
+        $this->mock(StripeBillingService::class, function (MockInterface $mock): void {
+            $mock->shouldReceive('setCancelAtPeriodEnd')
+                ->once()
+                ->withArgs(fn (SaasSubscription $s, bool $cancel) => $cancel === true)
+                ->andReturn(StripeObject::constructFrom(['id' => 'sub_cancel']));
+        });
+
+        $response = $this
+            ->withToken($this->projectToken($project))
+            ->withHeader('X-Billing-Customer-Token', $this->customerToken($project, $company))
+            ->postJson('/api/v1/billing/customer/subscription/cancel');
+
+        $response->assertOk();
+        $response->assertJsonPath('data.status', SaasSubscription::STATUS_ACTIVE);
+        $response->assertJsonPath('data.cancel_at_period_end', true);
+    }
+
+    public function test_resume_reverses_scheduled_cancellation(): void
+    {
+        [$project, $plan, $price, $company] = $this->fixture('Resume Product');
+
+        SaasSubscription::query()->create([
+            'project_id' => $project->id,
+            'company_id' => $company->id,
+            'saas_plan_id' => $plan->id,
+            'saas_plan_price_id' => $price->id,
+            'status' => SaasSubscription::STATUS_ACTIVE,
+            'cancel_at_period_end' => true,
+            'stripe_customer_id' => 'cus_resume',
+            'stripe_subscription_id' => 'sub_resume',
+        ]);
+
+        $this->mock(StripeBillingService::class, function (MockInterface $mock): void {
+            $mock->shouldReceive('setCancelAtPeriodEnd')
+                ->once()
+                ->withArgs(fn (SaasSubscription $s, bool $cancel) => $cancel === false)
+                ->andReturn(StripeObject::constructFrom(['id' => 'sub_resume']));
+        });
+
+        $response = $this
+            ->withToken($this->projectToken($project))
+            ->withHeader('X-Billing-Customer-Token', $this->customerToken($project, $company))
+            ->postJson('/api/v1/billing/customer/subscription/resume');
+
+        $response->assertOk();
+        $response->assertJsonPath('data.cancel_at_period_end', false);
+    }
+
+    public function test_resume_fails_when_no_cancellation_is_scheduled(): void
+    {
+        [$project, $plan, $price, $company] = $this->fixture('No Resume Product');
+
+        SaasSubscription::query()->create([
+            'project_id' => $project->id,
+            'company_id' => $company->id,
+            'saas_plan_id' => $plan->id,
+            'saas_plan_price_id' => $price->id,
+            'status' => SaasSubscription::STATUS_ACTIVE,
+            'cancel_at_period_end' => false,
+            'stripe_customer_id' => 'cus_no_resume',
+            'stripe_subscription_id' => 'sub_no_resume',
+        ]);
+
+        $this->mock(StripeBillingService::class, function (MockInterface $mock): void {
+            $mock->shouldNotReceive('setCancelAtPeriodEnd');
+        });
+
+        $this
+            ->withToken($this->projectToken($project))
+            ->withHeader('X-Billing-Customer-Token', $this->customerToken($project, $company))
+            ->postJson('/api/v1/billing/customer/subscription/resume')
+            ->assertStatus(422);
+    }
+
+    public function test_change_subscription_rejects_price_from_another_project(): void
+    {
+        [$projectA, $planA, $priceA, $companyA] = $this->fixture('Project A Change');
+        [$projectB, $planB, $priceB] = $this->fixture('Project B Change');
+
+        SaasSubscription::query()->create([
+            'project_id' => $projectA->id,
+            'company_id' => $companyA->id,
+            'saas_plan_id' => $planA->id,
+            'saas_plan_price_id' => $priceA->id,
+            'status' => SaasSubscription::STATUS_ACTIVE,
+            'stripe_customer_id' => 'cus_cross',
+            'stripe_subscription_id' => 'sub_cross',
+        ]);
+
+        $this->mock(StripeBillingService::class, function (MockInterface $mock): void {
+            $mock->shouldNotReceive('changeSubscriptionPriceImmediately');
+            $mock->shouldNotReceive('scheduleSubscriptionPriceChange');
+        });
+
+        $this
+            ->withToken($this->projectToken($projectA))
+            ->withHeader('X-Billing-Customer-Token', $this->customerToken($projectA, $companyA))
+            ->postJson('/api/v1/billing/customer/subscription/change', ['plan_price_id' => $priceB->id])
+            ->assertStatus(422);
     }
 
     public function test_customer_can_retrieve_only_its_payment_and_invoice_history(): void
@@ -501,6 +709,97 @@ class BillingApiTest extends TestCase
         // matching AuthenticateBillingApi's existing behavior for every other customer-scoped route.
         $this->withToken($this->projectToken($project))
             ->patchJson('/api/v1/billing/customer/profile', ['name' => 'X'])
+            ->assertForbidden();
+    }
+
+    public function test_past_due_subscription_exposes_server_calculated_grace_period_and_current_plan_entitlements(): void
+    {
+        Carbon::setTestNow('2026-09-10 14:00:00');
+
+        [$project, $plan, $price, $company] = $this->fixture('Grace Period Product');
+        $this->assertEquals(7, $project->payment_failure_grace_period_days);
+        $project->update(['payment_failure_grace_period_days' => 7]);
+        $feature = SaasFeature::query()->create([
+            'project_id' => $project->id,
+            'key' => 'users',
+            'name' => 'Users',
+            'type' => SaasFeature::TYPE_LIMIT,
+            'active' => true,
+        ]);
+        SaasPlanFeature::query()->create([
+            'saas_plan_id' => $plan->id,
+            'saas_feature_id' => $feature->id,
+            'limit_value' => 10,
+        ]);
+
+        SaasSubscription::query()->create([
+            'project_id' => $project->id,
+            'company_id' => $company->id,
+            'saas_plan_id' => $plan->id,
+            'saas_plan_price_id' => $price->id,
+            'status' => SaasSubscription::STATUS_PAST_DUE,
+            'payment_failed_at' => now(),
+            'stripe_customer_id' => 'cus_grace',
+            'stripe_subscription_id' => 'sub_grace',
+        ]);
+
+        $this
+            ->withToken($this->projectToken($project))
+            ->withHeader('X-Billing-Customer-Token', $this->customerToken($project, $company))
+            ->getJson('/api/v1/billing/customer/subscriptions')
+            ->assertOk()
+            ->assertJsonPath('subscriptions.0.status', SaasSubscription::STATUS_PAST_DUE)
+            ->assertJsonPath('subscriptions.0.payment_status', 'failed')
+            ->assertJsonPath('subscriptions.0.payment_failed_at', '2026-09-10T14:00:00+00:00')
+            ->assertJsonPath('subscriptions.0.grace_period_ends_at', '2026-09-17T14:00:00+00:00')
+            ->assertJsonPath('subscriptions.0.payment_action_required', true)
+            ->assertJsonPath('subscriptions.0.entitlements.users.value', 10);
+
+        Carbon::setTestNow();
+    }
+
+    public function test_payment_method_portal_uses_authenticated_company_billing_customer(): void
+    {
+        [$project, , , $company] = $this->fixture('Payment Portal Product');
+        SaasBillingCustomer::query()->create([
+            'project_id' => $project->id,
+            'company_id' => $company->id,
+            'stripe_customer_id' => 'cus_portal_company',
+        ]);
+
+        $this->mock(StripeBillingService::class, function (MockInterface $mock): void {
+            $mock->shouldReceive('createBillingPortalSession')
+                ->once()
+                ->with('cus_portal_company', 'https://adocare.test/settings/billing')
+                ->andReturn(StripeObject::constructFrom([
+                    'url' => 'https://billing.stripe.com/session/test',
+                ]));
+        });
+
+        $this
+            ->withToken($this->projectToken($project))
+            ->withHeader('X-Billing-Customer-Token', $this->customerToken($project, $company))
+            ->postJson('/api/v1/billing/customer/payment-method', [
+                'return_url' => 'https://adocare.test/settings/billing',
+                'stripe_customer_id' => 'cus_attacker',
+            ])
+            ->assertOk()
+            ->assertJsonPath('url', 'https://billing.stripe.com/session/test');
+    }
+
+    public function test_payment_method_portal_requires_a_customer_credential(): void
+    {
+        [$project] = $this->fixture('Payment Portal Token Product');
+
+        $this->mock(StripeBillingService::class, function (MockInterface $mock): void {
+            $mock->shouldNotReceive('createBillingPortalSession');
+        });
+
+        $this
+            ->withToken($this->projectToken($project))
+            ->postJson('/api/v1/billing/customer/payment-method', [
+                'return_url' => 'https://adocare.test/settings/billing',
+            ])
             ->assertForbidden();
     }
 

@@ -59,6 +59,14 @@ Route::prefix('api')->group(function () {
                 ->middleware('billing.api:required');
             Route::patch('/customer/profile', [BillingController::class, 'updateProfile'])
                 ->middleware('billing.api:required');
+            Route::post('/customer/payment-method', [BillingController::class, 'paymentMethodPortal'])
+                ->middleware('billing.api:required');
+            Route::post('/customer/subscription/change', [BillingController::class, 'changeSubscription'])
+                ->middleware('billing.api:required');
+            Route::post('/customer/subscription/cancel', [BillingController::class, 'cancelSubscription'])
+                ->middleware('billing.api:required');
+            Route::post('/customer/subscription/resume', [BillingController::class, 'resumeSubscription'])
+                ->middleware('billing.api:required');
             Route::post('/checkout', [BillingController::class, 'checkout'])
                 ->middleware('billing.api:required');
         });
