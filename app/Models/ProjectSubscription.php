@@ -26,7 +26,11 @@ class ProjectSubscription extends Model
         'status',
         'collection_method',
         'currency',
+        'starts_at',
+        'ends_at',
+        'pause_at',
         'stripe_subscription_id',
+        'stripe_schedule_id',
         'stripe_customer_id',
         'stripe_default_payment_method_id',
         'current_period_start',
@@ -40,6 +44,9 @@ class ProjectSubscription extends Model
         'current_period_start' => 'datetime',
         'current_period_end' => 'datetime',
         'cancel_at_period_end' => 'boolean',
+        'starts_at' => 'date',
+        'ends_at' => 'date',
+        'pause_at' => 'datetime',
         'canceled_at' => 'datetime',
         'ended_at' => 'datetime',
     ];
@@ -62,6 +69,11 @@ class ProjectSubscription extends Model
     public function invoices(): HasMany
     {
         return $this->hasMany(ProjectInvoice::class, 'project_subscription_id');
+    }
+
+    public function adjustments(): HasMany
+    {
+        return $this->hasMany(ProjectBillingAdjustment::class);
     }
 
     public function monthlyTotal(): int

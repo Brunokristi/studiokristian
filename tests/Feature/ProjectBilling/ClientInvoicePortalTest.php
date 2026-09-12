@@ -131,13 +131,21 @@ class ClientInvoicePortalTest extends TestCase
         $this->get('/client/invoices')->assertRedirect();
     }
 
-    public function test_changing_the_billing_email_syncs_the_existing_stripe_customer(): void
+    public function test_changing_the_billing_contact_syncs_the_existing_stripe_customer(): void
     {
         [, $company] = $this->fixture();
 
         ProjectBillingCustomer::query()->create([
             'company_id' => $company->id,
             'stripe_customer_id' => 'cus_existing',
+        ]);
+
+        $newContact = $company->contacts()->create([
+            'first_name' => 'Jana',
+            'last_name' => 'Nová',
+            'email' => 'new@abc.test',
+            'phone' => '+421911111111',
+            'active' => true,
         ]);
 
         $admin = \App\Models\User::query()->create([
@@ -150,7 +158,8 @@ class ClientInvoicePortalTest extends TestCase
 
         $this->mock(StripeProjectBillingGateway::class, function (MockInterface $mock) use ($company): void {
             $mock->shouldReceive('resolveCustomer')->once()
-                ->withArgs(fn (Company $c) => $c->is($company) && $c->billing_email === 'new@abc.test')
+                ->withArgs(fn (Company $c) => $c->is($company)
+                    && $c->billingContact?->email === 'new@abc.test')
                 ->andReturn('cus_existing');
         });
 
@@ -158,11 +167,42 @@ class ClientInvoicePortalTest extends TestCase
             ->putJson("/admin/client-portal/api/clients/{$company->id}", [
                 'name' => $company->name,
                 'status' => 'active',
-                'billing_email' => 'new@abc.test',
+                'billing_contact_id' => $newContact->id,
             ])
             ->assertOk();
 
-        $this->assertSame('new@abc.test', $company->fresh()->billing_email);
+        $this->assertSame($newContact->id, $company->fresh()->billing_contact_id);
+    }
+
+    public function test_a_contact_from_another_client_cannot_be_selected_as_billing_contact(): void
+    {
+        [, $company] = $this->fixture();
+        [, $otherCompany] = $this->fixture('Other');
+
+        $foreignContact = $otherCompany->contacts()->create([
+            'first_name' => 'Foreign',
+            'last_name' => 'Contact',
+            'email' => 'foreign@other.test',
+            'active' => true,
+        ]);
+
+        $admin = \App\Models\User::query()->create([
+            'name' => 'Admin',
+            'email' => 'admin'.uniqid().'@studio.test',
+            'password' => bcrypt('secret-password'),
+            'is_admin' => true,
+            'email_verified_at' => now(),
+        ]);
+
+        $this->actingAs($admin)
+            ->putJson("/admin/client-portal/api/clients/{$company->id}", [
+                'name' => $company->name,
+                'status' => 'active',
+                'billing_contact_id' => $foreignContact->id,
+            ])
+            ->assertStatus(422);
+
+        $this->assertNull($company->fresh()->billing_contact_id);
     }
 
     private function portalPayload(string $html): array
@@ -199,7 +239,7 @@ class ClientInvoicePortalTest extends TestCase
         $company = Company::query()->create([
             'name' => $prefix.' s.r.o.',
             'status' => 'active',
-            'billing_email' => strtolower($prefix).'@client.test',
+            'address' => 'Hlavná 1, Bratislava',
         ]);
 
         $serviceProduct = ServiceProduct::query()->create([

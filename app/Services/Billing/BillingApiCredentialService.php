@@ -2,6 +2,7 @@
 
 namespace App\Services\Billing;
 
+use App\Models\ClientContact;
 use App\Models\Company;
 use App\Models\Project;
 use App\Models\SaasCustomerApiCredential;
@@ -65,6 +66,7 @@ class BillingApiCredentialService
                     $attributes['name'] = $billingProfile['name'];
                 }
                 $existing->company?->update($attributes);
+                $this->syncBillingContactFromProfile($existing->company, $billingProfile);
             }
 
             return [
@@ -82,6 +84,8 @@ class BillingApiCredentialService
                 $attributes['name'] = $billingProfile['name'] ?? $label;
 
                 $company = Company::create($attributes);
+
+                $this->syncBillingContactFromProfile($company, $billingProfile);
 
                 $token = Str::random(64);
 
@@ -117,9 +121,8 @@ class BillingApiCredentialService
     }
 
     /**
-     * Maps an ADOCare-style billing profile payload onto the existing StudioKristian
-     * Company billing columns - reuses `registration_number`/`tax_number`/`vat_number`
-     * (already used for other tenants) rather than duplicating IČO/DIČ/IČ DPH fields.
+     * Maps an ADOCare-style billing profile payload onto the Company's canonical
+     * fields. Email/phone belong to the billing contact, not the Company.
      */
     public function companyAttributesFromProfile(?array $profile): array
     {
@@ -127,20 +130,64 @@ class BillingApiCredentialService
             return [];
         }
 
-        $address = $profile['address'] ?? [];
-
         return array_filter([
-            'billing_email' => $profile['email'] ?? null,
-            'billing_phone' => $profile['phone'] ?? null,
-            'billing_address_line1' => $address['line1'] ?? null,
-            'billing_address_line2' => $address['line2'] ?? null,
-            'billing_address_city' => $address['city'] ?? null,
-            'billing_address_postal_code' => $address['postal_code'] ?? null,
-            'billing_address_country' => $address['country'] ?? null,
+            'address' => $this->composeAddress($profile['address'] ?? []),
             'registration_number' => $profile['ico'] ?? null,
             'tax_number' => $profile['dic'] ?? null,
             'vat_number' => $profile['ic_dph'] ?? null,
         ], fn ($value) => $value !== null && $value !== '');
+    }
+
+    /**
+     * The API only supplies an email/phone, so it is materialised as the Company's
+     * billing ClientContact - the single canonical billing identity.
+     */
+    public function syncBillingContactFromProfile(?Company $company, ?array $profile): void
+    {
+        $email = trim((string) ($profile['email'] ?? ''));
+
+        if (!$company || $email === '') {
+            return;
+        }
+
+        $contact = ClientContact::query()
+            ->where('company_id', $company->id)
+            ->whereRaw('LOWER(TRIM(email)) = ?', [strtolower($email)])
+            ->first();
+
+        $attributes = array_filter([
+            'phone' => $profile['phone'] ?? null,
+        ], fn ($value) => $value !== null && $value !== '');
+
+        if ($contact) {
+            if ($attributes) {
+                $contact->update($attributes);
+            }
+        } else {
+            $contact = $company->contacts()->create([
+                ...$attributes,
+                'first_name' => $profile['name'] ?? $company->name,
+                'last_name' => '',
+                'email' => $email,
+                'active' => true,
+            ]);
+        }
+
+        $company->update([
+            'billing_contact_id' => $contact->id,
+        ]);
+    }
+
+    private function composeAddress(array $address): ?string
+    {
+        $lines = collect([
+            $address['line1'] ?? null,
+            $address['line2'] ?? null,
+            trim(($address['postal_code'] ?? '').' '.($address['city'] ?? '')),
+            $address['country'] ?? null,
+        ])->filter(fn ($line) => trim((string) $line) !== '');
+
+        return $lines->isEmpty() ? null : $lines->implode("\n");
     }
 
     public function revokeProjectCredential(SaasProjectApiCredential $credential): void

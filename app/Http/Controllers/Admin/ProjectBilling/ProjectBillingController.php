@@ -7,14 +7,18 @@ use App\Models\BillingProduct;
 use App\Models\Project;
 use App\Models\ProjectBillingItem;
 use App\Models\ProjectInvoice;
+use App\Models\ProjectBillingAdjustment;
 use App\Models\ProjectSubscription;
 use App\Notifications\ProjectInvoiceIssuedNotification;
+use App\Notifications\ProjectInvoicePaidNotification;
 use App\Services\ProjectBilling\ProjectInvoicePdfService;
 use App\Services\ProjectBilling\ProjectInvoiceService;
 use App\Services\ProjectBilling\ProjectSubscriptionService;
+use App\Services\ProjectBilling\StripeProjectBillingGateway;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
@@ -27,7 +31,7 @@ class ProjectBillingController extends Controller
      */
     public function show(Project $project): JsonResponse
     {
-        $project->loadMissing('company');
+        $project->loadMissing('company.billingContact');
 
         $items = ProjectBillingItem::query()
             ->where('project_id', $project->id)
@@ -41,7 +45,11 @@ class ProjectBillingController extends Controller
             ->with('items')
             ->orderByDesc('issue_date')
             ->orderByDesc('id')
-            ->get();
+            ->get()
+            ->each(fn (ProjectInvoice $invoice) => $invoice->setAttribute(
+                'billing_source',
+                $invoice->project_subscription_id ? 'subscription' : 'payment'
+            ));
 
         $subscription = ProjectSubscription::query()
             ->where('project_id', $project->id)
@@ -51,9 +59,63 @@ class ProjectBillingController extends Controller
                 ProjectSubscription::STATUS_PAUSED,
                 ProjectSubscription::STATUS_DRAFT,
             ])
-            ->with('items')
+            ->with(['items', 'invoices'])
             ->latest('id')
             ->first();
+
+        if ($subscription) {
+            $subscription->setAttribute(
+                'first_payment_received',
+                $subscription->invoices->contains(fn (ProjectInvoice $invoice) =>
+                    $invoice->payment_status === ProjectInvoice::PAYMENT_PAID
+                )
+            );
+            $subscription->setAttribute(
+                'payment_method_saved',
+                (bool) $subscription->stripe_default_payment_method_id
+            );
+
+            $nextInvoice = $subscription->invoices
+                ->whereIn('status', [ProjectInvoice::STATUS_DRAFT, ProjectInvoice::STATUS_OPEN])
+                ->sortBy('issue_date')
+                ->first();
+
+            $subscription->setAttribute(
+                'next_billing_at',
+                $subscription->current_period_end?->toIso8601String()
+                    ?: $this->dateString($subscription->getRawOriginal('starts_at'))
+            );
+            $subscription->setAttribute(
+                'next_billing_amount',
+                $nextInvoice?->amount_due
+            );
+            $subscription->setAttribute(
+                'billing_interval',
+                $subscription->items->pluck('interval')->filter()->unique()->count() === 1
+                    ? $subscription->items->first()?->interval
+                    : 'mixed'
+            );
+            $subscription->setAttribute(
+                'recurring_totals',
+                $subscription->items
+                    ->where('status', '!=', ProjectBillingItem::STATUS_CANCELED)
+                    ->groupBy(fn (ProjectBillingItem $item) => $item->interval ?: 'month')
+                    ->map(fn ($group, $interval) => [
+                        'interval' => $interval,
+                        'amount' => (int) $group->sum(fn (ProjectBillingItem $item) => $item->totalAmount()),
+                        'currency' => $group->first()?->currency ?: config('billing.currency'),
+                    ])
+                    ->values()
+            );
+            $subscription->setAttribute(
+                'billing_email',
+                $project->company?->billingContact?->email
+            );
+            $subscription->setAttribute(
+                'payment_method_label',
+                $subscription->stripe_default_payment_method_id ? 'Saved in Stripe' : null
+            );
+        }
 
         $paid = $invoices->where('status', ProjectInvoice::STATUS_PAID);
         $open = $invoices->where('status', ProjectInvoice::STATUS_OPEN);
@@ -66,10 +128,16 @@ class ProjectBillingController extends Controller
                 'company' => $project->company ? [
                     'id' => $project->company->id,
                     'name' => $project->company->name,
-                    'billing_email' => $project->company->billing_email,
+                    'address' => $project->company->address,
                     'registration_number' => $project->company->registration_number,
                     'tax_number' => $project->company->tax_number,
                     'vat_number' => $project->company->vat_number,
+                    'billing_contact' => $project->company->billingContact ? [
+                        'id' => $project->company->billingContact->id,
+                        'name' => $project->company->billingContact->name,
+                        'email' => $project->company->billingContact->email,
+                        'phone' => $project->company->billingContact->phone,
+                    ] : null,
                 ] : null,
             ],
             'billing_items' => $items,
@@ -83,11 +151,18 @@ class ProjectBillingController extends Controller
                 'overdue_count' => $invoices->filter(fn (ProjectInvoice $i) => $i->isOverdue())->count(),
                 'unpaid_count' => $open->count(),
                 'paid_count' => $paid->count(),
-                'recurring_monthly_total' => (int) $items
+                'recurring_totals' => $items
                     ->where('billing_type', BillingProduct::TYPE_RECURRING)
                     ->where('status', ProjectBillingItem::STATUS_ACTIVE)
-                    ->sum(fn (ProjectBillingItem $item) => $item->totalAmount()),
-                'next_billing_date' => $subscription?->current_period_end?->toIso8601String(),
+                    ->groupBy(fn (ProjectBillingItem $item) => $item->interval ?: 'month')
+                    ->map(fn ($group, $interval) => [
+                        'interval' => $interval,
+                        'amount' => (int) $group->sum(fn (ProjectBillingItem $item) => $item->totalAmount()),
+                        'currency' => $group->first()?->currency ?: config('billing.currency'),
+                    ])
+                    ->values(),
+                'next_billing_date' => $subscription?->current_period_end?->toIso8601String()
+                    ?: $this->dateString($subscription?->getRawOriginal('starts_at')),
             ],
         ]);
     }
@@ -104,8 +179,8 @@ class ProjectBillingController extends Controller
             'billing_type' => ['required', Rule::in(BillingProduct::TYPES)],
             'interval' => ['nullable', Rule::in(BillingProduct::INTERVALS), 'required_if:billing_type,recurring'],
             'interval_count' => ['nullable', 'integer', 'min:1', 'max:12'],
-            'starts_at' => ['nullable', 'date'],
-            'ends_at' => ['nullable', 'date', 'after_or_equal:starts_at'],
+            'starts_at' => ['nullable', 'date_format:Y-m-d'],
+            'ends_at' => ['nullable', 'date_format:Y-m-d', 'after_or_equal:starts_at'],
         ]);
 
         $item = ProjectBillingItem::query()->create([
@@ -120,7 +195,12 @@ class ProjectBillingController extends Controller
         return response()->json(['data' => $item->fresh('product')], 201);
     }
 
-    public function updateItem(Request $request, Project $project, ProjectBillingItem $item): JsonResponse
+    public function updateItem(
+        Request $request,
+        Project $project,
+        ProjectBillingItem $item,
+        ProjectSubscriptionService $subscriptions
+    ): JsonResponse
     {
         $this->assertItemBelongsToProject($project, $item);
 
@@ -129,8 +209,8 @@ class ProjectBillingController extends Controller
             'description' => ['nullable', 'string', 'max:2000'],
             'unit_amount' => ['sometimes', 'integer', 'min:0'],
             'quantity' => ['sometimes', 'integer', 'min:1', 'max:10000'],
-            'starts_at' => ['nullable', 'date'],
-            'ends_at' => ['nullable', 'date', 'after_or_equal:starts_at'],
+            'starts_at' => ['nullable', 'date_format:Y-m-d'],
+            'ends_at' => ['nullable', 'date_format:Y-m-d', 'after_or_equal:starts_at'],
             'status' => ['sometimes', Rule::in([
                 ProjectBillingItem::STATUS_PENDING,
                 ProjectBillingItem::STATUS_ACTIVE,
@@ -138,14 +218,37 @@ class ProjectBillingController extends Controller
             ])],
         ]);
 
-        $item->update($data);
+        try {
+            $item = $subscriptions->updateItem($item, $data);
+        } catch (Throwable $exception) {
+            report($exception);
+
+            return response()->json(['message' => 'Unable to update the recurring billing item.'], 422);
+        }
 
         return response()->json(['data' => $item->fresh('product')]);
     }
 
-    public function destroyItem(Project $project, ProjectBillingItem $item): Response
+    public function destroyItem(Project $project, ProjectBillingItem $item): Response|JsonResponse
     {
         $this->assertItemBelongsToProject($project, $item);
+
+        // Removing it locally would not stop Stripe from billing for it.
+        $liveSubscription = $item->project_subscription_id
+            && ProjectSubscription::query()
+                ->whereKey($item->project_subscription_id)
+                ->whereIn('status', [
+                    ProjectSubscription::STATUS_ACTIVE,
+                    ProjectSubscription::STATUS_PAST_DUE,
+                    ProjectSubscription::STATUS_PAUSED,
+                ])
+                ->exists();
+
+        if ($liveSubscription) {
+            return response()->json([
+                'message' => 'This service is part of active recurring billing. Cancel the recurring billing before removing it.',
+            ], 422);
+        }
 
         $item->delete();
 
@@ -157,14 +260,9 @@ class ProjectBillingController extends Controller
         $data = $request->validate([
             'billing_item_ids' => ['required', 'array', 'min:1'],
             'billing_item_ids.*' => ['integer'],
-            'payment_method' => ['nullable', Rule::in([
-                ProjectInvoice::METHOD_STRIPE_CARD,
-                ProjectInvoice::METHOD_STRIPE_HOSTED,
-                ProjectInvoice::METHOD_BANK_TRANSFER,
-            ])],
-            'issue_date' => ['nullable', 'date'],
-            'delivery_date' => ['nullable', 'date'],
-            'due_date' => ['nullable', 'date'],
+            'issue_date' => ['nullable', 'date_format:Y-m-d'],
+            'delivery_date' => ['nullable', 'date_format:Y-m-d'],
+            'due_date' => ['nullable', 'date_format:Y-m-d'],
             'notes' => ['nullable', 'string', 'max:2000'],
         ]);
 
@@ -182,7 +280,6 @@ class ProjectBillingController extends Controller
             $invoice = $invoices->createOneTimeInvoice(
                 $project,
                 $items,
-                $data['payment_method'] ?? ProjectInvoice::METHOD_STRIPE_HOSTED,
                 $data
             );
         } catch (Throwable $exception) {
@@ -194,11 +291,42 @@ class ProjectBillingController extends Controller
         return response()->json(['data' => $invoice], 201);
     }
 
+    public function previewPaymentInvoice(Request $request, Project $project, ProjectInvoiceService $invoices): Response|JsonResponse
+    {
+        $data = $request->validate([
+            'billing_item_ids' => ['required', 'array', 'min:1'],
+            'billing_item_ids.*' => ['integer'],
+            'issue_date' => ['nullable', 'date_format:Y-m-d'],
+            'delivery_date' => ['nullable', 'date_format:Y-m-d'],
+            'due_date' => ['nullable', 'date_format:Y-m-d'],
+            'notes' => ['nullable', 'string', 'max:2000'],
+        ]);
+
+        $items = ProjectBillingItem::query()
+            ->where('project_id', $project->id)
+            ->whereIn('id', $data['billing_item_ids'])
+            ->get();
+
+        if ($items->isEmpty()) {
+            return response()->json(['message' => 'No billing items found for this project.'], 422);
+        }
+
+        try {
+            $contents = $invoices->previewOneTimeInvoice($project, $items, $data);
+        } catch (Throwable $exception) {
+            report($exception);
+
+            return response()->json(['message' => $exception->getMessage()], 422);
+        }
+
+        return response($contents, 200, ['Content-Type' => 'application/pdf']);
+    }
+
     public function sendInvoice(Request $request, Project $project, ProjectInvoice $invoice, ProjectInvoiceService $invoices): JsonResponse
     {
         $this->assertInvoiceBelongsToProject($project, $invoice);
 
-        $available = $this->availableRecipients($project);
+        $available = $this->availableRecipients($project, $invoice);
         $allowed = array_column($available, 'email');
 
         $data = $request->validate([
@@ -214,7 +342,7 @@ class ProjectBillingController extends Controller
 
         if (! $recipients) {
             return response()->json([
-                'message' => 'This client has no billing email and no contact with an email address. Add one on the client before sending the invoice.',
+                'message' => 'This invoice has no recipient email. Select a billing contact with an email address for this client.',
             ], 422);
         }
 
@@ -225,19 +353,27 @@ class ProjectBillingController extends Controller
     }
 
     /**
-     * Every address the invoice may be sent to: the client's billing email plus
-     * the project's and company's contacts.
+     * The invoice's own snapshot address is the canonical recipient; the Company's
+     * contacts are offered only as explicit extra recipients.
      */
-    private function availableRecipients(Project $project): array
+    private function availableRecipients(Project $project, ?ProjectInvoice $invoice = null): array
     {
-        $project->loadMissing(['company.contacts', 'contacts']);
+        $project->loadMissing(['company.contacts', 'company.billingContact', 'contacts']);
 
         $candidates = collect();
 
-        if ($project->company?->billing_email) {
+        if ($invoice?->customer_email) {
             $candidates->push([
-                'email' => $project->company->billing_email,
-                'name' => $project->company->name,
+                'email' => $invoice->customer_email,
+                'name' => $invoice->customer_name ?: $project->company?->name,
+                'source' => 'invoice',
+            ]);
+        }
+
+        if ($project->company?->billingContact?->email) {
+            $candidates->push([
+                'email' => $project->company->billingContact->email,
+                'name' => $project->company->billingContact->name,
                 'source' => 'billing',
             ]);
         }
@@ -268,6 +404,174 @@ class ProjectBillingController extends Controller
             ->all();
     }
 
+    /**
+     * Settles an invoice paid outside Stripe (bank transfer, cash). Stripe is told
+     * it was paid out of band so it stops chasing the customer.
+     */
+    public function recordPayment(
+        Request $request,
+        Project $project,
+        ProjectInvoice $invoice,
+        StripeProjectBillingGateway $stripe
+    ): JsonResponse {
+        $this->assertInvoiceBelongsToProject($project, $invoice);
+
+        // A draft invoice is still a real document (e.g. Stripe mirroring failed, or the
+        // client pays by bank transfer), so anything not already closed can be settled.
+        $closed = [
+            ProjectInvoice::STATUS_PAID,
+            ProjectInvoice::STATUS_VOID,
+            ProjectInvoice::STATUS_UNCOLLECTIBLE,
+        ];
+
+        if (in_array($invoice->status, $closed, true)) {
+            return response()->json([
+                'message' => 'This invoice is already settled or closed.',
+            ], 422);
+        }
+
+        $data = $request->validate([
+            'paid_at' => ['nullable', 'date_format:Y-m-d'],
+            'payment_method' => ['nullable', Rule::in([
+                ProjectInvoice::METHOD_BANK_TRANSFER,
+                ProjectInvoice::METHOD_STRIPE_CARD,
+                ProjectInvoice::METHOD_STRIPE_HOSTED,
+            ])],
+        ]);
+
+        $invoice->update([
+            'status' => ProjectInvoice::STATUS_PAID,
+            'payment_status' => ProjectInvoice::PAYMENT_PAID,
+            'payment_method' => $data['payment_method'] ?? ProjectInvoice::METHOD_BANK_TRANSFER,
+            'paid_at' => isset($data['paid_at'])
+                ? Carbon::parse($data['paid_at'])
+                : now(),
+            'amount_paid' => $invoice->total,
+            'amount_due' => 0,
+            'payment_failed_at' => null,
+        ]);
+
+        if ($invoice->stripe_invoice_id) {
+            try {
+                $stripe->payInvoiceOutOfBand($invoice->stripe_invoice_id);
+            } catch (Throwable $exception) {
+                report($exception);
+            }
+        }
+
+        if ($invoice->customer_email) {
+            Notification::route('mail', $invoice->customer_email)
+                ->notify(new ProjectInvoicePaidNotification($invoice->id));
+        }
+
+        return response()->json(['data' => $invoice->fresh()]);
+    }
+
+    public function refundInvoice(
+        Request $request,
+        Project $project,
+        ProjectInvoice $invoice,
+        StripeProjectBillingGateway $stripe
+    ): JsonResponse {
+        $this->assertInvoiceBelongsToProject($project, $invoice);
+
+        if ($invoice->status !== ProjectInvoice::STATUS_PAID || ! $invoice->stripe_payment_intent_id) {
+            return response()->json([
+                'message' => 'Only a paid Stripe invoice with a payment intent can be refunded.',
+            ], 422);
+        }
+
+        $data = $request->validate([
+            'amount' => ['required', 'integer', 'min:1', 'max:'.$invoice->amount_paid],
+            'reason' => ['nullable', 'string', 'max:500'],
+        ]);
+
+        $adjustment = ProjectBillingAdjustment::query()->create([
+            'project_id' => $project->id,
+            'company_id' => $invoice->company_id,
+            'project_invoice_id' => $invoice->id,
+            'project_subscription_id' => $invoice->project_subscription_id,
+            'type' => ProjectBillingAdjustment::TYPE_REFUND,
+            'status' => ProjectBillingAdjustment::STATUS_PENDING,
+            'amount' => $data['amount'],
+            'currency' => $invoice->currency,
+            'reason' => $data['reason'] ?? null,
+        ]);
+
+        try {
+            $refund = $stripe->createRefund(
+                $invoice->stripe_payment_intent_id,
+                $data['amount'],
+                $data['reason'] ?? null,
+                'project-refund-'.$adjustment->id
+            );
+
+            $adjustment->update([
+                'status' => ProjectBillingAdjustment::STATUS_SUCCEEDED,
+                'stripe_refund_id' => $refund->id,
+                'processed_at' => now(),
+            ]);
+        } catch (Throwable $exception) {
+            $adjustment->update([
+                'status' => ProjectBillingAdjustment::STATUS_FAILED,
+                'error_message' => $exception->getMessage(),
+            ]);
+
+            return response()->json(['message' => 'Stripe could not create the refund.'], 422);
+        }
+
+        return response()->json(['data' => $adjustment->fresh()]);
+    }
+
+    public function createDebitNote(
+        Request $request,
+        Project $project,
+        ProjectInvoiceService $invoices
+    ): JsonResponse {
+        $data = $request->validate([
+            'description' => ['required', 'string', 'max:500'],
+            'amount' => ['required', 'integer', 'min:1'],
+        ]);
+
+        try {
+            $invoice = $invoices->createDebitNote($project, $data['description'], $data['amount']);
+        } catch (Throwable $exception) {
+            report($exception);
+
+            return response()->json(['message' => $exception->getMessage()], 422);
+        }
+
+        return response()->json(['data' => $invoice], 201);
+    }
+
+    /**
+     * Retries mirroring an invoice into Stripe after a failed push, so it becomes
+     * payable online without consuming a new invoice number.
+     */
+    public function syncInvoiceToStripe(
+        Project $project,
+        ProjectInvoice $invoice,
+        ProjectInvoiceService $invoices
+    ): JsonResponse {
+        $this->assertInvoiceBelongsToProject($project, $invoice);
+
+        try {
+            $invoice = $invoices->syncToStripe($invoice);
+        } catch (Throwable $exception) {
+            report($exception);
+
+            return response()->json(['message' => $exception->getMessage()], 422);
+        }
+
+        if (! $invoice->stripe_invoice_id) {
+            return response()->json([
+                'message' => 'Stripe did not accept this invoice. Check the client billing details and try again.',
+            ], 422);
+        }
+
+        return response()->json(['data' => $invoice]);
+    }
+
     public function downloadInvoicePdf(Project $project, ProjectInvoice $invoice, ProjectInvoicePdfService $pdf)
     {
         $this->assertInvoiceBelongsToProject($project, $invoice);
@@ -291,11 +595,21 @@ class ProjectBillingController extends Controller
     public function startSubscription(Request $request, Project $project, ProjectSubscriptionService $subscriptions): JsonResponse
     {
         $data = $request->validate([
+            'billing_item_ids' => ['nullable', 'array'],
+            'billing_item_ids.*' => ['integer'],
             'collection_method' => ['nullable', Rule::in(['charge_automatically', 'send_invoice'])],
+            'starts_at' => ['nullable', 'date_format:Y-m-d'],
+            'ends_at' => ['nullable', 'date_format:Y-m-d', 'after_or_equal:starts_at'],
         ]);
 
         try {
-            $subscription = $subscriptions->start($project, $data['collection_method'] ?? 'send_invoice');
+            $subscription = $subscriptions->start(
+                $project,
+                $data['collection_method'] ?? 'send_invoice',
+                $data['starts_at'] ?? null,
+                $data['ends_at'] ?? null,
+                $data['billing_item_ids'] ?? null
+            );
         } catch (Throwable $exception) {
             report($exception);
 
@@ -309,14 +623,21 @@ class ProjectBillingController extends Controller
     {
         $this->assertSubscriptionBelongsToProject($project, $subscription);
 
+        $request->validate([
+            'ends_at' => ['nullable', 'date_format:Y-m-d', 'after_or_equal:today'],
+        ]);
+
         $atPeriodEnd = $request->boolean('at_period_end', true);
+        $endDate = $request->date('ends_at');
 
         try {
-            $subscription = $subscriptions->cancel($subscription, $atPeriodEnd);
+            $subscription = $endDate
+                ? $subscriptions->cancelAt($subscription, $endDate)
+                : $subscriptions->cancel($subscription, $atPeriodEnd);
         } catch (Throwable $exception) {
             report($exception);
 
-            return response()->json(['message' => 'Unable to cancel the subscription.'], 422);
+            return response()->json(['message' => $exception->getMessage()], 422);
         }
 
         return response()->json(['data' => $subscription]);
@@ -326,12 +647,18 @@ class ProjectBillingController extends Controller
     {
         $this->assertSubscriptionBelongsToProject($project, $subscription);
 
+        $data = $request->validate([
+            'paused_at' => ['nullable', 'date_format:Y-m-d', 'after:today'],
+        ]);
+
         try {
-            $subscription = $subscriptions->pause($subscription, $request->boolean('paused', true));
+            $subscription = ! empty($data['paused_at'])
+                ? $subscriptions->pauseAt($subscription, Carbon::parse($data['paused_at']))
+                : $subscriptions->pause($subscription, $request->boolean('paused', true));
         } catch (Throwable $exception) {
             report($exception);
 
-            return response()->json(['message' => 'Unable to update the subscription.'], 422);
+            return response()->json(['message' => $exception->getMessage()], 422);
         }
 
         return response()->json(['data' => $subscription]);
@@ -350,5 +677,10 @@ class ProjectBillingController extends Controller
     private function assertSubscriptionBelongsToProject(Project $project, ProjectSubscription $subscription): void
     {
         abort_unless($subscription->project_id === $project->id, 404);
+    }
+
+    private function dateString(mixed $value): ?string
+    {
+        return $value ? Carbon::parse($value)->format('Y-m-d') : null;
     }
 }

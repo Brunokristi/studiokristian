@@ -386,8 +386,17 @@ class ProjectBillingWebhookTest extends TestCase
         $company = Company::query()->create([
             'name' => 'ABC s.r.o.',
             'registration_number' => '12345678',
-            'billing_email' => 'billing@abc.test',
+            'address' => "Hlavná 1\n81101 Bratislava",
         ]);
+
+        $billingContact = $company->contacts()->create([
+            'first_name' => 'Billing',
+            'last_name' => 'Contact',
+            'email' => 'billing@abc.test',
+            'active' => true,
+        ]);
+
+        $company->update(['billing_contact_id' => $billingContact->id]);
 
         $serviceProduct = ServiceProduct::query()->create([
             'name' => 'Web',

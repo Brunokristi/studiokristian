@@ -109,12 +109,7 @@ const form =
         address: '',
         status: 'active',
         internal_notes: '',
-        billing_email: '',
-        billing_phone: '',
-        billing_address_line1: '',
-        billing_address_city: '',
-        billing_address_postal_code: '',
-        billing_address_country: ''
+        billing_contact_id: ''
     })
 
 
@@ -124,6 +119,41 @@ const editing =
             props.id
         )
     )
+
+
+/*
+| Only contacts with an email can receive invoices, and an inactive contact
+| must not be selectable as the billing identity.
+*/
+const billingContactOptions =
+    computed(() => {
+        const selectable =
+            (contacts.value || [])
+                .filter(
+                    contact =>
+                        contact.email &&
+                        contact.active !== false
+                )
+                .map(
+                    contact => ({
+                        value:
+                            String(contact.id),
+
+                        label:
+                            `${[contact.first_name, contact.last_name]
+                                .filter(Boolean)
+                                .join(' ')} — ${contact.email}`
+                    })
+                )
+
+        return [
+            {
+                value: '',
+                label: 'No billing contact'
+            },
+            ...selectable
+        ]
+    })
 
 
 const pageTitle =
@@ -544,23 +574,10 @@ async function loadClient() {
                 internal_notes:
                     client.internal_notes || '',
 
-                billing_email:
-                    client.billing_email || '',
-
-                billing_phone:
-                    client.billing_phone || '',
-
-                billing_address_line1:
-                    client.billing_address_line1 || '',
-
-                billing_address_city:
-                    client.billing_address_city || '',
-
-                billing_address_postal_code:
-                    client.billing_address_postal_code || '',
-
-                billing_address_country:
-                    client.billing_address_country || ''
+                billing_contact_id:
+                    client.billing_contact_id
+                        ? String(client.billing_contact_id)
+                        : ''
             }
         )
 
@@ -619,6 +636,8 @@ async function submit() {
                     `/clients/${props.id}`,
                     {
                         ...form,
+                        billing_contact_id:
+                            form.billing_contact_id || null,
                         display_name: undefined,
                         billing_address: undefined,
                         billing_details: undefined
@@ -628,6 +647,8 @@ async function submit() {
                     '/clients',
                     {
                         ...form,
+                        billing_contact_id:
+                            form.billing_contact_id || null,
                         display_name: undefined,
                         billing_address: undefined,
                         billing_details: undefined
@@ -668,18 +689,10 @@ async function submit() {
                     response.data.data.status || 'active',
                 internal_notes:
                     response.data.data.internal_notes || '',
-                billing_email:
-                    response.data.data.billing_email || '',
-                billing_phone:
-                    response.data.data.billing_phone || '',
-                billing_address_line1:
-                    response.data.data.billing_address_line1 || '',
-                billing_address_city:
-                    response.data.data.billing_address_city || '',
-                billing_address_postal_code:
-                    response.data.data.billing_address_postal_code || '',
-                billing_address_country:
-                    response.data.data.billing_address_country || ''
+                billing_contact_id:
+                    response.data.data.billing_contact_id
+                        ? String(response.data.data.billing_contact_id)
+                        : ''
             }
         )
 
@@ -1066,113 +1079,39 @@ useAdminPageHeader({
                         </div>
 
 
-                        <!-- Billing profile used for invoices and Stripe -->
-
-                        <div
-                            class="
-                                grid
-                                grid-cols-1
-                                gap-6
-                                sm:grid-cols-2
-                            "
-                        >
-                            <FormField
-                                id="client-billing-email"
-                                v-model="
-                                    form.billing_email
-                                "
-                                name="billing_email"
-                                type="text"
-                                label="Billing email"
-                                hint="Used for invoices and the Stripe customer."
-                                :error="
-                                    errors.billing_email?.[0] ||
-                                    ''
-                                "
-                            />
-
-                            <FormField
-                                id="client-billing-phone"
-                                v-model="
-                                    form.billing_phone
-                                "
-                                name="billing_phone"
-                                type="text"
-                                label="Billing phone"
-                                :error="
-                                    errors.billing_phone?.[0] ||
-                                    ''
-                                "
-                            />
-                        </div>
-
+                        <!-- Billing: one selected contact from this client -->
 
                         <FormField
-                            id="client-billing-line1"
+                            id="client-billing-contact"
                             v-model="
-                                form.billing_address_line1
+                                form.billing_contact_id
                             "
-                            name="billing_address_line1"
-                            type="text"
-                            label="Billing street"
+                            name="billing_contact_id"
+                            type="select"
+                            label="Billing contact"
+                            hint="Invoices and the Stripe customer use this contact."
+                            :options="
+                                billingContactOptions
+                            "
                             :error="
-                                errors.billing_address_line1?.[0] ||
+                                errors.billing_contact_id?.[0] ||
                                 ''
                             "
                         />
 
 
-                        <div
+                        <p
+                            v-if="
+                                editing &&
+                                billingContactOptions.length <= 1
+                            "
                             class="
-                                grid
-                                grid-cols-1
-                                gap-6
-                                sm:grid-cols-3
+                                text-xs
+                                text-dark/60
                             "
                         >
-                            <FormField
-                                id="client-billing-city"
-                                v-model="
-                                    form.billing_address_city
-                                "
-                                name="billing_address_city"
-                                type="text"
-                                label="Billing city"
-                                :error="
-                                    errors.billing_address_city?.[0] ||
-                                    ''
-                                "
-                            />
-
-                            <FormField
-                                id="client-billing-postal"
-                                v-model="
-                                    form.billing_address_postal_code
-                                "
-                                name="billing_address_postal_code"
-                                type="text"
-                                label="Postal code"
-                                :error="
-                                    errors.billing_address_postal_code?.[0] ||
-                                    ''
-                                "
-                            />
-
-                            <FormField
-                                id="client-billing-country"
-                                v-model="
-                                    form.billing_address_country
-                                "
-                                name="billing_address_country"
-                                type="text"
-                                label="Country code"
-                                hint="Two letters, e.g. SK."
-                                :error="
-                                    errors.billing_address_country?.[0] ||
-                                    ''
-                                "
-                            />
-                        </div>
+                            Add a contact with an email address before selecting a billing contact.
+                        </p>
 
 
                         <FormField

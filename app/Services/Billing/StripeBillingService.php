@@ -162,6 +162,9 @@ class StripeBillingService
      */
     public function createOrUpdateCustomer(Company $company, ?string $email = null, ?int $projectId = null): StripeObject
     {
+        $company->loadMissing('billingContact');
+        $billingContact = $company->billingContact;
+
         $payload = [
             'name' => $company->name,
             'metadata' => array_filter([
@@ -171,25 +174,18 @@ class StripeBillingService
             ]),
         ];
 
-        $resolvedEmail = $email ?: $company->billing_email;
+        $resolvedEmail = $email ?: $billingContact?->email;
         if ($resolvedEmail) {
             $payload['email'] = $resolvedEmail;
         }
 
-        if ($company->billing_phone) {
-            $payload['phone'] = $company->billing_phone;
+        if ($billingContact?->phone) {
+            $payload['phone'] = $billingContact->phone;
         }
 
-        $address = array_filter([
-            'line1' => $company->billing_address_line1,
-            'line2' => $company->billing_address_line2,
-            'city' => $company->billing_address_city,
-            'postal_code' => $company->billing_address_postal_code,
-            'country' => $company->billing_address_country,
-        ]);
-
-        if ($address) {
-            $payload['address'] = $address;
+        // The Company keeps one free-form canonical address, so it is not parsed apart.
+        if (trim((string) $company->address) !== '') {
+            $payload['address'] = ['line1' => $company->address];
         }
 
         $billingCustomer = $projectId

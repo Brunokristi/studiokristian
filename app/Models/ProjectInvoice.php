@@ -119,6 +119,11 @@ class ProjectInvoice extends Model
         return $this->hasMany(ProjectInvoiceItem::class)->orderBy('sort_order');
     }
 
+    public function adjustments(): HasMany
+    {
+        return $this->hasMany(ProjectBillingAdjustment::class);
+    }
+
     public function isOverdue(): bool
     {
         return $this->status === self::STATUS_OPEN

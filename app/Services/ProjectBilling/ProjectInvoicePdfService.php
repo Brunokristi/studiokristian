@@ -4,6 +4,7 @@ namespace App\Services\ProjectBilling;
 
 use App\Models\ProjectInvoice;
 use Barryvdh\DomPDF\Facade\Pdf;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Storage;
 
 /**
@@ -16,12 +17,7 @@ class ProjectInvoicePdfService
     {
         $invoice->loadMissing(['items', 'project', 'company']);
 
-        $pdf = Pdf::loadView('pdf.project-invoice', [
-            'invoice' => $invoice,
-            'items' => $invoice->items,
-            'tax' => config('billing.tax'),
-            'footerText' => config('billing.invoice.footer_text'),
-        ])->setPaper('a4');
+        $pdf = $this->render($invoice, $invoice->items);
 
         $disk = config('billing.invoice.pdf_disk');
         $path = sprintf(
@@ -37,6 +33,11 @@ class ProjectInvoicePdfService
         return $path;
     }
 
+    public function preview(ProjectInvoice $invoice, Collection $items): string
+    {
+        return $this->render($invoice, $items)->output();
+    }
+
     public function contents(ProjectInvoice $invoice): ?string
     {
         if (! $invoice->pdf_path) {
@@ -48,5 +49,15 @@ class ProjectInvoicePdfService
         return $disk->exists($invoice->pdf_path)
             ? $disk->get($invoice->pdf_path)
             : null;
+    }
+
+    private function render(ProjectInvoice $invoice, Collection $items): \Barryvdh\DomPDF\PDF
+    {
+        return Pdf::loadView('pdf.project-invoice', [
+            'invoice' => $invoice,
+            'items' => $items,
+            'tax' => config('billing.tax'),
+            'footerText' => config('billing.invoice.footer_text'),
+        ])->setPaper('a4');
     }
 }

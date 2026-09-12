@@ -93,6 +93,7 @@ class BillingController extends Controller
         }
 
         $company->update($attributes);
+        $credentials->syncBillingContactFromProfile($company, $data);
         $company = $company->fresh();
 
         $billingCustomer = SaasBillingCustomer::query()

@@ -10,6 +10,8 @@ use App\Models\ProjectInvoice;
 use App\Models\ProjectSubscription;
 use App\Models\ServiceProduct;
 use App\Models\User;
+use App\Notifications\ProjectInvoiceIssuedNotification;
+use App\Notifications\ProjectInvoicePaidNotification;
 use App\Services\ProjectBilling\ProjectInvoiceNumberService;
 use App\Services\ProjectBilling\StripeProjectBillingGateway;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -223,6 +225,184 @@ class ProjectBillingTest extends TestCase
         $this->assertSame(8500, $subscription->fresh('items')->monthlyTotal());
     }
 
+    public function test_new_recurring_item_is_added_to_the_existing_subscription(): void
+    {
+        [$admin, $project, $company] = $this->fixture();
+
+        $subscription = ProjectSubscription::query()->create([
+            'project_id' => $project->id,
+            'company_id' => $company->id,
+            'status' => ProjectSubscription::STATUS_ACTIVE,
+            'stripe_subscription_id' => 'sub_existing_services',
+        ]);
+
+        $item = $this->billingItem($project, 'Monitoring', 1500, 'recurring');
+
+        $this->mockGateway(function (MockInterface $mock): void {
+            $mock->shouldNotReceive('resolveCustomer');
+            $mock->shouldReceive('retrieveSubscription')->once()
+                ->andReturn(StripeObject::constructFrom([
+                    'id' => 'sub_existing_services',
+                    'items' => ['data' => []],
+                ]));
+            $mock->shouldReceive('createProduct')->once()
+                ->andReturn(StripeObject::constructFrom(['id' => 'prod_monitoring']));
+            $mock->shouldReceive('createRecurringPrice')->once()
+                ->andReturn(StripeObject::constructFrom(['id' => 'price_monitoring']));
+            $mock->shouldReceive('updateSubscriptionItems')->once()
+                ->with('sub_existing_services', [
+                    ['price' => 'price_monitoring', 'quantity' => 1],
+                ])
+                ->andReturn(StripeObject::constructFrom([
+                    'id' => 'sub_existing_services',
+                    'items' => ['data' => []],
+                ]));
+            $mock->shouldNotReceive('createSubscription');
+        });
+
+        $this->actingAs($admin)
+            ->postJson("/admin/client-portal/api/projects/{$project->id}/billing/subscription")
+            ->assertCreated();
+
+        $this->assertSame($subscription->id, $item->fresh()->project_subscription_id);
+        $this->assertSame(ProjectBillingItem::STATUS_ACTIVE, $item->fresh()->status);
+        $this->assertSame(1, ProjectSubscription::query()->count());
+    }
+
+    public function test_future_only_recurring_items_create_a_schedule_until_their_start(): void
+    {
+        [$admin, $project] = $this->fixture();
+        $item = $this->billingItem($project, 'Hosting', 2000, 'recurring');
+        $item->update(['starts_at' => '2026-10-01']);
+
+        $this->mockGateway(function (MockInterface $mock): void {
+            $mock->shouldReceive('resolveCustomer')->once()->andReturn('cus_future');
+            $mock->shouldReceive('isFutureForCustomer')->once()->andReturn(true);
+            $mock->shouldReceive('createProduct')->once()
+                ->andReturn(StripeObject::constructFrom(['id' => 'prod_future']));
+            $mock->shouldReceive('createRecurringPrice')->once()
+                ->andReturn(StripeObject::constructFrom(['id' => 'price_future']));
+            $mock->shouldReceive('createFutureSchedule')->once()
+                ->withArgs(function ($customer, $items, $startDate, $method, $metadata, $endDate) {
+                    return $customer === 'cus_future'
+                        && count($items) === 1
+                        && $method === 'send_invoice'
+                        && $startDate === \Illuminate\Support\Carbon::parse('2026-10-01')->timestamp
+                        && $endDate === null;
+                })
+                ->andReturn(StripeObject::constructFrom([
+                    'id' => 'sch_future',
+                ]));
+        });
+
+        $this->actingAs($admin)
+            ->postJson("/admin/client-portal/api/projects/{$project->id}/billing/subscription")
+            ->assertCreated();
+
+        $this->assertStringStartsWith('2026-10-01', (string) ProjectSubscription::query()->firstOrFail()->starts_at);
+        $this->assertSame('sch_future', ProjectSubscription::query()->firstOrFail()->stripe_schedule_id);
+        $this->assertSame(ProjectSubscription::STATUS_DRAFT, ProjectSubscription::query()->firstOrFail()->status);
+        $this->assertNull(ProjectSubscription::query()->firstOrFail()->ends_at);
+    }
+
+    public function test_past_service_start_backdates_stripe_subscription_without_using_payment_date(): void
+    {
+        [$admin, $project] = $this->fixture();
+        $item = $this->billingItem($project, 'Hosting', 2000, 'recurring');
+        $item->update(['starts_at' => '2026-09-01']);
+
+        $startTimestamp = \Illuminate\Support\Carbon::parse('2026-09-01')->timestamp;
+
+        $this->mockGateway(function (MockInterface $mock) use ($startTimestamp): void {
+            $mock->shouldReceive('resolveCustomer')->once()->andReturn('cus_backdated');
+            $mock->shouldReceive('isFutureForCustomer')->once()->andReturn(false);
+            $mock->shouldReceive('createProduct')->once()
+                ->andReturn(StripeObject::constructFrom(['id' => 'prod_backdated']));
+            $mock->shouldReceive('createRecurringPrice')->once()
+                ->andReturn(StripeObject::constructFrom(['id' => 'price_backdated']));
+            $mock->shouldReceive('createSubscription')->once()
+                ->withArgs(function ($customer, $items, $method, $metadata, $idempotencyKey, $backdateStart) use ($startTimestamp) {
+                    return $customer === 'cus_backdated'
+                        && $method === 'send_invoice'
+                        && $backdateStart === $startTimestamp
+                        && $idempotencyKey !== null;
+                })
+                ->andReturn(StripeObject::constructFrom([
+                    'id' => 'sub_backdated',
+                    'status' => 'active',
+                    'current_period_start' => $startTimestamp,
+                    'current_period_end' => \Illuminate\Support\Carbon::parse('2026-10-01')->timestamp,
+                    'items' => ['data' => []],
+                    'latest_invoice' => null,
+                ]));
+        });
+
+        $this->actingAs($admin)
+            ->postJson("/admin/client-portal/api/projects/{$project->id}/billing/subscription")
+            ->assertCreated();
+
+        $subscription = ProjectSubscription::query()->firstOrFail();
+        $this->assertStringStartsWith('2026-09-01', (string) $subscription->starts_at);
+        $this->assertSame($startTimestamp, $subscription->current_period_start->timestamp);
+        $this->assertSame(\Illuminate\Support\Carbon::parse('2026-10-01')->timestamp, $subscription->current_period_end->timestamp);
+    }
+
+    public function test_recurring_item_price_change_updates_stripe_item_instead_of_creating_subscription(): void
+    {
+        [$admin, $project, $company] = $this->fixture();
+
+        $subscription = ProjectSubscription::query()->create([
+            'project_id' => $project->id,
+            'company_id' => $company->id,
+            'status' => ProjectSubscription::STATUS_ACTIVE,
+            'stripe_subscription_id' => 'sub_price_change',
+        ]);
+
+        $item = $this->billingItem($project, 'Hosting', 2000, 'recurring');
+        $item->update([
+            'project_subscription_id' => $subscription->id,
+            'status' => ProjectBillingItem::STATUS_ACTIVE,
+            'stripe_subscription_item_id' => 'si_hosting',
+            'stripe_price_id' => 'price_old',
+        ]);
+
+        $this->mockGateway(function (MockInterface $mock): void {
+            $mock->shouldReceive('retrieveSubscription')->once()
+                ->andReturn(StripeObject::constructFrom([
+                    'id' => 'sub_price_change',
+                    'items' => ['data' => [[
+                        'id' => 'si_hosting',
+                        'quantity' => 1,
+                        'price' => ['id' => 'price_old'],
+                    ]]],
+                ]));
+            $mock->shouldReceive('createProduct')->once()
+                ->andReturn(StripeObject::constructFrom(['id' => 'prod_hosting']));
+            $mock->shouldReceive('createRecurringPrice')->once()
+                ->andReturn(StripeObject::constructFrom(['id' => 'price_new']));
+            $mock->shouldReceive('updateSubscriptionItems')->once()
+                ->with('sub_price_change', [[
+                    'id' => 'si_hosting',
+                    'price' => 'price_new',
+                    'quantity' => 1,
+                ]])
+                ->andReturn(StripeObject::constructFrom(['id' => 'sub_price_change']));
+            $mock->shouldNotReceive('createSubscription');
+        });
+
+        $this->actingAs($admin)
+            ->putJson("/admin/client-portal/api/projects/{$project->id}/billing/items/{$item->id}", [
+                'name' => 'Hosting',
+                'unit_amount' => 3000,
+                'quantity' => 1,
+            ])
+            ->assertOk();
+
+        $this->assertSame(3000, $item->fresh()->unit_amount);
+        $this->assertSame('price_new', $item->fresh()->stripe_price_id);
+        $this->assertSame(1, ProjectSubscription::query()->count());
+    }
+
     public function test_a_project_cannot_start_two_active_subscriptions(): void
     {
         [$admin, $project, $company] = $this->fixture();
@@ -244,6 +424,32 @@ class ProjectBillingTest extends TestCase
             ->assertStatus(422);
 
         $this->assertSame(1, ProjectSubscription::query()->count());
+    }
+
+    public function test_recurring_subscription_requires_a_pending_or_active_unassigned_service(): void
+    {
+        [$admin, $project, $company] = $this->fixture();
+
+        ProjectSubscription::query()->create([
+            'project_id' => $project->id,
+            'company_id' => $company->id,
+            'status' => ProjectSubscription::STATUS_CANCELED,
+            'stripe_subscription_id' => 'sub_canceled_services',
+        ]);
+
+        $this->billingItem($project, 'Old Hosting', 2000, 'recurring')->update([
+            'status' => ProjectBillingItem::STATUS_CANCELED,
+            'project_subscription_id' => ProjectSubscription::query()->latest('id')->value('id'),
+        ]);
+
+        $this->mockGateway(function (MockInterface $mock): void {
+            $mock->shouldNotReceive('createSubscription');
+        });
+
+        $this->actingAs($admin)
+            ->postJson("/admin/client-portal/api/projects/{$project->id}/billing/subscription")
+            ->assertStatus(422)
+            ->assertJsonPath('message', 'Add a new recurring service before starting recurring billing. Previously canceled services cannot be reactivated automatically.');
     }
 
     public function test_admin_can_cancel_recurring_billing_at_period_end(): void
@@ -272,6 +478,91 @@ class ProjectBillingTest extends TestCase
         $subscription->refresh();
         $this->assertTrue($subscription->cancel_at_period_end);
         $this->assertSame(ProjectSubscription::STATUS_ACTIVE, $subscription->status);
+    }
+
+    public function test_schedule_backed_subscription_cancellation_includes_phase_items(): void
+    {
+        [$admin, $project, $company] = $this->fixture();
+
+        $subscription = ProjectSubscription::query()->create([
+            'project_id' => $project->id,
+            'company_id' => $company->id,
+            'status' => ProjectSubscription::STATUS_ACTIVE,
+            'stripe_subscription_id' => 'sub_sched_cancel',
+            'stripe_schedule_id' => 'sch_cancel',
+        ]);
+
+        $this->mockGateway(function (MockInterface $mock): void {
+            $mock->shouldReceive('retrieveSchedule')->once()->with('sch_cancel')
+                ->andReturn(StripeObject::constructFrom([
+                    'id' => 'sch_cancel',
+                    'phases' => [[
+                        'start_date' => now()->subMonth()->timestamp,
+                        'end_date' => now()->addMonth()->timestamp,
+                        'items' => [[
+                            'price' => ['id' => 'price_hosting'],
+                            'quantity' => 1,
+                        ]],
+                    ]],
+                ]));
+            $mock->shouldReceive('updateSchedule')->once()
+                ->withArgs(function ($id, $payload): bool {
+                    return $id === 'sch_cancel'
+                        && $payload['end_behavior'] === 'cancel'
+                        && isset($payload['phases'][0]['items']);
+                })
+                ->andReturn(StripeObject::constructFrom(['id' => 'sch_cancel']));
+            $mock->shouldNotReceive('cancelSubscription');
+        });
+
+        $this->actingAs($admin)
+            ->postJson("/admin/client-portal/api/projects/{$project->id}/billing/subscription/{$subscription->id}/cancel", [
+                'at_period_end' => true,
+            ])
+            ->assertOk();
+    }
+
+    public function test_schedule_backed_subscription_pause_includes_phase_items(): void
+    {
+        [$admin, $project, $company] = $this->fixture();
+
+        $subscription = ProjectSubscription::query()->create([
+            'project_id' => $project->id,
+            'company_id' => $company->id,
+            'status' => ProjectSubscription::STATUS_ACTIVE,
+            'stripe_subscription_id' => 'sub_sched_pause',
+            'stripe_schedule_id' => 'sch_pause',
+        ]);
+
+        $pauseAt = now()->addMonth()->toDateString();
+
+        $this->mockGateway(function (MockInterface $mock): void {
+            $mock->shouldReceive('retrieveSchedule')->once()->with('sch_pause')
+                ->andReturn(StripeObject::constructFrom([
+                    'id' => 'sch_pause',
+                    'phases' => [[
+                        'start_date' => now()->subMonth()->timestamp,
+                        'end_date' => now()->addMonths(2)->timestamp,
+                        'items' => [[
+                            'price' => ['id' => 'price_hosting'],
+                            'quantity' => 1,
+                        ]],
+                    ]],
+                ]));
+            $mock->shouldReceive('updateSchedule')->once()
+                ->withArgs(fn ($id, $payload) =>
+                    $id === 'sch_pause'
+                    && isset($payload['phases'][0]['items'])
+                    && isset($payload['phases'][1]['pause_collection'])
+                )
+                ->andReturn(StripeObject::constructFrom(['id' => 'sch_pause']));
+        });
+
+        $this->actingAs($admin)
+            ->postJson("/admin/client-portal/api/projects/{$project->id}/billing/subscription/{$subscription->id}/pause", [
+                'paused_at' => $pauseAt,
+            ])
+            ->assertOk();
     }
 
     public function test_billing_endpoints_reject_items_from_another_project(): void
@@ -398,20 +689,11 @@ class ProjectBillingTest extends TestCase
         $this->assertSame(3000, ProjectBillingItem::query()->where('project_id', $projectB->id)->value('unit_amount'));
     }
 
-    public function test_invoice_is_sendable_when_the_client_only_has_a_contact_email(): void
+    public function test_sending_an_old_invoice_uses_its_snapshot_not_the_current_billing_contact(): void
     {
         Notification::fake();
 
         [$admin, $project, $company] = $this->fixture();
-
-        // No dedicated billing email - only a contact, like a real client record.
-        $company->update(['billing_email' => null]);
-        $company->contacts()->create([
-            'first_name' => 'Lenka',
-            'last_name' => 'Kontakt',
-            'email' => 'kontakt@abc.test',
-            'active' => true,
-        ]);
 
         $invoice = ProjectInvoice::query()->create([
             'project_id' => $project->id,
@@ -420,23 +702,32 @@ class ProjectBillingTest extends TestCase
             'status' => ProjectInvoice::STATUS_OPEN,
             'total' => 100000,
             'amount_due' => 100000,
+            'customer_email' => 'a@example.test',
             'issue_date' => now()->toDateString(),
         ]);
 
-        $this->actingAs($admin)
+        // The client later switches to a different billing contact.
+        $newContact = $company->contacts()->create([
+            'first_name' => 'Jane',
+            'last_name' => 'Nová',
+            'email' => 'b@example.test',
+            'active' => true,
+        ]);
+        $company->update(['billing_contact_id' => $newContact->id]);
+
+        $response = $this->actingAs($admin)
             ->postJson("/admin/client-portal/api/projects/{$project->id}/billing/invoices/{$invoice->id}/send")
             ->assertOk();
 
-        $invoice->refresh();
-        $this->assertSame('kontakt@abc.test', $invoice->customer_email);
-        $this->assertNotNull($invoice->sent_at);
+        // The historical document still goes to the original recipient.
+        $this->assertSame(['a@example.test'], $response->json('recipients'));
+        $this->assertSame('a@example.test', $invoice->fresh()->customer_email);
         Notification::assertCount(1);
     }
 
-    public function test_sending_fails_clearly_when_no_email_exists_anywhere(): void
+    public function test_sending_fails_clearly_when_the_invoice_has_no_recipient(): void
     {
         [$admin, $project, $company] = $this->fixture();
-        $company->update(['billing_email' => null]);
 
         $invoice = ProjectInvoice::query()->create([
             'project_id' => $project->id,
@@ -450,7 +741,7 @@ class ProjectBillingTest extends TestCase
         $this->actingAs($admin)
             ->postJson("/admin/client-portal/api/projects/{$project->id}/billing/invoices/{$invoice->id}/send")
             ->assertStatus(422)
-            ->assertJsonPath('message', 'This client has no billing email and no contact with an email address. Add one on the client before sending the invoice.');
+            ->assertJsonPath('message', 'This invoice has no recipient email. Select a billing contact with an email address for this client.');
     }
 
     public function test_failed_stripe_subscription_creation_leaves_no_orphan_record(): void
@@ -564,6 +855,480 @@ class ProjectBillingTest extends TestCase
         ]);
     }
 
+    public function test_invoice_snapshots_billing_identity_and_later_changes_do_not_alter_it(): void
+    {
+        [$admin, $project, $company] = $this->fixture();
+
+        $contactA = $company->billingContact;
+        $company->update(['address' => 'Address A']);
+
+        $item = $this->billingItem($project, 'Consulting', 100000);
+        $this->mockGatewayForInvoice();
+
+        $this->actingAs($admin)
+            ->postJson("/admin/client-portal/api/projects/{$project->id}/billing/invoices", [
+                'billing_item_ids' => [$item->id],
+            ])
+            ->assertCreated();
+
+        $first = ProjectInvoice::query()->latest('id')->firstOrFail();
+
+        $this->assertSame($contactA->email, $first->customer_email);
+        $this->assertSame('Address A', $first->customer_address);
+
+        // The client later moves and appoints a different billing contact.
+        $contactB = $company->contacts()->create([
+            'first_name' => 'Jana',
+            'last_name' => 'Nová',
+            'email' => 'b@example.test',
+            'active' => true,
+        ]);
+
+        $company->update([
+            'address' => 'Address B',
+            'billing_contact_id' => $contactB->id,
+        ]);
+
+        $second = $this->billingItem($project, 'More consulting', 50000);
+        $this->mockGatewayForInvoice();
+
+        $this->actingAs($admin)
+            ->postJson("/admin/client-portal/api/projects/{$project->id}/billing/invoices", [
+                'billing_item_ids' => [$second->id],
+            ])
+            ->assertCreated();
+
+        // The historical invoice is untouched...
+        $first->refresh();
+        $this->assertSame($contactA->email, $first->customer_email);
+        $this->assertSame('Address A', $first->customer_address);
+
+        // ...while the new invoice uses the current identity.
+        $latest = ProjectInvoice::query()->latest('id')->firstOrFail();
+        $this->assertSame('b@example.test', $latest->customer_email);
+        $this->assertSame('Address B', $latest->customer_address);
+    }
+
+    public function test_invoicing_requires_a_billing_contact_with_an_email(): void
+    {
+        [$admin, $project, $company] = $this->fixture();
+        $company->update(['billing_contact_id' => null]);
+
+        $item = $this->billingItem($project, 'Consulting', 100000);
+
+        $this->mockGateway(function (MockInterface $mock): void {
+            $mock->shouldNotReceive('createInvoice');
+        });
+
+        $this->actingAs($admin)
+            ->postJson("/admin/client-portal/api/projects/{$project->id}/billing/invoices", [
+                'billing_item_ids' => [$item->id],
+            ])
+            ->assertStatus(422)
+            ->assertJsonPath('message', 'Select a billing contact with an email address for this client before invoicing.');
+
+        $this->assertDatabaseCount('project_invoices', 0);
+    }
+
+    public function test_stripe_customer_uses_the_company_name_and_billing_contact(): void
+    {
+        [, $project, $company] = $this->fixture();
+
+        $gateway = new class extends StripeProjectBillingGateway
+        {
+            public array $captured = [];
+
+            public function __construct()
+            {
+            }
+
+            public function resolveCustomer(Company $company): string
+            {
+                $company->loadMissing('billingContact');
+
+                $this->captured = [
+                    'name' => $company->name,
+                    'email' => $company->billingContact?->email,
+                    'phone' => $company->billingContact?->phone,
+                    'address' => $company->address,
+                ];
+
+                return 'cus_captured';
+            }
+        };
+
+        $gateway->resolveCustomer($company);
+
+        $this->assertSame($company->name, $gateway->captured['name']);
+        $this->assertSame($company->billingContact->email, $gateway->captured['email']);
+        $this->assertSame($company->billingContact->phone, $gateway->captured['phone']);
+        $this->assertSame($company->address, $gateway->captured['address']);
+    }
+
+    public function test_a_one_time_item_can_be_invoiced_more_than_once(): void
+    {
+        [$admin, $project] = $this->fixture();
+        $item = $this->billingItem($project, 'Consulting', 100000);
+
+        foreach (['first', 'second'] as $round) {
+            $this->mockGatewayForInvoice();
+
+            $this->actingAs($admin)
+                ->postJson("/admin/client-portal/api/projects/{$project->id}/billing/invoices", [
+                    'billing_item_ids' => [$item->id],
+                ])
+                ->assertCreated();
+        }
+
+        // Two distinct invoices, each with its own number from the shared sequence.
+        $this->assertDatabaseCount('project_invoices', 2);
+
+        $numbers = ProjectInvoice::query()->pluck('invoice_number')->all();
+        $this->assertCount(2, array_unique($numbers));
+    }
+
+    public function test_admin_can_remove_a_billing_item(): void
+    {
+        [$admin, $project] = $this->fixture();
+        $item = $this->billingItem($project, 'Branding', 50000);
+
+        $this->actingAs($admin)
+            ->deleteJson("/admin/client-portal/api/projects/{$project->id}/billing/items/{$item->id}")
+            ->assertNoContent();
+
+        $this->assertDatabaseCount('project_billing_items', 0);
+    }
+
+    public function test_removing_an_item_keeps_already_issued_invoice_lines(): void
+    {
+        [$admin, $project] = $this->fixture();
+        $item = $this->billingItem($project, 'Consulting', 100000);
+
+        $this->mockGatewayForInvoice();
+
+        $this->actingAs($admin)
+            ->postJson("/admin/client-portal/api/projects/{$project->id}/billing/invoices", [
+                'billing_item_ids' => [$item->id],
+            ])
+            ->assertCreated();
+
+        $this->actingAs($admin)
+            ->deleteJson("/admin/client-portal/api/projects/{$project->id}/billing/items/{$item->id}")
+            ->assertNoContent();
+
+        // The invoice remains a complete historical document.
+        $invoice = ProjectInvoice::query()->firstOrFail();
+        $this->assertSame(1, $invoice->items()->count());
+        $this->assertSame('Consulting', $invoice->items()->first()->name);
+    }
+
+    public function test_an_item_inside_active_recurring_billing_cannot_be_removed(): void
+    {
+        [$admin, $project, $company] = $this->fixture();
+
+        $subscription = ProjectSubscription::query()->create([
+            'project_id' => $project->id,
+            'company_id' => $company->id,
+            'status' => ProjectSubscription::STATUS_ACTIVE,
+            'stripe_subscription_id' => 'sub_live',
+        ]);
+
+        $item = $this->billingItem($project, 'Hosting', 2000, 'recurring');
+        $item->update(['project_subscription_id' => $subscription->id]);
+
+        $this->actingAs($admin)
+            ->deleteJson("/admin/client-portal/api/projects/{$project->id}/billing/items/{$item->id}")
+            ->assertStatus(422)
+            ->assertJsonPath('message', 'This service is part of active recurring billing. Cancel the recurring billing before removing it.');
+
+        $this->assertDatabaseCount('project_billing_items', 1);
+    }
+
+    public function test_an_item_from_another_project_cannot_be_removed(): void
+    {
+        [$admin, $projectA] = $this->fixture();
+        [, $projectB] = $this->fixture('Other');
+
+        $foreignItem = $this->billingItem($projectB, 'Foreign', 1000);
+
+        $this->actingAs($admin)
+            ->deleteJson("/admin/client-portal/api/projects/{$projectA->id}/billing/items/{$foreignItem->id}")
+            ->assertNotFound();
+
+        $this->assertDatabaseCount('project_billing_items', 1);
+    }
+
+    public function test_creating_an_invoice_emails_it_to_the_billing_contact(): void
+    {
+        Notification::fake();
+
+        [$admin, $project, $company] = $this->fixture();
+        $item = $this->billingItem($project, 'Website Development', 200000);
+
+        $this->mockGatewayForInvoice();
+
+        $this->actingAs($admin)
+            ->postJson("/admin/client-portal/api/projects/{$project->id}/billing/invoices", [
+                'billing_item_ids' => [$item->id],
+            ])
+            ->assertCreated();
+
+        $invoice = ProjectInvoice::query()->firstOrFail();
+
+        $this->assertSame($company->billingContact->email, $invoice->customer_email);
+        $this->assertNotNull($invoice->sent_at);
+        Notification::assertSentOnDemand(ProjectInvoiceIssuedNotification::class);
+    }
+
+    public function test_admin_can_mark_an_invoice_paid_by_bank_transfer(): void
+    {
+        Notification::fake();
+
+        [$admin, $project, $company] = $this->fixture();
+
+        $invoice = ProjectInvoice::query()->create([
+            'project_id' => $project->id,
+            'company_id' => $company->id,
+            'invoice_number' => '2026070',
+            'status' => ProjectInvoice::STATUS_OPEN,
+            'payment_status' => ProjectInvoice::PAYMENT_UNPAID,
+            'stripe_invoice_id' => 'in_bank',
+            'total' => 200000,
+            'amount_due' => 200000,
+            'customer_email' => 'billing@abc.test',
+            'issue_date' => now()->toDateString(),
+        ]);
+
+        // Stripe must be told, otherwise it keeps chasing the customer.
+        $this->mockGateway(function (MockInterface $mock): void {
+            $mock->shouldReceive('payInvoiceOutOfBand')->once()
+                ->with('in_bank')
+                ->andReturn(StripeObject::constructFrom(['id' => 'in_bank']));
+        });
+
+        $this->actingAs($admin)
+            ->postJson("/admin/client-portal/api/projects/{$project->id}/billing/invoices/{$invoice->id}/record-payment", [
+                'paid_at' => '2026-09-08',
+                'payment_method' => 'bank_transfer',
+            ])
+            ->assertOk();
+
+        $invoice->refresh();
+
+        $this->assertSame(ProjectInvoice::STATUS_PAID, $invoice->status);
+        $this->assertSame(ProjectInvoice::PAYMENT_PAID, $invoice->payment_status);
+        $this->assertSame(ProjectInvoice::METHOD_BANK_TRANSFER, $invoice->payment_method);
+        $this->assertSame(200000, $invoice->amount_paid);
+        $this->assertSame(0, $invoice->amount_due);
+        $this->assertSame('2026-09-08', $invoice->paid_at->toDateString());
+
+        Notification::assertSentOnDemand(ProjectInvoicePaidNotification::class);
+    }
+
+    public function test_an_invoice_without_a_stripe_record_can_still_be_marked_paid(): void
+    {
+        Notification::fake();
+
+        [$admin, $project, $company] = $this->fixture();
+
+        $invoice = ProjectInvoice::query()->create([
+            'project_id' => $project->id,
+            'company_id' => $company->id,
+            'invoice_number' => '2026071',
+            'status' => ProjectInvoice::STATUS_OPEN,
+            'total' => 50000,
+            'amount_due' => 50000,
+            'issue_date' => now()->toDateString(),
+        ]);
+
+        $this->mockGateway(function (MockInterface $mock): void {
+            $mock->shouldNotReceive('payInvoiceOutOfBand');
+        });
+
+        $this->actingAs($admin)
+            ->postJson("/admin/client-portal/api/projects/{$project->id}/billing/invoices/{$invoice->id}/record-payment")
+            ->assertOk();
+
+        $this->assertSame(ProjectInvoice::STATUS_PAID, $invoice->fresh()->status);
+    }
+
+    public function test_an_already_paid_invoice_cannot_be_marked_paid_again(): void
+    {
+        [$admin, $project, $company] = $this->fixture();
+
+        $invoice = ProjectInvoice::query()->create([
+            'project_id' => $project->id,
+            'company_id' => $company->id,
+            'invoice_number' => '2026072',
+            'status' => ProjectInvoice::STATUS_PAID,
+            'payment_status' => ProjectInvoice::PAYMENT_PAID,
+            'total' => 50000,
+            'amount_due' => 0,
+            'issue_date' => now()->toDateString(),
+        ]);
+
+        $this->mockGateway(function (MockInterface $mock): void {
+            $mock->shouldNotReceive('payInvoiceOutOfBand');
+        });
+
+        $this->actingAs($admin)
+            ->postJson("/admin/client-portal/api/projects/{$project->id}/billing/invoices/{$invoice->id}/record-payment")
+            ->assertStatus(422)
+            ->assertJsonPath('message', 'This invoice is already settled or closed.');
+    }
+
+    public function test_a_draft_invoice_can_be_settled_manually(): void
+    {
+        Notification::fake();
+
+        [$admin, $project, $company] = $this->fixture();
+
+        // Stripe mirroring can fail, leaving a real local invoice as a draft.
+        $invoice = ProjectInvoice::query()->create([
+            'project_id' => $project->id,
+            'company_id' => $company->id,
+            'invoice_number' => '2026073',
+            'status' => ProjectInvoice::STATUS_DRAFT,
+            'payment_status' => ProjectInvoice::PAYMENT_UNPAID,
+            'total' => 80000,
+            'amount_due' => 80000,
+            'customer_email' => 'billing@abc.test',
+            'issue_date' => now()->toDateString(),
+        ]);
+
+        $this->mockGateway(function (MockInterface $mock): void {
+            $mock->shouldNotReceive('payInvoiceOutOfBand');
+        });
+
+        $this->actingAs($admin)
+            ->postJson("/admin/client-portal/api/projects/{$project->id}/billing/invoices/{$invoice->id}/record-payment", [
+                'payment_method' => 'bank_transfer',
+            ])
+            ->assertOk();
+
+        $invoice->refresh();
+
+        $this->assertSame(ProjectInvoice::STATUS_PAID, $invoice->status);
+        $this->assertSame(80000, $invoice->amount_paid);
+        $this->assertSame(0, $invoice->amount_due);
+    }
+
+    public function test_admin_can_edit_a_billing_item(): void
+    {
+        [$admin, $project] = $this->fixture();
+        $item = $this->billingItem($project, 'Hosting', 2000, 'recurring');
+
+        $this->actingAs($admin)
+            ->putJson("/admin/client-portal/api/projects/{$project->id}/billing/items/{$item->id}", [
+                'name' => 'Hosting Plus',
+                'unit_amount' => 3000,
+                'quantity' => 2,
+            ])
+            ->assertOk()
+            ->assertJsonPath('data.name', 'Hosting Plus');
+
+        $item->refresh();
+
+        $this->assertSame(3000, $item->unit_amount);
+        $this->assertSame(2, $item->quantity);
+        // The billing rhythm is fixed once created.
+        $this->assertSame('month', $item->interval);
+    }
+
+    public function test_billing_item_dates_round_trip_through_edit_api(): void
+    {
+        [$admin, $project] = $this->fixture();
+        $item = $this->billingItem($project, 'Hosting', 2000, 'recurring');
+
+        $this->actingAs($admin)
+            ->putJson("/admin/client-portal/api/projects/{$project->id}/billing/items/{$item->id}", [
+                'starts_at' => '2026-10-01',
+                'ends_at' => '2027-03-31',
+            ])
+            ->assertOk()
+            ->assertJsonPath('data.starts_at', '2026-10-01T00:00:00.000000Z')
+            ->assertJsonPath('data.ends_at', '2027-03-31T00:00:00.000000Z');
+
+        $item->refresh();
+
+        $this->assertStringStartsWith('2026-10-01', (string) $item->starts_at);
+        $this->assertStringStartsWith('2027-03-31', (string) $item->ends_at);
+    }
+
+    public function test_a_failed_stripe_push_can_be_retried_without_a_new_number(): void
+    {
+        [$admin, $project, $company] = $this->fixture();
+
+        $invoice = ProjectInvoice::query()->create([
+            'project_id' => $project->id,
+            'company_id' => $company->id,
+            'invoice_number' => '2026080',
+            'status' => ProjectInvoice::STATUS_DRAFT,
+            'collection_method' => 'send_invoice',
+            'currency' => 'EUR',
+            'total' => 100000,
+            'amount_due' => 100000,
+            'issue_date' => now()->toDateString(),
+        ]);
+
+        $invoice->items()->create([
+            'name' => 'Consulting',
+            'quantity' => 1,
+            'unit_amount' => 100000,
+            'amount' => 100000,
+        ]);
+
+        $this->mockGateway(function (MockInterface $mock): void {
+            $mock->shouldReceive('resolveCustomer')->once()->andReturn('cus_retry');
+            $mock->shouldReceive('createInvoice')->once()
+                ->andReturn(StripeObject::constructFrom(['id' => 'in_retry']));
+            $mock->shouldReceive('createInvoiceItem')->once()
+                ->andReturn(StripeObject::constructFrom(['id' => 'ii_retry']));
+            $mock->shouldReceive('finalizeInvoice')->once()
+                ->andReturn(StripeObject::constructFrom([
+                    'id' => 'in_retry',
+                    'hosted_invoice_url' => 'https://invoice.stripe.test/pay/in_retry',
+                ]));
+        });
+
+        $this->actingAs($admin)
+            ->postJson("/admin/client-portal/api/projects/{$project->id}/billing/invoices/{$invoice->id}/sync-stripe")
+            ->assertOk();
+
+        $invoice->refresh();
+
+        $this->assertSame('in_retry', $invoice->stripe_invoice_id);
+        $this->assertSame(ProjectInvoice::STATUS_OPEN, $invoice->status);
+        $this->assertNotNull($invoice->hosted_invoice_url);
+        // The number is reused, never reissued.
+        $this->assertSame('2026080', $invoice->invoice_number);
+        $this->assertDatabaseCount('project_invoices', 1);
+    }
+
+    public function test_an_invoice_already_in_stripe_is_not_pushed_twice(): void
+    {
+        [$admin, $project, $company] = $this->fixture();
+
+        $invoice = ProjectInvoice::query()->create([
+            'project_id' => $project->id,
+            'company_id' => $company->id,
+            'invoice_number' => '2026081',
+            'status' => ProjectInvoice::STATUS_OPEN,
+            'stripe_invoice_id' => 'in_existing',
+            'total' => 100000,
+            'issue_date' => now()->toDateString(),
+        ]);
+
+        $this->mockGateway(function (MockInterface $mock): void {
+            $mock->shouldNotReceive('createInvoice');
+        });
+
+        $this->actingAs($admin)
+            ->postJson("/admin/client-portal/api/projects/{$project->id}/billing/invoices/{$invoice->id}/sync-stripe")
+            ->assertStatus(422)
+            ->assertJsonPath('message', 'This invoice already exists in Stripe.');
+    }
+
     private function mockGatewayForInvoice(): void
     {
         $this->mockGateway(function (MockInterface $mock): void {
@@ -584,6 +1349,8 @@ class ProjectBillingTest extends TestCase
     {
         $this->mock(StripeProjectBillingGateway::class, function (MockInterface $mock) use ($expectations): void {
             $mock->shouldReceive('domainMetadata')->andReturn(['billing_domain' => 'custom_project']);
+            $mock->shouldReceive('listDraftInvoices')->andReturn([]);
+            $mock->shouldReceive('deleteInvoice')->andReturnNull();
             $expectations($mock);
         });
     }
@@ -617,12 +1384,19 @@ class ProjectBillingTest extends TestCase
             'name' => $prefix.' s.r.o.',
             'registration_number' => '12345678',
             'tax_number' => '2023456789',
-            'billing_email' => 'billing@'.strtolower($prefix).'.test',
-            'billing_address_line1' => 'Hlavná 1',
-            'billing_address_city' => 'Bratislava',
-            'billing_address_postal_code' => '81101',
-            'billing_address_country' => 'SK',
+            'address' => "Hlavná 1\n81101 Bratislava\nSK",
         ]);
+
+        $billingContact = $company->contacts()->create([
+            'first_name' => 'Billing',
+            'last_name' => 'Contact',
+            'email' => 'billing@'.strtolower($prefix).'.test',
+            'phone' => '+421900000000',
+            'active' => true,
+        ]);
+
+        $company->update(['billing_contact_id' => $billingContact->id]);
+        $company->refresh();
 
         $serviceProduct = ServiceProduct::query()->create([
             'name' => $prefix.' Web',

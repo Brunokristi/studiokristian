@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /**
  * A catalog product enabled for one project, at that project's own price.
@@ -58,6 +59,21 @@ class ProjectBillingItem extends Model
     public function subscription(): BelongsTo
     {
         return $this->belongsTo(ProjectSubscription::class, 'project_subscription_id');
+    }
+
+    public function versions(): HasMany
+    {
+        return $this->hasMany(ProjectBillingItemVersion::class, 'project_billing_item_id')
+            ->orderBy('starts_at');
+    }
+
+    public function isEffectiveOn(?\Illuminate\Support\Carbon $date = null): bool
+    {
+        $date ??= today();
+
+        return (! $this->starts_at || $this->starts_at->lte($date))
+            && (! $this->ends_at || $this->ends_at->gte($date))
+            && $this->status !== self::STATUS_CANCELED;
     }
 
     public function isRecurring(): bool

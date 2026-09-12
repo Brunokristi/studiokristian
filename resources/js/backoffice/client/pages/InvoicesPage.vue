@@ -202,33 +202,6 @@ function stateLabel(
 }
 
 
-function stateVariant(
-    invoice
-) {
-    if (
-        invoice.status === 'paid'
-    ) {
-        return 'success'
-    }
-
-
-    if (
-        invoice.is_overdue ||
-        invoice.payment_status === 'failed'
-    ) {
-        return 'error'
-    }
-
-
-    if (
-        invoice.status === 'open'
-    ) {
-        return 'warning'
-    }
-
-
-    return 'muted'
-}
 </script>
 
 
@@ -320,7 +293,6 @@ function stateVariant(
             <template #cell-state="{ row }">
                 <Tag
                     :text="stateLabel(row)"
-                    :variant="stateVariant(row)"
                 />
             </template>
 

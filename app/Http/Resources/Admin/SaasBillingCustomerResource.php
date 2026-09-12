@@ -11,8 +11,8 @@ class SaasBillingCustomerResource extends JsonResource
         return [
             'id' => $this->id,
             'name' => $this->display_label,
-            'email' => $this->billing_email,
-            'phone' => $this->billing_phone,
+            'email' => $this->billingContact?->email,
+            'phone' => $this->billingContact?->phone,
             'address' => $this->address,
             'ico' => $this->ico,
             'dic' => $this->dic,

@@ -296,6 +296,28 @@ class ProjectInstantiationService
         );
     }
 
+    /**
+     * Copies a Service Product's template structure onto an existing project.
+     * Skipped when the project already has folders so real work is never overwritten.
+     */
+    public function applyTemplateStructure(
+        ServiceProduct $product,
+        Project $project,
+        User $actor
+    ): int {
+        if ($project->folders()->exists()) {
+            return 0;
+        }
+
+        $this->copyTemplateStructure(
+            $product,
+            $project,
+            $actor
+        );
+
+        return $project->folders()->count();
+    }
+
     private function copyTemplateStructure(
         ServiceProduct $product,
         Project $project,

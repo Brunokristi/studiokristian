@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Company extends Model
@@ -11,15 +12,23 @@ class Company extends Model
     use HasFactory;
 
     protected $fillable = [
-        'name', 'registration_number', 'tax_number', 'vat_number', 'address', 'status',
-        'internal_notes', 'archived_at', 'stripe_customer_id',
-        'billing_email', 'billing_phone', 'billing_address_line1', 'billing_address_line2',
-        'billing_address_city', 'billing_address_postal_code', 'billing_address_country',
+        'name',
+        'registration_number',
+        'tax_number',
+        'vat_number',
+        'address',
+        'billing_contact_id',
+        'status',
+        'internal_notes',
+        'archived_at',
+        'stripe_customer_id',
     ];
 
     protected function casts(): array
     {
-        return ['archived_at' => 'datetime'];
+        return [
+            'archived_at' => 'datetime',
+        ];
     }
 
     public function contacts(): HasMany
@@ -27,22 +36,12 @@ class Company extends Model
         return $this->hasMany(ClientContact::class);
     }
 
-    /**
-     * Billing email falls back to the first active contact when no dedicated
-     * billing email is set, so invoices remain sendable.
-     */
-    public function resolveBillingEmail(): ?string
+    public function billingContact(): BelongsTo
     {
-        if ($this->billing_email) {
-            return $this->billing_email;
-        }
-
-        return $this->contacts()
-            ->whereNotNull('email')
-            ->where('email', '!=', '')
-            ->orderByDesc('active')
-            ->orderBy('id')
-            ->value('email');
+        return $this->belongsTo(
+            ClientContact::class,
+            'billing_contact_id'
+        );
     }
 
     public function projects(): HasMany

@@ -7,6 +7,7 @@ use App\Http\Requests\Admin\StoreProjectRequest;
 use App\Http\Resources\Admin\ProjectResource;
 use App\Models\ClientContact;
 use App\Models\Project;
+use App\Models\ServiceProduct;
 use App\Models\User;
 use App\Notifications\ProjectInvitationNotification;
 use App\Services\ProjectInstantiationService;
@@ -188,7 +189,8 @@ class ProjectController extends Controller
 
     public function update(
         StoreProjectRequest $request,
-        Project $project
+        Project $project,
+        ProjectInstantiationService $instantiation
     ): ProjectResource {
         $this->authorizeProjectAccess(
             $request,
@@ -281,8 +283,12 @@ class ProjectController extends Controller
             function () use (
                 $request,
                 $project,
-                $nextCoworkerIds
+                $nextCoworkerIds,
+                $instantiation
             ) {
+                $previousServiceProductId =
+                    (int) $project->service_product_id;
+
                 $data =
                     $request
                         ->safe()
@@ -298,6 +304,13 @@ class ProjectController extends Controller
                         : $project->url;
 
                 $project->update($data);
+
+                $this->applyServiceProductTemplate(
+                    $project,
+                    $previousServiceProductId,
+                    $request->user(),
+                    $instantiation
+                );
 
                 $project
                     ->contacts()
@@ -525,6 +538,39 @@ class ProjectController extends Controller
         }
 
         return $map;
+    }
+
+    /**
+     * Assigning a different Service Product should bring its folder template with it,
+     * which matters because autosave often creates the project before one is chosen.
+     */
+    private function applyServiceProductTemplate(
+        Project $project,
+        int $previousServiceProductId,
+        ?User $actor,
+        ProjectInstantiationService $instantiation
+    ): void {
+        $currentId = (int) $project->service_product_id;
+
+        if (
+            ! $actor ||
+            $currentId === 0 ||
+            $currentId === $previousServiceProductId
+        ) {
+            return;
+        }
+
+        $product = ServiceProduct::query()->find($currentId);
+
+        if (! $product) {
+            return;
+        }
+
+        $instantiation->applyTemplateStructure(
+            $product,
+            $project,
+            $actor
+        );
     }
 
     private function authorizeProjectAccess(

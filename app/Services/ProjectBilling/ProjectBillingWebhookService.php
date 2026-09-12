@@ -3,11 +3,13 @@
 namespace App\Services\ProjectBilling;
 
 use App\Models\ProjectInvoice;
+use App\Models\ProjectBillingAdjustment;
 use App\Models\ProjectInvoiceItem;
 use App\Models\ProjectSubscription;
 use App\Notifications\ProjectInvoiceIssuedNotification;
 use App\Notifications\ProjectInvoicePaidNotification;
 use App\Notifications\ProjectInvoicePaymentFailedNotification;
+use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Notification;
@@ -41,13 +43,133 @@ class ProjectBillingWebhookService
             'customer.subscription.created',
             'customer.subscription.updated' => $this->syncSubscription($event->data->object),
             'customer.subscription.deleted' => $this->syncDeletedSubscription($event->data->object),
+            'subscription_schedule.created',
+            'subscription_schedule.updated',
+            'subscription_schedule.completed',
+            'subscription_schedule.released',
+            'subscription_schedule.canceled' => $this->syncSchedule($event->data->object),
             'payment_intent.succeeded',
             'payment_intent.payment_failed' => $this->syncPaymentIntent($event->data->object),
+            'refund.created',
+            'refund.updated',
+            'refund.failed' => $this->syncRefund($event->data->object),
+            'charge.refunded' => $this->syncChargeRefunds($event->data->object),
+            'credit_note.created' => $this->syncCreditNote($event->data->object),
             default => Log::info('Project billing webhook acknowledged without processing.', [
                 'stripe_event_id' => $event->id,
                 'type' => $event->type,
             ]),
         };
+    }
+
+    private function syncRefund(StripeObject $refund): void
+    {
+        $refundId = $this->id($refund->id ?? null);
+        $paymentIntentId = $this->id($refund->payment_intent ?? null);
+        $chargeId = $this->id($refund->charge ?? null);
+
+        $adjustment = ProjectBillingAdjustment::query()
+            ->where('stripe_refund_id', $refundId)
+            ->first();
+
+        $invoice = null;
+
+        if (! $adjustment && $paymentIntentId) {
+            $invoice = ProjectInvoice::query()
+                ->where('stripe_payment_intent_id', $paymentIntentId)
+                ->first();
+
+            $adjustment = $invoice?->adjustments()
+                ->where('type', ProjectBillingAdjustment::TYPE_REFUND)
+                ->whereIn('status', [
+                    ProjectBillingAdjustment::STATUS_PENDING,
+                    ProjectBillingAdjustment::STATUS_FAILED,
+                ])
+                ->latest('id')
+                ->first();
+        }
+
+        if (! $adjustment && $invoice) {
+            $adjustment = ProjectBillingAdjustment::query()->create([
+                'project_id' => $invoice->project_id,
+                'company_id' => $invoice->company_id,
+                'project_invoice_id' => $invoice->id,
+                'project_subscription_id' => $invoice->project_subscription_id,
+                'type' => ProjectBillingAdjustment::TYPE_REFUND,
+                'status' => ProjectBillingAdjustment::STATUS_PENDING,
+                'amount' => (int) ($refund->amount ?? 0),
+                'currency' => strtoupper((string) ($refund->currency ?? $invoice->currency)),
+                'stripe_refund_id' => $refundId,
+                'stripe_charge_id' => $chargeId,
+            ]);
+        }
+
+        if (! $adjustment) {
+            return;
+        }
+
+        $status = match ($refund->status ?? null) {
+            'succeeded' => ProjectBillingAdjustment::STATUS_SUCCEEDED,
+            'failed', 'canceled' => ProjectBillingAdjustment::STATUS_FAILED,
+            default => ProjectBillingAdjustment::STATUS_PENDING,
+        };
+
+        $adjustment->update([
+            'stripe_refund_id' => $refundId ?: $adjustment->stripe_refund_id,
+            'stripe_charge_id' => $chargeId ?: $adjustment->stripe_charge_id,
+            'status' => $status,
+            'processed_at' => $status === ProjectBillingAdjustment::STATUS_SUCCEEDED ? now() : null,
+            'error_message' => $refund->failure_reason ?? null,
+        ]);
+    }
+
+    private function syncChargeRefunds(StripeObject $charge): void
+    {
+        foreach (($charge->refunds->data ?? []) as $refund) {
+            if (! isset($refund->payment_intent) && isset($charge->payment_intent)) {
+                $refund->payment_intent = $charge->payment_intent;
+            }
+
+            if (! isset($refund->charge) && isset($charge->id)) {
+                $refund->charge = $charge->id;
+            }
+
+            $this->syncRefund($refund);
+        }
+    }
+
+    private function syncCreditNote(StripeObject $creditNote): void
+    {
+        $creditNoteId = $this->id($creditNote->id ?? null);
+        $stripeInvoiceId = $this->id($creditNote->invoice ?? null);
+
+        if (! $creditNoteId || ! $stripeInvoiceId) {
+            return;
+        }
+
+        $invoice = ProjectInvoice::query()
+            ->where('stripe_invoice_id', $stripeInvoiceId)
+            ->first();
+
+        if (! $invoice) {
+            return;
+        }
+
+        ProjectBillingAdjustment::query()->updateOrCreate(
+            ['stripe_credit_note_id' => $creditNoteId],
+            [
+                'project_id' => $invoice->project_id,
+                'company_id' => $invoice->company_id,
+                'project_invoice_id' => $invoice->id,
+                'project_subscription_id' => $invoice->project_subscription_id,
+                'type' => ProjectBillingAdjustment::TYPE_CREDIT,
+                'status' => ProjectBillingAdjustment::STATUS_SUCCEEDED,
+                'amount' => (int) ($creditNote->total ?? $creditNote->amount ?? 0),
+                'currency' => strtoupper((string) ($creditNote->currency ?? $invoice->currency)),
+                'stripe_invoice_id' => $stripeInvoiceId,
+                'processed_at' => now(),
+            ]
+        );
     }
 
     /**
@@ -97,26 +219,36 @@ class ProjectBillingWebhookService
 
             $issueDate = $this->timestamp($stripeInvoice->created ?? null) ?: now();
 
-            $invoice = ProjectInvoice::query()->create(array_merge([
-                'project_id' => $project->id,
-                'company_id' => $company->id,
-                'project_subscription_id' => $subscription->id,
-                'invoice_number' => $this->numbers->next((int) $issueDate->format('Y')),
-                'status' => $status,
-                'currency' => strtoupper((string) ($stripeInvoice->currency ?? config('billing.currency'))),
-                'payment_method' => ProjectInvoice::METHOD_STRIPE_CARD,
-                'collection_method' => (string) ($stripeInvoice->collection_method ?? 'charge_automatically'),
-                'issue_date' => $issueDate->toDateString(),
-                'delivery_date' => $issueDate->toDateString(),
-                'tax_rate' => 0,
-                'tax_mode' => config('billing.tax.vat_payer')
-                    ? ProjectInvoice::TAX_MODE_STANDARD
-                    : ProjectInvoice::TAX_MODE_NONE,
-            ], $this->invoices->partySnapshot($company)));
+            try {
+                $invoice = ProjectInvoice::query()->create(array_merge([
+                    'project_id' => $project->id,
+                    'company_id' => $company->id,
+                    'project_subscription_id' => $subscription->id,
+                    'invoice_number' => $this->numbers->next((int) $issueDate->format('Y')),
+                    'variable_symbol' => null,
+                    'status' => $status,
+                    'currency' => strtoupper((string) ($stripeInvoice->currency ?? config('billing.currency'))),
+                    'payment_method' => ProjectInvoice::METHOD_STRIPE_CARD,
+                    'collection_method' => (string) ($stripeInvoice->collection_method ?? 'charge_automatically'),
+                    'stripe_invoice_id' => $stripeInvoiceId,
+                    'issue_date' => $issueDate->toDateString(),
+                    'delivery_date' => $issueDate->toDateString(),
+                    'tax_rate' => 0,
+                    'tax_mode' => config('billing.tax.vat_payer')
+                        ? ProjectInvoice::TAX_MODE_STANDARD
+                        : ProjectInvoice::TAX_MODE_NONE,
+                ], $this->invoices->partySnapshot($company)));
 
-            $invoice->update(['variable_symbol' => $invoice->invoice_number]);
-            $this->syncLineItems($invoice, $stripeInvoice);
-            $this->pushInvoiceNumber($invoice, $stripeInvoice);
+                $invoice->update(['variable_symbol' => $invoice->invoice_number]);
+                $this->syncLineItems($invoice, $stripeInvoice);
+                $this->pushInvoiceNumber($invoice, $stripeInvoice);
+            } catch (UniqueConstraintViolationException $exception) {
+                $invoice = ProjectInvoice::query()
+                    ->where('stripe_invoice_id', $stripeInvoiceId)
+                    ->firstOrFail();
+
+                $isNew = false;
+            }
         }
 
         $invoice->update(array_filter([
@@ -274,6 +406,56 @@ class ProjectBillingWebhookService
             'cancel_at_period_end' => (bool) ($stripeSubscription->cancel_at_period_end ?? false),
             'canceled_at' => $this->timestamp($stripeSubscription->canceled_at ?? null),
         ]);
+
+        if ($subscription->stripe_schedule_id) {
+            $this->syncScheduleObject($subscription, $this->stripe->retrieveSchedule($subscription->stripe_schedule_id));
+        }
+    }
+
+    private function syncSchedule(StripeObject $schedule): void
+    {
+        $stripeSubscriptionId = $this->id($schedule->subscription ?? null);
+
+        if (! $stripeSubscriptionId) {
+            return;
+        }
+
+        $subscription = $this->subscriptionByStripeId($stripeSubscriptionId);
+
+        if ($subscription) {
+            $subscription->update(['stripe_schedule_id' => $this->id($schedule->id ?? null)]);
+            $this->syncScheduleObject($subscription, $schedule);
+        }
+    }
+
+    private function syncScheduleObject(ProjectSubscription $subscription, StripeObject $schedule): void
+    {
+        $phase = $schedule->current_phase ?? null;
+
+        $phase ??= collect($schedule->phases ?? [])->first(function ($candidate): bool {
+            $start = (int) ($candidate->start_date ?? 0);
+            $end = (int) ($candidate->end_date ?? PHP_INT_MAX);
+
+            return $start <= time() && time() < $end;
+        });
+
+        if (! $phase && $schedule->status === 'active') {
+            $phase = $schedule->phases[0] ?? null;
+        }
+
+        $currentStart = $this->timestamp($phase->start_date ?? null);
+        $currentEnd = $this->timestamp($phase->end_date ?? null);
+
+        $subscription->update([
+            'current_period_start' => $currentStart ?: $subscription->current_period_start,
+            'current_period_end' => $currentEnd ?: $subscription->current_period_end,
+            'status' => $schedule->status === 'canceled'
+                ? ProjectSubscription::STATUS_CANCELED
+                : ($schedule->status === 'not_started'
+                    ? ProjectSubscription::STATUS_DRAFT
+                    : $subscription->status),
+            'ended_at' => $schedule->status === 'canceled' ? ($subscription->ended_at ?: now()) : $subscription->ended_at,
+        ]);
     }
 
     private function syncDeletedSubscription(StripeObject $stripeSubscription): void
@@ -384,7 +566,8 @@ class ProjectBillingWebhookService
 
     private function notify(ProjectInvoice $invoice, object $notification): void
     {
-        $email = $invoice->customer_email ?: $invoice->company?->resolveBillingEmail();
+        // An invoice is a historical document: always the address captured at issue time.
+        $email = $invoice->customer_email;
 
         if (! $email) {
             return;
@@ -421,7 +604,9 @@ class ProjectBillingWebhookService
     private function mapSubscriptionStatus(string $status): string
     {
         return match ($status) {
-            'active', 'trialing' => ProjectSubscription::STATUS_ACTIVE,
+            'active' => ProjectSubscription::STATUS_ACTIVE,
+            // Actual Stripe trials are unsupported in Custom Project Billing.
+            'trialing' => ProjectSubscription::STATUS_DRAFT,
             'past_due', 'unpaid' => ProjectSubscription::STATUS_PAST_DUE,
             'paused' => ProjectSubscription::STATUS_PAUSED,
             'canceled', 'incomplete_expired' => ProjectSubscription::STATUS_CANCELED,

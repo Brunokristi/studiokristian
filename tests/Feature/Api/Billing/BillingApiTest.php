@@ -592,12 +592,14 @@ class BillingApiTest extends TestCase
         // ...but the Company's legal identity comes from the billing profile, never that label.
         $company = $credential->company;
         $this->assertEquals('ADOCare s.r.o.', $company->name);
-        $this->assertEquals('billing@adocare.test', $company->billing_email);
-        $this->assertEquals('+421900000000', $company->billing_phone);
-        $this->assertEquals('Hlavná 1', $company->billing_address_line1);
-        $this->assertEquals('Bratislava', $company->billing_address_city);
-        $this->assertEquals('81101', $company->billing_address_postal_code);
-        $this->assertEquals('SK', $company->billing_address_country);
+
+        // Email/phone belong to the billing contact, address is the one canonical field.
+        $this->assertEquals('billing@adocare.test', $company->billingContact?->email);
+        $this->assertEquals('+421900000000', $company->billingContact?->phone);
+        $this->assertStringContainsString('Hlavná 1', (string) $company->address);
+        $this->assertStringContainsString('Bratislava', (string) $company->address);
+        $this->assertStringContainsString('81101', (string) $company->address);
+        $this->assertStringContainsString('SK', (string) $company->address);
         $this->assertEquals('12345678', $company->registration_number);
         $this->assertEquals('2023456789', $company->tax_number);
         $this->assertEquals('SK2023456789', $company->vat_number);
@@ -640,7 +642,7 @@ class BillingApiTest extends TestCase
 
         $company = $credential->company->fresh();
         $this->assertEquals('Real Legal Name s.r.o.', $company->name);
-        $this->assertEquals('billing@real.test', $company->billing_email);
+        $this->assertEquals('billing@real.test', $company->billingContact?->email);
     }
 
     public function test_update_profile_repairs_existing_stripe_customer_without_duplicating(): void
@@ -672,7 +674,7 @@ class BillingApiTest extends TestCase
 
         $company->refresh();
         $this->assertEquals('Repaired Legal Name s.r.o.', $company->name);
-        $this->assertEquals('billing@repaired.test', $company->billing_email);
+        $this->assertEquals('billing@repaired.test', $company->billingContact?->email);
         $this->assertEquals('87654321', $company->registration_number);
 
         // Still exactly one SaasBillingCustomer row - no duplicate Stripe Customer created.

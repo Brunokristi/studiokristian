@@ -278,8 +278,18 @@ Route::prefix('admin/client-portal')
                     ->name('projects.billing.items.destroy');
                 Route::post('/projects/{project}/billing/invoices', [ProjectBillingController::class, 'storeInvoice'])
                     ->name('projects.billing.invoices.store');
+                Route::get('/projects/{project}/billing/invoices/preview', [ProjectBillingController::class, 'previewPaymentInvoice'])
+                    ->name('projects.billing.invoices.preview');
                 Route::post('/projects/{project}/billing/invoices/{invoice}/send', [ProjectBillingController::class, 'sendInvoice'])
                     ->name('projects.billing.invoices.send');
+                Route::post('/projects/{project}/billing/invoices/{invoice}/record-payment', [ProjectBillingController::class, 'recordPayment'])
+                    ->name('projects.billing.invoices.record-payment');
+                Route::post('/projects/{project}/billing/invoices/{invoice}/refund', [ProjectBillingController::class, 'refundInvoice'])
+                    ->name('projects.billing.invoices.refund');
+                Route::post('/projects/{project}/billing/debit-notes', [ProjectBillingController::class, 'createDebitNote'])
+                    ->name('projects.billing.debit-notes.store');
+                Route::post('/projects/{project}/billing/invoices/{invoice}/sync-stripe', [ProjectBillingController::class, 'syncInvoiceToStripe'])
+                    ->name('projects.billing.invoices.sync-stripe');
                 Route::get('/projects/{project}/billing/invoices/{invoice}/pdf', [ProjectBillingController::class, 'downloadInvoicePdf'])
                     ->name('projects.billing.invoices.pdf');
                 Route::post('/projects/{project}/billing/subscription', [ProjectBillingController::class, 'startSubscription'])
