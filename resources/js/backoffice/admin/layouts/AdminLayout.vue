@@ -165,19 +165,19 @@ const adminNavigation = [
     },
 
     {
-        label: 'Internal storage',
-        route: {
-            name: 'internal-storage.index'
-        },
-        match: 'internal-storage'
-    },
-
-    {
         label: 'SaaS',
         route: {
             name: 'saas.projects.index'
         },
         match: 'saas'
+    },
+
+    {
+        label: 'Projects',
+        route: {
+            name: 'projects.index'
+        },
+        match: 'projects'
     },
 
     {
@@ -548,50 +548,96 @@ function isActive(
 
                     <!-- Logout -->
 
-                    <form
-                        method="POST"
-                        action="/logout"
-                        class="
-                            shrink-0
-                            border-t
-                            border-accent
-                        "
-                    >
+<!-- Bottom navigation -->
 
-                        <input
-                            type="hidden"
-                            name="_token"
-                            :value="
-                                csrfToken
-                            "
-                        >
+<div
+    class="
+        shrink-0
+        border-t
+        border-accent
+    "
+>
 
-                        <button
-                            type="submit"
-                            class="
-                                block
-                                w-full
-                                border-b
-                                border-accent
-                                bg-light
-                                px-5
-                                py-4
-                                text-left
-                                font-mono
-                                text-xs
-                                font-bold
-                                uppercase
-                                text-dark
-                                transition-colors
-                                duration-200
-                                hover:bg-accent
-                                hover:text-light
-                            "
-                        >
-                            Log out
-                        </button>
+    <!-- Internal storage -->
 
-                    </form>
+    <RouterLink
+        :to="{
+            name: 'internal-storage.index'
+        }"
+        class="
+            flex
+            h-12
+            w-full
+            items-center
+            border-b
+            border-accent
+            px-5
+            font-mono
+            text-xs
+            font-bold
+            uppercase
+            text-dark
+            transition-colors
+            duration-200
+            hover:bg-accent
+            hover:text-light
+        "
+        :class="{
+            'text-accent':
+                isActive({
+                    match: 'internal-storage'
+                })
+        }"
+        @click="closeMenu"
+    >
+        Internal storage
+    </RouterLink>
+
+
+    <!-- Log out -->
+
+    <form
+        method="POST"
+        action="/logout"
+    >
+
+        <input
+            type="hidden"
+            name="_token"
+            :value="
+                csrfToken
+            "
+        >
+
+        <button
+            type="submit"
+            class="
+                flex
+                h-12
+                w-full
+                items-center
+                border-b
+                border-accent
+                bg-light
+                px-5
+                text-left
+                font-mono
+                text-xs
+                font-bold
+                uppercase
+                text-dark
+                transition-colors
+                duration-200
+                hover:bg-accent
+                hover:text-light
+            "
+        >
+            Log out
+        </button>
+
+    </form>
+
+</div>
 
                 </aside>
 
