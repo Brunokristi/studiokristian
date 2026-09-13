@@ -3,7 +3,6 @@ import { computed } from 'vue'
 
 import ClientLayout from './layouts/ClientLayout.vue'
 import DashboardPage from './pages/DashboardPage.vue'
-import InvoicesPage from './pages/InvoicesPage.vue'
 import ProjectPage from './pages/ProjectPage.vue'
 import { useClientLocale } from './composables/useClientLocale'
 
@@ -20,7 +19,6 @@ const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content || 
 const pages = {
     dashboard: DashboardPage,
     project: ProjectPage,
-    invoices: InvoicesPage,
 }
 const currentPage = computed(() => pages[props.page.page] || DashboardPage)
 </script>

@@ -16,6 +16,7 @@ import { useClientPageHeader } from '../composables/useClientPageHeader'
 import FormField from '@shared/components/FormField.vue'
 import Button from '@shared/components/Button.vue'
 import Tag from '@shared/components/Tag.vue'
+import ProjectInvoicesTable from '../components/ProjectInvoicesTable.vue'
 
 
 const props = defineProps({
@@ -1732,6 +1733,11 @@ useClientPageHeader({
                 />
             </div>
         </section>
+
+        <ProjectInvoicesTable
+            :invoices="data.project.invoices || []"
+            :locale="locale"
+        />
 
 
         <!--

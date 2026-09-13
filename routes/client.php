@@ -54,17 +54,12 @@ Route::prefix('client')
         */
 
         Route::get(
-            '/invoices',
-            [InvoiceController::class, 'index']
-        )->name('invoices.index');
-
-        Route::get(
-            '/invoices/{invoice}/pay',
+            '/projects/{project}/invoices/{invoice}/pay',
             [InvoiceController::class, 'pay']
         )->name('invoices.pay');
 
         Route::get(
-            '/invoices/{invoice}/pdf',
+            '/projects/{project}/invoices/{invoice}/pdf',
             [InvoiceController::class, 'downloadPdf']
         )->name('invoices.pdf');
 

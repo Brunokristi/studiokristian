@@ -27,6 +27,10 @@ return [
         'footer_text' => env('BILLING_INVOICE_FOOTER'),
     ],
 
+    'client_attention' => [
+        'reminder_days' => (int) env('BILLING_CLIENT_ATTENTION_REMINDER_DAYS', 3),
+    ],
+
     /*
     | The business is currently NOT a VAT payer, so tax defaults to 0 and
     | invoices carry the legal note below. Becoming VAT registered later only

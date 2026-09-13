@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Client;
 
 use App\Http\Controllers\Controller;
 use App\Models\Project;
+use App\Models\ProjectInvoice;
 use App\Services\ClientPortalViewData;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
@@ -65,6 +66,11 @@ class ProjectController extends Controller
                         $contact->id
                     )
                     ->latest(),
+
+            'invoices' => fn ($query) => $query
+                ->where('status', '!=', ProjectInvoice::STATUS_DRAFT)
+                ->orderByDesc('issue_date')
+                ->orderByDesc('id'),
         ]);
 
         return view('apps.client', [

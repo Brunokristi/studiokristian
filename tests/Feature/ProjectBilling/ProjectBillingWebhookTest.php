@@ -8,7 +8,6 @@ use App\Models\ProjectInvoice;
 use App\Models\ProjectSubscription;
 use App\Models\SaasInvoice;
 use App\Models\ServiceProduct;
-use App\Notifications\ProjectInvoiceIssuedNotification;
 use App\Services\ProjectBilling\StripeProjectBillingGateway;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Notification;
@@ -47,14 +46,34 @@ class ProjectBillingWebhookTest extends TestCase
         });
     }
 
-    public function test_stripe_generated_recurring_invoice_creates_a_local_invoice_with_our_number(): void
+    public function test_only_paid_stripe_recurring_invoice_creates_our_invoice_and_pdf_without_email(): void
     {
         $subscription = $this->subscription();
 
-        $payload = $this->invoicePayload('evt_pb_created', 'invoice.created', [
+        foreach ([
+            ['evt_pb_created', 'invoice.created', 'draft'],
+            ['evt_pb_finalized', 'invoice.finalized', 'open'],
+        ] as [$eventId, $type, $status]) {
+            $payload = $this->invoicePayload($eventId, $type, [
+                'id' => 'in_recurring_1',
+                'status' => $status,
+                'subscription' => $subscription->stripe_subscription_id,
+            ]);
+
+            $this->postJson('/api/webhooks/stripe/project-billing', $payload, [
+                'Stripe-Signature' => $this->signature($payload),
+            ])->assertOk();
+        }
+
+        $this->assertDatabaseCount('project_invoices', 0);
+        Notification::assertNothingSent();
+
+        $payload = $this->invoicePayload('evt_pb_paid', 'invoice.paid', [
             'id' => 'in_recurring_1',
-            'status' => 'draft',
+            'status' => 'paid',
             'subscription' => $subscription->stripe_subscription_id,
+            'amount_paid' => 8500,
+            'amount_due' => 0,
         ]);
 
         $this->postJson('/api/webhooks/stripe/project-billing', $payload, [
@@ -67,20 +86,26 @@ class ProjectBillingWebhookTest extends TestCase
         $this->assertSame($subscription->project_id, $invoice->project_id);
         $this->assertSame($subscription->id, $invoice->project_subscription_id);
         $this->assertSame('in_recurring_1', $invoice->stripe_invoice_id);
+        $this->assertSame(ProjectInvoice::PAYMENT_PAID, $invoice->payment_status);
+        $this->assertSame('billing@abc.test', $invoice->customer_email);
+        $this->assertSame("Hlavná 1\n81101 Bratislava", $invoice->customer_address);
+        $this->assertNotNull($invoice->sent_at);
 
-        // The custom PDF is generated for Stripe-originated recurring invoices too.
         $this->assertNotNull($invoice->pdf_path);
         $this->assertTrue(Storage::disk('local')->exists($invoice->pdf_path));
+        Notification::assertNothingSent();
     }
 
     public function test_duplicate_webhook_delivery_never_duplicates_invoices_or_items(): void
     {
         $subscription = $this->subscription();
 
-        $payload = $this->invoicePayload('evt_pb_dup', 'invoice.created', [
+        $payload = $this->invoicePayload('evt_pb_dup', 'invoice.paid', [
             'id' => 'in_recurring_dup',
-            'status' => 'draft',
+            'status' => 'paid',
             'subscription' => $subscription->stripe_subscription_id,
+            'amount_paid' => 8500,
+            'amount_due' => 0,
         ]);
 
         $headers = ['Stripe-Signature' => $this->signature($payload)];
@@ -93,20 +118,51 @@ class ProjectBillingWebhookTest extends TestCase
         $this->assertDatabaseCount('project_invoices', 1);
         $this->assertDatabaseCount('project_invoice_items', 1);
         $this->assertDatabaseCount('project_billing_webhook_events', 1);
+        Notification::assertNothingSent();
+    }
+
+    public function test_each_paid_cycle_creates_one_invoice_and_a_new_event_cannot_duplicate_a_cycle(): void
+    {
+        $subscription = $this->subscription();
+
+        foreach ([
+            ['evt_cycle_1', 'in_cycle_1'],
+            ['evt_cycle_2', 'in_cycle_2'],
+        ] as [$eventId, $invoiceId]) {
+            $payload = $this->invoicePayload($eventId, 'invoice.paid', [
+                'id' => $invoiceId,
+                'status' => 'paid',
+                'subscription' => $subscription->stripe_subscription_id,
+                'amount_paid' => 8500,
+                'amount_due' => 0,
+            ]);
+
+            $this->postJson('/api/webhooks/stripe/project-billing', $payload, [
+                'Stripe-Signature' => $this->signature($payload),
+            ])->assertOk();
+        }
+
+        $replay = $this->invoicePayload('evt_cycle_2_replay', 'invoice.paid', [
+            'id' => 'in_cycle_2',
+            'status' => 'paid',
+            'subscription' => $subscription->stripe_subscription_id,
+            'amount_paid' => 8500,
+            'amount_due' => 0,
+        ]);
+
+        $this->postJson('/api/webhooks/stripe/project-billing', $replay, [
+            'Stripe-Signature' => $this->signature($replay),
+        ])->assertOk();
+
+        $this->assertDatabaseCount('project_invoices', 2);
+        $this->assertDatabaseCount('project_invoice_items', 2);
+        $this->assertCount(2, Storage::disk('local')->allFiles(config('billing.invoice.pdf_path')));
+        Notification::assertNothingSent();
     }
 
     public function test_payment_success_and_failure_are_synchronized_from_stripe(): void
     {
         $subscription = $this->subscription();
-
-        $created = $this->invoicePayload('evt_pb_c2', 'invoice.created', [
-            'id' => 'in_lifecycle',
-            'status' => 'draft',
-            'subscription' => $subscription->stripe_subscription_id,
-        ]);
-        $this->postJson('/api/webhooks/stripe/project-billing', $created, [
-            'Stripe-Signature' => $this->signature($created),
-        ])->assertOk();
 
         $failed = $this->invoicePayload('evt_pb_failed', 'invoice.payment_failed', [
             'id' => 'in_lifecycle',
@@ -118,9 +174,9 @@ class ProjectBillingWebhookTest extends TestCase
             'Stripe-Signature' => $this->signature($failed),
         ])->assertOk();
 
-        $invoice = ProjectInvoice::query()->firstOrFail();
-        $this->assertSame(ProjectInvoice::PAYMENT_FAILED, $invoice->payment_status);
-        $this->assertNotNull($invoice->payment_failed_at);
+        $this->assertDatabaseCount('project_invoices', 0);
+        $this->assertSame(ProjectSubscription::STATUS_PAST_DUE, $subscription->fresh()->status);
+        Notification::assertNothingSent();
 
         $paid = $this->invoicePayload('evt_pb_paid', 'invoice.paid', [
             'id' => 'in_lifecycle',
@@ -133,12 +189,14 @@ class ProjectBillingWebhookTest extends TestCase
             'Stripe-Signature' => $this->signature($paid),
         ])->assertOk();
 
-        $invoice->refresh();
+        $invoice = ProjectInvoice::query()->firstOrFail();
         $this->assertSame(ProjectInvoice::STATUS_PAID, $invoice->status);
         $this->assertSame(ProjectInvoice::PAYMENT_PAID, $invoice->payment_status);
         $this->assertNull($invoice->payment_failed_at);
         $this->assertNotNull($invoice->paid_at);
         $this->assertSame(0, $invoice->amount_due);
+        $this->assertSame(ProjectSubscription::STATUS_ACTIVE, $subscription->fresh()->status);
+        Notification::assertNothingSent();
 
         // Still exactly one invoice through the whole failure/retry cycle.
         $this->assertDatabaseCount('project_invoices', 1);
@@ -169,10 +227,12 @@ class ProjectBillingWebhookTest extends TestCase
     {
         $subscription = $this->subscription();
 
-        $created = $this->invoicePayload('evt_pb_void_c', 'invoice.created', [
+        $created = $this->invoicePayload('evt_pb_void_c', 'invoice.paid', [
             'id' => 'in_void',
-            'status' => 'draft',
+            'status' => 'paid',
             'subscription' => $subscription->stripe_subscription_id,
+            'amount_paid' => 8500,
+            'amount_due' => 0,
         ]);
         $this->postJson('/api/webhooks/stripe/project-billing', $created, [
             'Stripe-Signature' => $this->signature($created),
@@ -228,7 +288,7 @@ class ProjectBillingWebhookTest extends TestCase
         $this->assertSame(0, SaasInvoice::query()->count());
     }
 
-    public function test_first_invoice_is_emailed_with_payment_link_once_finalized(): void
+    public function test_only_the_first_invoice_is_exposed_for_initial_payment_when_finalized(): void
     {
         $subscription = $this->subscription('send_invoice');
 
@@ -243,7 +303,7 @@ class ProjectBillingWebhookTest extends TestCase
         ])->assertOk();
 
         Notification::assertNothingSent();
-        $this->assertNull(ProjectInvoice::query()->firstOrFail()->sent_at);
+        $this->assertDatabaseCount('project_invoices', 0);
 
         $finalized = $this->invoicePayload('evt_pb_first_final', 'invoice.finalized', [
             'id' => 'in_first',
@@ -256,11 +316,23 @@ class ProjectBillingWebhookTest extends TestCase
         ])->assertOk();
 
         $invoice = ProjectInvoice::query()->firstOrFail();
-
+        $this->assertSame(ProjectInvoice::STATUS_OPEN, $invoice->status);
+        $this->assertSame('in_first', $invoice->stripe_invoice_id);
         $this->assertSame('https://invoice.stripe.test/pay/in_first', $invoice->hosted_invoice_url);
-        $this->assertNotNull($invoice->sent_at);
-        Notification::assertSentOnDemand(ProjectInvoiceIssuedNotification::class);
+        Notification::assertCount(1);
+
+        $renewal = $this->invoicePayload('evt_pb_renewal_final', 'invoice.finalized', [
+            'id' => 'in_renewal',
+            'status' => 'open',
+            'subscription' => $subscription->stripe_subscription_id,
+            'hosted_invoice_url' => 'https://invoice.stripe.test/pay/in_renewal',
+        ]);
+        $this->postJson('/api/webhooks/stripe/project-billing', $renewal, [
+            'Stripe-Signature' => $this->signature($renewal),
+        ])->assertOk();
+
         $this->assertDatabaseCount('project_invoices', 1);
+        Notification::assertCount(1);
     }
 
     public function test_first_payment_saves_the_card_and_switches_to_automatic_collection(): void
@@ -331,7 +403,7 @@ class ProjectBillingWebhookTest extends TestCase
         $this->assertSame('send_invoice', $subscription->collection_method);
     }
 
-    public function test_shared_stripe_endpoint_routes_subscription_invoices_to_project_billing(): void
+    public function test_shared_stripe_endpoint_does_not_create_an_invoice_before_payment(): void
     {
         $subscription = $this->subscription('send_invoice');
 
@@ -346,15 +418,12 @@ class ProjectBillingWebhookTest extends TestCase
             'Stripe-Signature' => $this->signature($payload),
         ])->assertOk();
 
-        $invoice = ProjectInvoice::query()->firstOrFail();
-
-        $this->assertSame($subscription->id, $invoice->project_subscription_id);
-        $this->assertSame(now()->format('Y').'001', $invoice->invoice_number);
+        $this->assertDatabaseCount('project_invoices', 0);
         // It must not have been adopted by the SaaS billing domain.
         $this->assertSame(0, SaasInvoice::query()->count());
     }
 
-    public function test_shared_stripe_endpoint_emails_the_payment_link_on_finalize(): void
+    public function test_shared_stripe_endpoint_exposes_and_reminds_for_only_the_first_invoice(): void
     {
         $subscription = $this->subscription('send_invoice');
 
@@ -374,11 +443,8 @@ class ProjectBillingWebhookTest extends TestCase
             ])->assertOk();
         }
 
-        $invoice = ProjectInvoice::query()->firstOrFail();
-
-        $this->assertSame('https://invoice.stripe.test/pay/in_shared2', $invoice->hosted_invoice_url);
-        $this->assertNotNull($invoice->sent_at);
-        Notification::assertSentOnDemand(ProjectInvoiceIssuedNotification::class);
+        $this->assertDatabaseCount('project_invoices', 1);
+        Notification::assertCount(1);
     }
 
     private function subscription(string $collectionMethod = 'charge_automatically'): ProjectSubscription
@@ -394,6 +460,7 @@ class ProjectBillingWebhookTest extends TestCase
             'last_name' => 'Contact',
             'email' => 'billing@abc.test',
             'active' => true,
+            'can_access_portal' => true,
         ]);
 
         $company->update(['billing_contact_id' => $billingContact->id]);

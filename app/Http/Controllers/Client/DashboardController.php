@@ -3,6 +3,8 @@
 namespace App\Http\Controllers\Client;
 
 use App\Http\Controllers\Controller;
+use App\Models\Project;
+use App\Models\ProjectInvoice;
 use App\Services\ClientDocumentSignatureService;
 use App\Services\ClientPortalViewData;
 use Illuminate\Http\Request;
@@ -17,24 +19,29 @@ class DashboardController extends Controller
     ): View {
         $contact = $request->user('client');
 
-        $projects = $contact->projects()
-            ->where('projects.company_id', $contact->company_id)
-            ->whereHas(
-                'company',
-                fn ($query) => $query->where('status', 'active')
-            )
-            ->whereNull('archived_at')
+        $projects = Project::query()
+            ->where('company_id', $contact->company_id)
             ->with([
                 'serviceProduct',
             ])
             ->get();
 
-        $projects->each(function ($project) use ($contact, $signatures) {
+        $unpaidInvoiceCounts = ProjectInvoice::query()
+            ->where('company_id', $contact->company_id)
+            ->whereIn('project_id', $projects->pluck('id'))
+            ->where('status', ProjectInvoice::STATUS_OPEN)
+            ->where('amount_due', '>', 0)
+            ->selectRaw('project_id, count(*) as aggregate')
+            ->groupBy('project_id')
+            ->pluck('aggregate', 'project_id');
+
+        $projects->each(function ($project) use ($contact, $signatures, $unpaidInvoiceCounts) {
             $project->pending_signatures_count =
                 $signatures->pendingSignatureCount(
                     $project,
                     $contact
                 );
+            $project->unpaid_invoices_count = (int) ($unpaidInvoiceCounts[$project->id] ?? 0);
         });
 
         return view('apps.client', [

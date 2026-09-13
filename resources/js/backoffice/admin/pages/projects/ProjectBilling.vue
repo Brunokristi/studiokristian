@@ -815,7 +815,6 @@ onMounted(load)
             :project-id="id"
             :services="recurringItems"
             :currency="metrics.currency"
-            :has-saved-payment-method="Boolean(subscription?.payment_method_saved)"
             :busy="busy"
             @update:busy="busy = $event"
             @close="showSubscriptionCreateWorkflow = false"

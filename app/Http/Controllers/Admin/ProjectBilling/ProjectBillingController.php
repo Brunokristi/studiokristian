@@ -9,8 +9,6 @@ use App\Models\ProjectBillingItem;
 use App\Models\ProjectInvoice;
 use App\Models\ProjectBillingAdjustment;
 use App\Models\ProjectSubscription;
-use App\Notifications\ProjectInvoiceIssuedNotification;
-use App\Notifications\ProjectInvoicePaidNotification;
 use App\Services\ProjectBilling\ProjectInvoicePdfService;
 use App\Services\ProjectBilling\ProjectInvoiceService;
 use App\Services\ProjectBilling\ProjectSubscriptionService;
@@ -19,7 +17,6 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Support\Carbon;
-use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
 use Throwable;
@@ -29,7 +26,7 @@ class ProjectBillingController extends Controller
     /**
      * Full billing picture for one project: recurring services, invoices and totals.
      */
-    public function show(Project $project): JsonResponse
+    public function show(Project $project, ProjectSubscriptionService $subscriptions): JsonResponse
     {
         $project->loadMissing('company.billingContact');
 
@@ -64,6 +61,18 @@ class ProjectBillingController extends Controller
             ->first();
 
         if ($subscription) {
+            if (
+                $subscription->stripe_subscription_id &&
+                (! $subscription->current_period_start || ! $subscription->current_period_end)
+            ) {
+                try {
+                    $subscription = $subscriptions->refreshPeriod($subscription);
+                    $subscription->loadMissing(['items', 'invoices']);
+                } catch (Throwable $exception) {
+                    report($exception);
+                }
+            }
+
             $subscription->setAttribute(
                 'first_payment_received',
                 $subscription->invoices->contains(fn (ProjectInvoice $invoice) =>
@@ -335,10 +344,16 @@ class ProjectBillingController extends Controller
             'recipients.*' => ['email', Rule::in($allowed)],
         ]);
 
-        $recipients = $invoices->send(
-            $invoice,
-            array_values(array_unique($data['recipients'] ?? []))
-        );
+        try {
+            $recipients = $invoices->send(
+                $invoice,
+                array_values(array_unique($data['recipients'] ?? []))
+            );
+        } catch (Throwable $exception) {
+            report($exception);
+
+            return response()->json(['message' => $exception->getMessage()], 422);
+        }
 
         if (! $recipients) {
             return response()->json([
@@ -457,11 +472,6 @@ class ProjectBillingController extends Controller
             } catch (Throwable $exception) {
                 report($exception);
             }
-        }
-
-        if ($invoice->customer_email) {
-            Notification::route('mail', $invoice->customer_email)
-                ->notify(new ProjectInvoicePaidNotification($invoice->id));
         }
 
         return response()->json(['data' => $invoice->fresh()]);
@@ -597,17 +607,17 @@ class ProjectBillingController extends Controller
         $data = $request->validate([
             'billing_item_ids' => ['nullable', 'array'],
             'billing_item_ids.*' => ['integer'],
-            'collection_method' => ['nullable', Rule::in(['charge_automatically', 'send_invoice'])],
-            'starts_at' => ['nullable', 'date_format:Y-m-d'],
-            'ends_at' => ['nullable', 'date_format:Y-m-d', 'after_or_equal:starts_at'],
+            'collection_method' => ['nullable', Rule::in(['send_invoice'])],
+            'starts_at' => ['nullable', 'date'],
+            'ends_at' => ['nullable', 'date', 'after_or_equal:starts_at'],
         ]);
 
         try {
             $subscription = $subscriptions->start(
                 $project,
                 $data['collection_method'] ?? 'send_invoice',
-                $data['starts_at'] ?? null,
-                $data['ends_at'] ?? null,
+                isset($data['starts_at']) ? Carbon::parse($data['starts_at'])->toDateString() : null,
+                isset($data['ends_at']) ? Carbon::parse($data['ends_at'])->toDateString() : null,
                 $data['billing_item_ids'] ?? null
             );
         } catch (Throwable $exception) {

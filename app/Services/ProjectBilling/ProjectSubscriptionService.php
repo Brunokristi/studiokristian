@@ -5,10 +5,8 @@ namespace App\Services\ProjectBilling;
 use App\Models\BillingProduct;
 use App\Models\Project;
 use App\Models\ProjectBillingItem;
-use App\Models\ProjectInvoice;
 use App\Models\ProjectSubscription;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Log;
 use RuntimeException;
 use Illuminate\Support\Carbon;
 
@@ -150,6 +148,17 @@ class ProjectSubscriptionService
                 'project-subscription-'.$subscription->id,
                 $backdateStart
             );
+
+            $latestInvoiceId = $this->stripeId($stripeSubscription->latest_invoice ?? null);
+
+            if ($latestInvoiceId) {
+                $firstInvoice = $this->stripe->retrieveInvoice($latestInvoiceId);
+                $this->stripe->updateInvoice($latestInvoiceId, ['auto_advance' => false]);
+
+                if (($firstInvoice->status ?? null) === 'draft') {
+                    $this->stripe->finalizeInvoice($latestInvoiceId, false);
+                }
+            }
         } catch (\Throwable $exception) {
             // Never leave an orphaned local subscription behind after a Stripe failure.
             $subscription->delete();
@@ -162,15 +171,59 @@ class ProjectSubscriptionService
             'status' => $stripeSubscription->status === 'active'
                 ? ProjectSubscription::STATUS_ACTIVE
                 : ProjectSubscription::STATUS_DRAFT,
-            'current_period_start' => $this->timestamp($stripeSubscription->current_period_start ?? null),
-            'current_period_end' => $this->timestamp($stripeSubscription->current_period_end ?? null),
+            'current_period_start' => $this->periodStart($stripeSubscription),
+            'current_period_end' => $this->periodEnd($stripeSubscription),
         ]);
 
         $this->attachSubscriptionItems($subscription, $items, $stripeSubscription);
         $this->syncFutureLifecycle($subscription, $project);
-        $this->finalizeFirstInvoice($stripeSubscription);
 
         return $subscription->fresh('items');
+    }
+
+    public function refreshPeriod(ProjectSubscription $subscription): ProjectSubscription
+    {
+        if (! $subscription->stripe_subscription_id) {
+            return $subscription;
+        }
+
+        $stripeSubscription = $this->stripe->retrieveSubscription($subscription->stripe_subscription_id);
+
+        $subscription->update(array_filter([
+            'current_period_start' => $this->periodStart($stripeSubscription),
+            'current_period_end' => $this->periodEnd($stripeSubscription),
+        ]));
+
+        return $subscription->fresh();
+    }
+
+    private function periodStart(object $subscription): ?Carbon
+    {
+        $timestamp = $subscription->current_period_start ?? collect($subscription->items->data ?? [])
+            ->pluck('current_period_start')
+            ->filter()
+            ->min();
+
+        return $this->timestamp($timestamp);
+    }
+
+    private function periodEnd(object $subscription): ?Carbon
+    {
+        $timestamp = $subscription->current_period_end ?? collect($subscription->items->data ?? [])
+            ->pluck('current_period_end')
+            ->filter()
+            ->max();
+
+        return $this->timestamp($timestamp);
+    }
+
+    private function stripeId(mixed $value): ?string
+    {
+        if (is_string($value) && $value !== '') {
+            return $value;
+        }
+
+        return is_object($value) && isset($value->id) ? (string) $value->id : null;
     }
 
     /**
@@ -418,42 +471,6 @@ class ProjectSubscriptionService
             'interval_count' => $item->interval_count,
             'stripe_price_id' => $item->stripe_price_id,
         ]);
-    }
-
-    /**
-     * Stripe leaves a subscription's first invoice in draft for about an hour. Finalizing it
-     * now produces the hosted payment link so the customer can be invoiced immediately.
-     */
-    private function finalizeFirstInvoice(object $stripeSubscription): void
-    {
-        $latest = $stripeSubscription->latest_invoice ?? null;
-        $invoiceId = is_string($latest) ? $latest : ($latest->id ?? null);
-
-        if (! $invoiceId) {
-            return;
-        }
-
-        try {
-            $stripeInvoice = $this->stripe->retrieveInvoice($invoiceId);
-
-            if (($stripeInvoice->status ?? null) !== 'draft') {
-                return;
-            }
-
-            // Assign and push our invoice number while the invoice is still a draft,
-            // otherwise Stripe stamps its own number at finalization.
-            app(ProjectBillingWebhookService::class)->syncInvoiceFromStripe(
-                $stripeInvoice,
-                ProjectInvoice::STATUS_DRAFT
-            );
-
-            $this->stripe->finalizeInvoice($invoiceId, true);
-        } catch (\Throwable $exception) {
-            Log::warning('Unable to finalize the first subscription invoice.', [
-                'stripe_invoice_id' => $invoiceId,
-                'message' => $exception->getMessage(),
-            ]);
-        }
     }
 
     public function cancel(ProjectSubscription $subscription, bool $atPeriodEnd = true): ProjectSubscription

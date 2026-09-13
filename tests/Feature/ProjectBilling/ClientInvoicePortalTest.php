@@ -8,8 +8,11 @@ use App\Models\Project;
 use App\Models\ProjectBillingCustomer;
 use App\Models\ProjectInvoice;
 use App\Models\ServiceProduct;
+use App\Notifications\ClientAttentionRequiredNotification;
+use App\Services\ClientAttentionService;
 use App\Services\ProjectBilling\StripeProjectBillingGateway;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\Storage;
 use Mockery\MockInterface;
 use Stripe\StripeObject;
@@ -37,11 +40,11 @@ class ClientInvoicePortalTest extends TestCase
         $foreign = $this->invoice($otherProject, $otherCompany, '2026003', ProjectInvoice::STATUS_OPEN);
 
         $response = $this->actingAs($contact, 'client')
-            ->get('/client/invoices')
+            ->get(route('client.projects.show', $project))
             ->assertOk();
 
         $payload = $this->portalPayload($response->getContent());
-        $numbers = array_column($payload['invoices'], 'number');
+        $numbers = array_column($payload['project']['invoices'], 'number');
 
         $this->assertContains($open->invoice_number, $numbers);
         // Drafts are internal, and another client's invoice is never exposed.
@@ -57,7 +60,7 @@ class ClientInvoicePortalTest extends TestCase
         $invoice->update(['hosted_invoice_url' => 'https://invoice.stripe.test/pay/in_1']);
 
         $this->actingAs($contact, 'client')
-            ->get("/client/invoices/{$invoice->id}/pay")
+            ->get(route('client.invoices.pay', [$project, $invoice]))
             ->assertRedirect('https://invoice.stripe.test/pay/in_1');
     }
 
@@ -77,7 +80,7 @@ class ClientInvoicePortalTest extends TestCase
         });
 
         $this->actingAs($contact, 'client')
-            ->get("/client/invoices/{$invoice->id}/pay")
+            ->get(route('client.invoices.pay', [$project, $invoice]))
             ->assertRedirect('https://invoice.stripe.test/pay/in_refresh');
 
         $this->assertSame(
@@ -94,8 +97,8 @@ class ClientInvoicePortalTest extends TestCase
         $invoice->update(['hosted_invoice_url' => 'https://invoice.stripe.test/pay/in_paid']);
 
         $this->actingAs($contact, 'client')
-            ->get("/client/invoices/{$invoice->id}/pay")
-            ->assertRedirect(route('client.invoices.index'));
+            ->get(route('client.invoices.pay', [$project, $invoice]))
+            ->assertRedirect(route('client.projects.show', $project));
     }
 
     public function test_client_cannot_pay_or_download_another_companys_invoice(): void
@@ -106,11 +109,11 @@ class ClientInvoicePortalTest extends TestCase
         $foreign = $this->invoice($otherProject, $otherCompany, '2026013', ProjectInvoice::STATUS_OPEN);
 
         $this->actingAs($contact, 'client')
-            ->get("/client/invoices/{$foreign->id}/pay")
+            ->get(route('client.invoices.pay', [$otherProject, $foreign]))
             ->assertNotFound();
 
         $this->actingAs($contact, 'client')
-            ->get("/client/invoices/{$foreign->id}/pdf")
+            ->get(route('client.invoices.pdf', [$otherProject, $foreign]))
             ->assertNotFound();
     }
 
@@ -121,14 +124,107 @@ class ClientInvoicePortalTest extends TestCase
         $invoice = $this->invoice($project, $company, '2026014', ProjectInvoice::STATUS_OPEN);
 
         $this->actingAs($contact, 'client')
-            ->get("/client/invoices/{$invoice->id}/pdf")
+            ->get(route('client.invoices.pdf', [$project, $invoice]))
             ->assertOk()
             ->assertHeader('content-type', 'application/pdf');
     }
 
     public function test_guests_cannot_reach_the_invoice_portal(): void
     {
-        $this->get('/client/invoices')->assertRedirect();
+        [, , $project] = $this->fixture();
+
+        $this->get(route('client.projects.show', $project))->assertRedirect();
+    }
+
+    public function test_attention_reminders_are_deduplicated_and_never_attach_invoices(): void
+    {
+        Notification::fake();
+        [$contact, $company, $project] = $this->fixture();
+        $company->update(['billing_contact_id' => $contact->id]);
+        $this->invoice($project, $company, '2026015', ProjectInvoice::STATUS_OPEN);
+
+        $attention = app(ClientAttentionService::class);
+
+        $this->assertSame(1, $attention->notifyCompany($company->fresh()));
+        $this->assertSame(0, $attention->notifyCompany($company->fresh()));
+
+        Notification::assertSentToTimes($contact, ClientAttentionRequiredNotification::class, 1);
+        Notification::assertSentTo(
+            $contact,
+            ClientAttentionRequiredNotification::class,
+            function (ClientAttentionRequiredNotification $notification) use ($contact): bool {
+                $mail = $notification->toMail($contact);
+
+                return $mail->subject === 'Your attention is required'
+                    && $mail->view === 'emails.client-attention-required'
+                    && $mail->viewData['invoiceCount'] === 1
+                    && $mail->viewData['signatureCount'] === 0
+                    && $mail->viewData['actionUrl'] === route('client.dashboard')
+                    && $mail->attachments === []
+                    && $mail->rawAttachments === [];
+            }
+        );
+
+        $this->invoice($project, $company, '2026017', ProjectInvoice::STATUS_OPEN);
+        $this->assertSame(1, $attention->notifyCompany($company->fresh()));
+        Notification::assertSentToTimes($contact, ClientAttentionRequiredNotification::class, 2);
+
+        $this->travel(3)->days();
+        $this->assertSame(1, $attention->notifyCompany($company->fresh()));
+        Notification::assertSentToTimes($contact, ClientAttentionRequiredNotification::class, 3);
+    }
+
+    public function test_dashboard_action_count_includes_unpaid_invoices(): void
+    {
+        [$contact, $company, $project] = $this->fixture();
+        $this->invoice($project, $company, '2026016', ProjectInvoice::STATUS_OPEN);
+
+        $response = $this->actingAs($contact, 'client')->get('/client')->assertOk();
+        $payload = $this->portalPayload($response->getContent());
+
+        $this->assertSame(1, $payload['projects'][0]['unpaid_invoices_count']);
+        $this->assertSame(1, $payload['projects'][0]['action_count']);
+    }
+
+    public function test_client_sees_archived_assigned_projects_and_their_invoices_inside_the_project(): void
+    {
+        [$contact, $company, $project] = $this->fixture();
+        $project->update(['archived_at' => now(), 'portal_status' => 'completed']);
+        $invoice = $this->invoice($project, $company, '2026018', ProjectInvoice::STATUS_OPEN);
+
+        $dashboard = $this->actingAs($contact, 'client')->get('/client')->assertOk();
+        $dashboardPayload = $this->portalPayload($dashboard->getContent());
+
+        $this->assertSame($project->id, $dashboardPayload['projects'][0]['id']);
+
+        $projectResponse = $this->get(route('client.projects.show', $project))->assertOk();
+        $projectPayload = $this->portalPayload($projectResponse->getContent());
+
+        $this->assertSame($invoice->id, $projectPayload['project']['invoices'][0]['id']);
+        $this->assertSame('2026018', $projectPayload['project']['invoices'][0]['number']);
+    }
+
+    public function test_client_can_access_invoices_for_every_project_in_their_company(): void
+    {
+        [$contact, $company] = $this->fixture();
+        [, , $unassignedProject] = $this->fixture('Unassigned');
+        $unassignedProject->update(['company_id' => $company->id]);
+        $invoice = $this->invoice($unassignedProject, $company, '2026019', ProjectInvoice::STATUS_OPEN);
+
+        $assignedProject = $contact->projects()->firstOrFail();
+        $response = $this->actingAs($contact, 'client')
+            ->get(route('client.projects.show', $assignedProject))
+            ->assertOk();
+        $payload = $this->portalPayload($response->getContent());
+
+        $dashboard = $this->get(route('client.dashboard'))->assertOk();
+        $dashboardPayload = $this->portalPayload($dashboard->getContent());
+        $this->assertContains($unassignedProject->id, array_column($dashboardPayload['projects'], 'id'));
+
+        $projectResponse = $this->get(route('client.projects.show', $unassignedProject))->assertOk();
+        $projectPayload = $this->portalPayload($projectResponse->getContent());
+        $this->assertContains('2026019', array_column($projectPayload['project']['invoices'], 'number'));
+        $this->get(route('client.invoices.pdf', [$unassignedProject, $invoice]))->assertOk();
     }
 
     public function test_changing_the_billing_contact_syncs_the_existing_stripe_customer(): void
@@ -266,6 +362,8 @@ class ClientInvoicePortalTest extends TestCase
             'active' => true,
             'can_access_portal' => true,
         ]);
+
+        $contact->projects()->attach($project);
 
         return [$contact, $company, $project];
     }

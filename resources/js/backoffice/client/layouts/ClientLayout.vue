@@ -47,14 +47,6 @@ const navigation = [
             'dashboard',
             'project'
         ]
-    },
-
-    {
-        key: 'invoices',
-        href: 'invoices',
-        pages: [
-            'invoices'
-        ]
     }
 ]
 

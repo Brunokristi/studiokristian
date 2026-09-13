@@ -42,6 +42,12 @@ const showMore = ref(false)
 const services = computed(() => props.subscription?.items || [])
 const invoices = computed(() => (props.subscription?.invoices || []).slice(0, 5))
 const history = computed(() => props.subscription?.history || [])
+const currentPeriodLabel = computed(() => {
+    const start = props.subscription?.current_period_start
+    const end = props.subscription?.current_period_end
+
+    return start && end ? `${formatDate(start)} -> ${formatDate(end)}` : 'Awaiting billing period'
+})
 
 function money(amount, currency = props.metrics.currency || 'EUR') {
     return new Intl.NumberFormat('sk-SK', {
@@ -220,7 +226,7 @@ function itemStatus(item) {
                     <div class="mt-4 space-y-4 text-sm">
                         <div class="flex justify-between gap-4">
                             <span class="text-dark/60">Current period</span>
-                            <span class="font-bold text-dark">{{ formatDate(subscription.current_period_start) }} -> {{ formatDate(subscription.current_period_end) }}</span>
+                            <span class="font-bold text-dark">{{ currentPeriodLabel }}</span>
                         </div>
                         <div class="flex justify-between gap-4">
                             <span class="text-dark/60">Next invoice</span>

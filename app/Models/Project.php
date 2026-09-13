@@ -169,6 +169,11 @@ class Project extends Model
         );
     }
 
+    public function invoices(): HasMany
+    {
+        return $this->hasMany(ProjectInvoice::class);
+    }
+
     public function images(): HasMany
     {
         return $this->hasMany(

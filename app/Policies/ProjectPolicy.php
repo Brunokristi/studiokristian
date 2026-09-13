@@ -25,10 +25,7 @@ class ProjectPolicy
         $contact = $actor;
 
         return $contact->hasPortalAccess()
-            && $project->company_id === $contact->company_id
-            && $project->company?->status === 'active'
-            && $project->archived_at === null
-            && $contact->projects()->whereKey($project->id)->exists();
+            && $project->company_id === $contact->company_id;
     }
 
     public function update(User $user, Project $project): bool

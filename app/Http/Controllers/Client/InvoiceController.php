@@ -3,46 +3,33 @@
 namespace App\Http\Controllers\Client;
 
 use App\Http\Controllers\Controller;
+use App\Models\Project;
 use App\Models\ProjectInvoice;
-use App\Services\ClientPortalViewData;
 use App\Services\ProjectBilling\ProjectInvoicePdfService;
 use App\Services\ProjectBilling\StripeProjectBillingGateway;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
-use Illuminate\View\View;
 use Throwable;
 
 class InvoiceController extends Controller
 {
-    public function index(Request $request, ClientPortalViewData $viewData): View
-    {
-        $contact = $request->user('client');
-
-        $invoices = ProjectInvoice::query()
-            ->where('company_id', $contact->company_id)
-            ->where('status', '!=', ProjectInvoice::STATUS_DRAFT)
-            ->with('project')
-            ->orderByDesc('issue_date')
-            ->orderByDesc('id')
-            ->get();
-
-        return view('apps.client', [
-            'clientPage' => $viewData->invoices($request, $contact, $invoices),
-        ]);
-    }
-
     /**
      * Sends the customer to Stripe's Hosted Invoice Page - StudioKristian never
      * handles card data and no second payment system exists.
      */
-    public function pay(Request $request, ProjectInvoice $invoice, StripeProjectBillingGateway $stripe): RedirectResponse
+    public function pay(
+        Request $request,
+        Project $project,
+        ProjectInvoice $invoice,
+        StripeProjectBillingGateway $stripe
+    ): RedirectResponse
     {
-        $this->authorizeInvoice($request, $invoice);
+        $this->authorizeInvoice($request, $project, $invoice);
 
         if ($invoice->status !== ProjectInvoice::STATUS_OPEN) {
             return redirect()
-                ->route('client.invoices.index')
+                ->route('client.projects.show', $project)
                 ->withErrors(['invoice' => 'This invoice is not payable.']);
         }
 
@@ -50,16 +37,21 @@ class InvoiceController extends Controller
 
         if (! $url) {
             return redirect()
-                ->route('client.invoices.index')
+                ->route('client.projects.show', $project)
                 ->withErrors(['invoice' => 'Online payment is not available for this invoice yet.']);
         }
 
         return redirect()->away($url);
     }
 
-    public function downloadPdf(Request $request, ProjectInvoice $invoice, ProjectInvoicePdfService $pdf)
+    public function downloadPdf(
+        Request $request,
+        Project $project,
+        ProjectInvoice $invoice,
+        ProjectInvoicePdfService $pdf
+    )
     {
-        $this->authorizeInvoice($request, $invoice);
+        $this->authorizeInvoice($request, $project, $invoice);
 
         $disk = Storage::disk(config('billing.invoice.pdf_disk'));
 
@@ -99,12 +91,15 @@ class InvoiceController extends Controller
         }
     }
 
-    private function authorizeInvoice(Request $request, ProjectInvoice $invoice): void
+    private function authorizeInvoice(Request $request, Project $project, ProjectInvoice $invoice): void
     {
         $contact = $request->user('client');
 
         abort_unless(
-            $contact && $invoice->company_id === $contact->company_id,
+            $contact &&
+            $invoice->project_id === $project->id &&
+            $invoice->company_id === $contact->company_id &&
+            $project->company_id === $contact->company_id,
             404
         );
 

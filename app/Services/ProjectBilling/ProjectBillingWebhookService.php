@@ -6,13 +6,10 @@ use App\Models\ProjectInvoice;
 use App\Models\ProjectBillingAdjustment;
 use App\Models\ProjectInvoiceItem;
 use App\Models\ProjectSubscription;
-use App\Notifications\ProjectInvoiceIssuedNotification;
-use App\Notifications\ProjectInvoicePaidNotification;
-use App\Notifications\ProjectInvoicePaymentFailedNotification;
+use App\Services\ClientAttentionService;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Notification;
 use Stripe\Event;
 use Stripe\StripeObject;
 use Throwable;
@@ -28,14 +25,15 @@ class ProjectBillingWebhookService
         private ProjectInvoicePdfService $pdf,
         private ProjectInvoiceService $invoices,
         private StripeProjectBillingGateway $stripe,
+        private ClientAttentionService $attention,
     ) {
     }
 
     public function process(Event $event): void
     {
         match ($event->type) {
-            'invoice.created' => $this->syncInvoice($event->data->object, ProjectInvoice::STATUS_DRAFT),
-            'invoice.finalized' => $this->syncInvoice($event->data->object, ProjectInvoice::STATUS_OPEN),
+            'invoice.created' => $this->syncExistingInvoice($event->data->object, ProjectInvoice::STATUS_DRAFT),
+            'invoice.finalized' => $this->syncExistingInvoice($event->data->object, ProjectInvoice::STATUS_OPEN),
             'invoice.paid' => $this->handleInvoicePaid($event->data->object),
             'invoice.payment_failed' => $this->handleInvoicePaymentFailed($event->data->object),
             'invoice.voided' => $this->closeInvoice($event->data->object, ProjectInvoice::STATUS_VOID),
@@ -172,19 +170,37 @@ class ProjectBillingWebhookService
         );
     }
 
-    /**
-     * Same sync path the webhooks use, callable directly when we must not wait for delivery.
-     */
-    public function syncInvoiceFromStripe(StripeObject $stripeInvoice, string $status): ?ProjectInvoice
+    private function syncExistingInvoice(StripeObject $stripeInvoice, string $status): ?ProjectInvoice
     {
-        return $this->syncInvoice($stripeInvoice, $status);
+        $stripeInvoiceId = $this->id($stripeInvoice->id ?? null);
+
+        if ($stripeInvoiceId && ProjectInvoice::query()->where('stripe_invoice_id', $stripeInvoiceId)->exists()) {
+            return $this->syncInvoice($stripeInvoice, $status, false);
+        }
+
+        if ($status !== ProjectInvoice::STATUS_OPEN) {
+            return null;
+        }
+
+        $subscription = $this->subscriptionFor($stripeInvoice);
+        $isFirstInvoice = $subscription
+            && $subscription->collection_method === 'send_invoice'
+            && ! $subscription->invoices()->exists();
+
+        return $isFirstInvoice
+            ? $this->syncInvoice($stripeInvoice, $status, true)
+            : null;
     }
 
     /**
      * Creates or updates the local invoice for a Stripe invoice that belongs to this
      * domain - including recurring invoices Stripe generates on its own.
      */
-    private function syncInvoice(StripeObject $stripeInvoice, string $status): ?ProjectInvoice
+    private function syncInvoice(
+        StripeObject $stripeInvoice,
+        string $status,
+        bool $allowCreate
+    ): ?ProjectInvoice
     {
         $stripeInvoiceId = $this->id($stripeInvoice->id ?? null);
 
@@ -196,7 +212,17 @@ class ProjectBillingWebhookService
             ->where('stripe_invoice_id', $stripeInvoiceId)
             ->first();
 
-        $subscription = $this->subscriptionFor($stripeInvoice);
+        if (! $invoice && ! $allowCreate) {
+            return null;
+        }
+
+        $subscription = $this->subscriptionFor($stripeInvoice, $allowCreate && ! $invoice);
+
+        if (! $invoice && $allowCreate && $subscription) {
+            $invoice = ProjectInvoice::query()
+                ->where('stripe_invoice_id', $stripeInvoiceId)
+                ->first();
+        }
 
         if (! $invoice && ! $subscription && ! $this->belongsToDomain($stripeInvoice)) {
             return null;
@@ -255,6 +281,7 @@ class ProjectBillingWebhookService
             'stripe_invoice_id' => $stripeInvoiceId,
             'stripe_customer_id' => $this->id($stripeInvoice->customer ?? null),
             'stripe_subscription_id' => $this->subscriptionId($stripeInvoice),
+            'stripe_payment_intent_id' => $this->paymentIntentId($stripeInvoice),
             'project_subscription_id' => $subscription?->id ?? $invoice->project_subscription_id,
             'hosted_invoice_url' => $stripeInvoice->hosted_invoice_url ?? null,
             'subtotal' => (int) ($stripeInvoice->subtotal ?? $invoice->subtotal),
@@ -276,15 +303,14 @@ class ProjectBillingWebhookService
 
         $invoice = $invoice->fresh(['items', 'company']);
 
-        // Emailed once the invoice is finalized, because only then does Stripe expose the
-        // hosted payment link the customer needs for the first payment.
         if ($invoice->status === ProjectInvoice::STATUS_OPEN && ! $invoice->sent_at) {
             if (! $isNew) {
                 $this->pdf->generate($invoice);
             }
 
-            $this->notify($invoice, new ProjectInvoiceIssuedNotification($invoice->id));
-            $invoice->update(['sent_at' => now()]);
+            if ($invoice->company && $this->attention->notifyCompany($invoice->company)) {
+                $invoice->update(['sent_at' => now()]);
+            }
         }
 
         return $invoice->fresh('items');
@@ -292,13 +318,11 @@ class ProjectBillingWebhookService
 
     private function handleInvoicePaid(StripeObject $stripeInvoice): void
     {
-        $invoice = $this->syncInvoice($stripeInvoice, ProjectInvoice::STATUS_PAID);
+        $invoice = $this->syncInvoice($stripeInvoice, ProjectInvoice::STATUS_PAID, true);
 
         if (! $invoice) {
             return;
         }
-
-        $alreadyPaid = $invoice->payment_status === ProjectInvoice::PAYMENT_PAID;
 
         $invoice->update([
             'status' => ProjectInvoice::STATUS_PAID,
@@ -309,11 +333,10 @@ class ProjectBillingWebhookService
         ]);
 
         $this->syncProcessingFee($invoice, $stripeInvoice);
+        $this->syncSubscriptionPaymentState($invoice->subscription, ProjectSubscription::STATUS_ACTIVE);
         $this->enableAutomaticCollection($invoice);
 
-        if (! $alreadyPaid) {
-            $this->notify($invoice, new ProjectInvoicePaidNotification($invoice->id));
-        }
+        $invoice->update(['sent_at' => $invoice->sent_at ?: now()]);
     }
 
     /**
@@ -357,7 +380,10 @@ class ProjectBillingWebhookService
 
     private function handleInvoicePaymentFailed(StripeObject $stripeInvoice): void
     {
-        $invoice = $this->syncInvoice($stripeInvoice, ProjectInvoice::STATUS_OPEN);
+        $subscription = $this->subscriptionFor($stripeInvoice);
+        $this->syncSubscriptionPaymentState($subscription, ProjectSubscription::STATUS_PAST_DUE);
+
+        $invoice = $this->syncInvoice($stripeInvoice, ProjectInvoice::STATUS_OPEN, false);
 
         if (! $invoice || $invoice->payment_status === ProjectInvoice::PAYMENT_PAID) {
             return;
@@ -370,9 +396,18 @@ class ProjectBillingWebhookService
             'payment_failed_at' => $invoice->payment_failed_at ?: now(),
         ]);
 
-        if (! $alreadyFailed) {
-            $this->notify($invoice, new ProjectInvoicePaymentFailedNotification($invoice->id));
+        if (! $alreadyFailed && $invoice->company) {
+            $this->attention->notifyCompany($invoice->company);
         }
+    }
+
+    private function syncSubscriptionPaymentState(?ProjectSubscription $subscription, string $status): void
+    {
+        if (! $subscription || $subscription->status === ProjectSubscription::STATUS_CANCELED) {
+            return;
+        }
+
+        $subscription->update(['status' => $status]);
     }
 
     private function closeInvoice(StripeObject $stripeInvoice, string $status): void
@@ -401,8 +436,10 @@ class ProjectBillingWebhookService
             'collection_method' => (string) ($stripeSubscription->collection_method ?? $subscription->collection_method),
             'stripe_default_payment_method_id' => $this->id($stripeSubscription->default_payment_method ?? null)
                 ?: $subscription->stripe_default_payment_method_id,
-            'current_period_start' => $this->timestamp($stripeSubscription->current_period_start ?? null),
-            'current_period_end' => $this->timestamp($stripeSubscription->current_period_end ?? null),
+            'current_period_start' => $this->subscriptionPeriodStart($stripeSubscription)
+                ?: $subscription->current_period_start,
+            'current_period_end' => $this->subscriptionPeriodEnd($stripeSubscription)
+                ?: $subscription->current_period_end,
             'cancel_at_period_end' => (bool) ($stripeSubscription->cancel_at_period_end ?? false),
             'canceled_at' => $this->timestamp($stripeSubscription->canceled_at ?? null),
         ]);
@@ -410,6 +447,26 @@ class ProjectBillingWebhookService
         if ($subscription->stripe_schedule_id) {
             $this->syncScheduleObject($subscription, $this->stripe->retrieveSchedule($subscription->stripe_schedule_id));
         }
+    }
+
+    private function subscriptionPeriodStart(StripeObject $subscription): ?Carbon
+    {
+        $timestamp = $subscription->current_period_start ?? collect($subscription->items->data ?? [])
+            ->pluck('current_period_start')
+            ->filter()
+            ->min();
+
+        return $this->timestamp($timestamp);
+    }
+
+    private function subscriptionPeriodEnd(StripeObject $subscription): ?Carbon
+    {
+        $timestamp = $subscription->current_period_end ?? collect($subscription->items->data ?? [])
+            ->pluck('current_period_end')
+            ->filter()
+            ->max();
+
+        return $this->timestamp($timestamp);
     }
 
     private function syncSchedule(StripeObject $schedule): void
@@ -523,6 +580,12 @@ class ProjectBillingWebhookService
         $lines = $stripeInvoice->lines->data ?? [];
 
         foreach ($lines as $index => $line) {
+            $quantity = max(1, (int) ($line->quantity ?? 1));
+            $amount = (int) ($line->amount ?? 0);
+            $unitAmount = $line->price->unit_amount
+                ?? $line->pricing?->unit_amount_decimal
+                ?? ($quantity > 0 ? (int) round($amount / $quantity) : $amount);
+
             ProjectInvoiceItem::query()->updateOrCreate(
                 [
                     'project_invoice_id' => $invoice->id,
@@ -530,9 +593,9 @@ class ProjectBillingWebhookService
                 ],
                 [
                     'name' => $line->description ?: 'Služba',
-                    'quantity' => (int) ($line->quantity ?? 1),
-                    'unit_amount' => (int) ($line->price->unit_amount ?? $line->amount ?? 0),
-                    'amount' => (int) ($line->amount ?? 0),
+                    'quantity' => $quantity,
+                    'unit_amount' => (int) round((float) $unitAmount),
+                    'amount' => $amount,
                     'tax_rate' => 0,
                     'sort_order' => $index,
                 ]
@@ -564,21 +627,25 @@ class ProjectBillingWebhookService
         }
     }
 
-    private function notify(ProjectInvoice $invoice, object $notification): void
+    private function subscriptionFor(
+        StripeObject $stripeInvoice,
+        bool $lockForUpdate = false
+    ): ?ProjectSubscription
     {
-        // An invoice is a historical document: always the address captured at issue time.
-        $email = $invoice->customer_email;
+        $stripeSubscriptionId = $this->subscriptionId($stripeInvoice);
 
-        if (! $email) {
-            return;
+        if (! $stripeSubscriptionId) {
+            return null;
         }
 
-        Notification::route('mail', $email)->notify($notification);
-    }
+        $query = ProjectSubscription::query()
+            ->where('stripe_subscription_id', $stripeSubscriptionId);
 
-    private function subscriptionFor(StripeObject $stripeInvoice): ?ProjectSubscription
-    {
-        return $this->subscriptionByStripeId($this->subscriptionId($stripeInvoice));
+        if ($lockForUpdate) {
+            $query->lockForUpdate();
+        }
+
+        return $query->first();
     }
 
     private function subscriptionByStripeId(?string $stripeSubscriptionId): ?ProjectSubscription
@@ -594,6 +661,14 @@ class ProjectBillingWebhookService
     {
         return $this->id($invoice->subscription ?? null)
             ?: $this->id($invoice->parent?->subscription_details?->subscription ?? null);
+    }
+
+    private function paymentIntentId(StripeObject $invoice): ?string
+    {
+        $payment = $invoice->payments?->data[0]?->payment ?? null;
+
+        return $this->id($invoice->payment_intent ?? null)
+            ?: $this->id($payment?->payment_intent ?? null);
     }
 
     private function belongsToDomain(StripeObject $object): bool

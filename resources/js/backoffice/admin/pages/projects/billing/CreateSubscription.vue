@@ -29,10 +29,6 @@ const props = defineProps({
         type: String,
         default: 'EUR'
     },
-    hasSavedPaymentMethod: {
-        type: Boolean,
-        default: false
-    },
     busy: {
         type: Boolean,
         default: false
@@ -116,7 +112,7 @@ const reviewItems = computed(() => [
     },
     {
         label: 'First payment',
-        value: form.collection_method === 'send_invoice' ? 'Invoice sent to customer' : 'Saved payment method'
+        value: 'Saved payment method'
     }
 ])
 
@@ -135,6 +131,10 @@ function formatDate(value) {
     const parts = String(value).slice(0, 10).match(/^(\d{4})-(\d{2})-(\d{2})$/)
 
     return parts ? `${parts[3]}.${parts[2]}.${parts[1]}` : '-'
+}
+
+function inputDate(value) {
+    return value ? String(value).slice(0, 10) : ''
 }
 
 function intervalLabel(interval) {
@@ -156,11 +156,14 @@ function toggleService(serviceId) {
 
 function reset() {
     form.service_ids = selectableServices.value.map((service) => service.id)
-    form.starts_at = selectableServices.value
+    form.starts_at = inputDate(selectableServices.value
         .map((service) => service.starts_at)
         .filter(Boolean)
-        .sort()[0] || today
-    form.ends_at = ''
+        .sort()[0] || today)
+    form.ends_at = inputDate(selectableServices.value
+        .map((service) => service.ends_at)
+        .filter(Boolean)
+        .sort()[0])
     form.collection_method = 'send_invoice'
     form.step = 'compose'
 }
@@ -266,7 +269,7 @@ watch(
                                 <FormField v-model="form.ends_at" label="Ends" type="date" />
                             </div>
                             <p class="mt-3 text-sm text-dark/60">
-                                The subscription billing schedule is based on the start date, not the date the customer pays the first invoice.
+                                The subscription billing schedule is based on the start date, not the payment date.
                             </p>
 
                             <div
@@ -285,30 +288,12 @@ watch(
                         </div>
 
                         <div class="border-t border-accent pt-6">
-                            <div class="text-xs font-bold uppercase tracking-wide text-dark/60">First payment</div>
-                            <div class="mt-3 grid gap-3 sm:grid-cols-2">
-                                <button
-                                    type="button"
-                                    class="border p-4 text-left"
-                                    :class="form.collection_method === 'send_invoice' ? 'border-dark bg-accent/10' : 'border-accent'"
-                                    @click="form.collection_method = 'send_invoice'"
-                                >
-                                    <div class="font-bold text-dark">Send invoice to customer</div>
-                                    <div class="mt-1 text-sm text-dark/60">Customer receives the first invoice and pays it.</div>
-                                </button>
-
-                                <button
-                                    type="button"
-                                    class="border p-4 text-left disabled:cursor-not-allowed disabled:opacity-40"
-                                    :class="form.collection_method === 'charge_automatically' ? 'border-dark bg-accent/10' : 'border-accent'"
-                                    :disabled="!hasSavedPaymentMethod"
-                                    @click="form.collection_method = 'charge_automatically'"
-                                >
-                                    <div class="font-bold text-dark">Charge saved payment method</div>
-                                    <div class="mt-1 text-sm text-dark/60">
-                                        {{ hasSavedPaymentMethod ? 'Use the saved payment method.' : 'No saved payment method is available yet.' }}
-                                    </div>
-                                </button>
+                            <div class="text-xs font-bold uppercase tracking-wide text-dark/60">Payment</div>
+                            <div class="mt-3 border border-accent p-4">
+                                <div class="font-bold text-dark">Charge saved payment method</div>
+                                <div class="mt-1 text-sm text-dark/60">
+                                    The client pays the first invoice in the portal. Stripe saves that card for automatic renewals.
+                                </div>
                             </div>
                         </div>
                     </section>

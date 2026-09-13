@@ -7,12 +7,11 @@ use App\Models\Project;
 use App\Models\ProjectBillingItem;
 use App\Models\ProjectInvoice;
 use App\Models\ProjectInvoiceItem;
-use App\Notifications\ProjectInvoiceIssuedNotification;
+use App\Services\ClientAttentionService;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Notification;
 use RuntimeException;
 use Throwable;
 
@@ -22,6 +21,7 @@ class ProjectInvoiceService
         private StripeProjectBillingGateway $stripe,
         private ProjectInvoiceNumberService $numbers,
         private ProjectInvoicePdfService $pdf,
+        private ClientAttentionService $attention,
     ) {
     }
 
@@ -287,22 +287,13 @@ class ProjectInvoiceService
         ProjectInvoice $invoice,
         array $recipients = []
     ): array {
-        $recipients = $recipients ?: array_filter([
-            $invoice->customer_email,
-        ]);
+        $invoice->loadMissing('company');
+        $recipients = $invoice->company
+            ? [$invoice->company->billingContact?->email]
+            : [];
+        $recipients = array_values(array_filter($recipients));
 
-        foreach ($recipients as $email) {
-            Notification::route(
-                'mail',
-                $email
-            )->notify(
-                new ProjectInvoiceIssuedNotification(
-                    $invoice->id
-                )
-            );
-        }
-
-        if ($recipients) {
+        if ($invoice->company && $this->attention->notifyCompany($invoice->company)) {
             $invoice->update([
                 'sent_at' => now(),
                 'customer_email' =>
