@@ -6,29 +6,44 @@ import {
     watch
 } from 'vue'
 
+
 import {
     RouterLink,
     RouterView,
     useRoute
 } from 'vue-router'
 
+
+import Tabs from '../../components/Tabs.vue'
 import Tag from '@shared/components/Tag.vue'
 import Toast from '@shared/components/Toast.vue'
+
+
 import useAutosavePolicy from '../composables/useAutosavePolicy'
-import { useAdminPageHeader } from '../composables/useAdminPageHeader'
+
+
+import {
+    useAdminPageHeader
+} from '../composables/useAdminPageHeader'
+
 
 const {
     header: pageHeader
-} = useAdminPageHeader()
+} =
+    useAdminPageHeader()
+
 
 const {
     enabled,
     status,
     lastSavedAt
-} = useAutosavePolicy()
+} =
+    useAutosavePolicy()
+
 
 const route =
     useRoute()
+
 
 /*
 |--------------------------------------------------------------------------
@@ -38,30 +53,40 @@ const route =
 
 const lastSavedLabel =
     computed(() => {
+
         if (
             !lastSavedAt.value
         ) {
+
             return 'never'
+
         }
+
 
         const savedAt =
             new Date(
                 lastSavedAt.value
             )
 
+
         const now =
             new Date()
+
 
         const diffMs =
             now.getTime() -
             savedAt.getTime()
 
+
         if (
             diffMs <
             60000
         ) {
+
             return 'now'
+
         }
+
 
         return savedAt.toLocaleTimeString(
             [],
@@ -70,7 +95,9 @@ const lastSavedLabel =
                 minute: '2-digit'
             }
         )
+
     })
+
 
 /*
 |--------------------------------------------------------------------------
@@ -81,15 +108,22 @@ const lastSavedLabel =
 const menuOpen =
     ref(false)
 
+
 function toggleMenu() {
+
     menuOpen.value =
         !menuOpen.value
+
 }
 
+
 function closeMenu() {
+
     menuOpen.value =
         false
+
 }
+
 
 /*
 |--------------------------------------------------------------------------
@@ -99,15 +133,21 @@ function closeMenu() {
 
 watch(
     () => route.fullPath,
+
     () => {
+
         if (
             window.innerWidth <
             1024
         ) {
+
             closeMenu()
+
         }
+
     }
 )
+
 
 /*
 |--------------------------------------------------------------------------
@@ -120,6 +160,7 @@ const csrfToken =
         'meta[name="csrf-token"]'
     )?.content ?? ''
 
+
 const currentUserPayload =
     JSON.parse(
         document.querySelector(
@@ -128,10 +169,12 @@ const currentUserPayload =
         '{}'
     )
 
+
 const isAdminUser =
     Boolean(
         currentUserPayload?.is_admin
     )
+
 
 /*
 |--------------------------------------------------------------------------
@@ -140,72 +183,84 @@ const isAdminUser =
 */
 
 const adminNavigation = [
+
     {
         label: 'Dashboard',
+
         route: {
             name: 'dashboard'
         },
+
         match: 'dashboard'
     },
 
     {
         label: 'Clients',
+
         route: {
             name: 'clients.index'
         },
+
         match: 'clients'
     },
 
     {
         label: 'Services',
+
         route: {
             name: 'service-products.index'
         },
+
         match: 'service-products'
     },
 
     {
         label: 'SaaS',
+
         route: {
             name: 'saas.projects.index'
         },
+
         match: 'saas'
     },
 
     {
         label: 'Projects',
+
         route: {
             name: 'projects.index'
         },
+
         match: 'projects'
     },
 
     {
         label: 'Coworkers',
+
         route: {
             name: 'coworkers.index'
         },
-        match: 'coworkers'
-    },
 
-    {
-        label: 'Portfolio',
-        route: {
-            name: 'portfolio.index'
-        },
-        match: 'portfolio'
+        match: 'coworkers'
     }
+
 ]
 
+
 const coworkerNavigation = [
+
     {
         label: 'Projects',
+
         route: {
             name: 'projects.index'
         },
+
         match: 'projects'
     }
+
 ]
+
 
 const navigation =
     computed(() =>
@@ -214,33 +269,161 @@ const navigation =
             : coworkerNavigation
     )
 
+
 const currentRouteName =
     computed(() => {
+
         return String(
             route.name ||
             ''
         )
+
     })
+
 
 function isActive(
     item
 ) {
+
     if (
         item.match ===
         'dashboard'
     ) {
+
         return (
             currentRouteName.value ===
             'dashboard'
         )
+
     }
+
 
     return currentRouteName.value.startsWith(
         `${item.match}.`
     )
+
 }
 
+
+/*
+|--------------------------------------------------------------------------
+| Contextual tabs
+|--------------------------------------------------------------------------
+*/
+
+const clientTabs =
+    computed(() => {
+
+        if (
+            !route.params.id
+        ) {
+
+            return []
+
+        }
+
+
+        const clientRoutes = [
+
+            'clients.show',
+
+            'clients.contacts',
+
+            'clients.projects',
+
+            'clients.danger-zone'
+
+        ]
+
+
+        if (
+            !clientRoutes.includes(
+                currentRouteName.value
+            )
+        ) {
+
+            return []
+
+        }
+
+
+        return [
+
+            {
+                label: 'Information',
+
+                route: {
+                    name: 'clients.show',
+
+                    params: {
+                        id:
+                            route.params.id
+                    }
+                }
+            },
+
+            {
+                label: 'Contacts',
+
+                route: {
+                    name: 'clients.contacts',
+
+                    params: {
+                        id:
+                            route.params.id
+                    }
+                }
+            },
+
+            {
+                label: 'Projects',
+
+                route: {
+                    name: 'clients.projects',
+
+                    params: {
+                        id:
+                            route.params.id
+                    }
+                }
+            },
+
+            {
+                label: 'Danger zone',
+
+                route: {
+                    name: 'clients.danger-zone',
+
+                    params: {
+                        id:
+                            route.params.id
+                    }
+                }
+            }
+
+        ]
+
+    })
+
+
+const contextualTabs =
+    computed(() => {
+
+        if (
+            clientTabs.value.length
+        ) {
+
+            return clientTabs.value
+
+        }
+
+
+        return []
+
+    })
+
 </script>
+
 
 <template>
 
@@ -275,49 +458,66 @@ function isActive(
             "
         >
 
-            <!-- Brand -->
+            <!-- Left side -->
 
-            <RouterLink
-                :to="{
-                    name: 'dashboard'
-                }"
+            <div
                 class="
                     flex
+                    min-w-0
                     items-center
-                    gap-1
-                    transition-opacity
-                    duration-200
-                    hover:opacity-60
+                    gap-6
                 "
-                aria-label="Studio Kristian Backoffice"
             >
 
-                <img
-                    src="/public/assets/logo.svg"
-                    alt=""
+                <!-- Brand -->
+
+                <RouterLink
+                    :to="{
+                        name: 'dashboard'
+                    }"
                     class="
-                        h-2.5
-                        w-auto
+                        flex
+                        shrink-0
+                        items-center
+                        gap-1
+                        transition-opacity
+                        duration-200
+                        hover:opacity-60
                     "
+                    aria-label="Studio Kristian Backoffice"
                 >
 
-                <span
-                    class="
-                        h3
-                    "
-                >
-                    backoffice
-                </span>
+                    <img
+                        src="/public/assets/logo.svg"
+                        alt=""
+                        class="
+                            h-2.5
+                            w-auto
+                        "
+                    >
 
-            </RouterLink>
+
+                    <span
+                        class="
+                            h3
+                        "
+                    >
+                        backoffice
+                    </span>
+
+                </RouterLink>
+
+            </div>
+
 
             <!-- Header actions -->
 
             <div
                 class="
                     flex
+                    shrink-0
                     items-center
-                    gap-4
+                    gap-5
                 "
             >
 
@@ -328,8 +528,10 @@ function isActive(
                     class="
                         flex
                         items-center
+                        h3
                     "
                 ></div>
+
 
                 <!-- Autosave -->
 
@@ -338,8 +540,11 @@ function isActive(
                     class="
                         hidden
                         items-center
-                        gap-2
+                        gap-3
                         sm:flex
+                        p
+                        uppercase
+                        text-xs
                     "
                 >
 
@@ -351,12 +556,9 @@ function isActive(
                         "
                     />
 
+
                     <span
                         class="
-                            p
-                            text-[10px]
-                            uppercase
-                            text-dark
                         "
                     >
                         last saved:
@@ -365,14 +567,15 @@ function isActive(
 
                 </div>
 
+
                 <!-- Mobile navigation -->
 
                 <button
                     type="button"
                     class="
-                        md:hidden
                         flex
                         nav-control
+                        md:hidden
                     "
                     :aria-expanded="
                         menuOpen
@@ -400,6 +603,7 @@ function isActive(
                                 menu-line-top
                             "
                         ></span>
+
 
                         <span
                             class="
@@ -448,7 +652,9 @@ function isActive(
             ></button>
 
 
-            <!-- Application grid -->
+            <!-- ============================================================ -->
+            <!-- APPLICATION GRID -->
+            <!-- ============================================================ -->
 
             <div
                 class="
@@ -526,7 +732,7 @@ function isActive(
                                 text-xs
                                 font-bold
                                 uppercase
-                                text-dark
+                                text-accent
                                 transition-colors
                                 duration-200
                                 hover:bg-accent
@@ -538,301 +744,360 @@ function isActive(
                             }"
                             @click="closeMenu"
                         >
+
                             {{
                                 item.label
                             }}
+
                         </RouterLink>
 
                     </nav>
 
 
-                    <!-- Logout -->
+                    <!-- Bottom navigation -->
 
-<!-- Bottom navigation -->
+                    <div
+                        class="
+                            shrink-0
+                            border-t
+                            border-accent
+                        "
+                    >
 
-<div
-    class="
-        shrink-0
-        border-t
-        border-accent
-    "
->
+                        <!-- Portfolio -->
 
-    <!-- Internal storage -->
-
-    <RouterLink
-        :to="{
-            name: 'internal-storage.index'
-        }"
-        class="
-            flex
-            h-12
-            w-full
-            items-center
-            border-b
-            border-accent
-            px-5
-            font-mono
-            text-xs
-            font-bold
-            uppercase
-            text-dark
-            transition-colors
-            duration-200
-            hover:bg-accent
-            hover:text-light
-        "
-        :class="{
-            'text-accent':
-                isActive({
-                    match: 'internal-storage'
-                })
-        }"
-        @click="closeMenu"
-    >
-        Internal storage
-    </RouterLink>
+                        <RouterLink
+                            :to="{
+                                name: 'portfolio.index'
+                            }"
+                            class="
+                                flex
+                                h-12
+                                w-full
+                                items-center
+                                border-b
+                                border-accent
+                                px-5
+                                font-mono
+                                text-xs
+                                font-bold
+                                uppercase
+                                text-accent
+                                transition-colors
+                                duration-200
+                                hover:bg-accent
+                                hover:text-light
+                            "
+                            :class="{
+                                'text-accent':
+                                    isActive({
+                                        match: 'portfolio'
+                                    })
+                            }"
+                            @click="closeMenu"
+                        >
+                            Portfolio
+                        </RouterLink>
 
 
-    <!-- Log out -->
+                        <!-- Internal storage -->
 
-    <form
-        method="POST"
-        action="/logout"
-    >
+                        <RouterLink
+                            :to="{
+                                name: 'internal-storage.index'
+                            }"
+                            class="
+                                flex
+                                h-12
+                                w-full
+                                items-center
+                                border-b
+                                border-accent
+                                px-5
+                                font-mono
+                                text-xs
+                                font-bold
+                                uppercase
+                                text-accent
+                                transition-colors
+                                duration-200
+                                hover:bg-accent
+                                hover:text-light
+                            "
+                            :class="{
+                                'text-accent':
+                                    isActive({
+                                        match: 'internal-storage'
+                                    })
+                            }"
+                            @click="closeMenu"
+                        >
+                            Internal storage
+                        </RouterLink>
 
-        <input
-            type="hidden"
-            name="_token"
-            :value="
-                csrfToken
-            "
-        >
 
-        <button
-            type="submit"
-            class="
-                flex
-                h-12
-                w-full
-                items-center
-                border-b
-                border-accent
-                bg-light
-                px-5
-                text-left
-                font-mono
-                text-xs
-                font-bold
-                uppercase
-                text-dark
-                transition-colors
-                duration-200
-                hover:bg-accent
-                hover:text-light
-            "
-        >
-            Log out
-        </button>
+                        <!-- Log out -->
 
-    </form>
+                        <form
+                            method="POST"
+                            action="/logout"
+                        >
 
-</div>
+                            <input
+                                type="hidden"
+                                name="_token"
+                                :value="
+                                    csrfToken
+                                "
+                            >
+
+
+                            <button
+                                type="submit"
+                                class="
+                                    flex
+                                    h-12
+                                    w-full
+                                    items-center
+                                    border-b
+                                    border-accent
+                                    bg-light
+                                    px-5
+                                    text-left
+                                    font-mono
+                                    text-xs
+                                    font-bold
+                                    uppercase
+                                    text-accent
+                                    transition-colors
+                                    duration-200
+                                    hover:bg-accent
+                                    hover:text-light
+                                "
+                            >
+                                Log out
+                            </button>
+
+                        </form>
+
+                    </div>
 
                 </aside>
 
 
                 <!-- ======================================================== -->
-                <!-- MAIN -->
+                <!-- RIGHT SIDE -->
                 <!-- ======================================================== -->
 
-                <main
+                <div
                     class="
                         min-h-0
                         min-w-0
-                        overflow-y-auto
-                        overscroll-contain
-                        px-5
-                        py-10
-                        pb-20
-                        sm:px-8
-                        lg:px-10
+                        flex
+                        flex-col
+                        overflow-hidden
                     "
                 >
+                
+                <div class="flex flexgap-2 justify-between border-b border-accent">
+                    <h2
+                        class="
+                            h3
+                            uppercase
+                            h-12
+                            flex
+                            items-center
+                            pl-5
+                            text-accent
+                        "
+                    >
+                        {{ pageHeader.title }}
+                    </h2>
 
-                    <!-- Page header -->
-
-                    <header
-                        v-if="pageHeader.title"
-                        class="pb-10"
+                    <!-- <nav
+                        v-if="
+                            pageHeader.breadcrumbs.length ||
+                            pageHeader.eyebrow
+                        "
+                        aria-label="Breadcrumb"
+                        class="
+                            hidden
+                            min-w-0
+                            items-center
+                            gap-x-2
+                            overflow-hidden
+                            md:flex
+                            p
+                            uppercase
+                            text-xs
+                            h-12
+                            px-4
+                        "
                     >
 
-                        <!-- Breadcrumb -->
-
-                        <nav
-                            v-if="
-                                pageHeader.breadcrumbs.length ||
-                                pageHeader.eyebrow
-                            "
-                            aria-label="Breadcrumb"
+                        <RouterLink
+                            :to="{
+                                name: 'dashboard'
+                            }"
                             class="
-                                mb-2
-                                flex
-                                min-w-0
-                                flex-wrap
-                                items-center
-                                gap-x-2
-                                gap-y-1
-                                p
-                                uppercase
+                                shrink-0
+                                transition-colors
+                                hover:text-accent
+                            "
+                        >
+                            Admin
+                        </RouterLink>
+
+
+                        <template
+                            v-for="
+                                (
+                                    breadcrumb,
+                                    index
+                                ) in pageHeader.breadcrumbs
+                            "
+                            :key="
+                                `${breadcrumb.label}-${index}`
                             "
                         >
 
-                            <RouterLink
-                                :to="{
-                                    name: 'dashboard'
-                                }"
+                            <span
                                 class="
+                                    shrink-0
+                                "
+                                aria-hidden="true"
+                            >
+                                /
+                            </span>
+
+
+                            <RouterLink
+                                v-if="
+                                    breadcrumb.to
+                                "
+                                :to="
+                                    breadcrumb.to
+                                "
+                                class="
+                                    min-w-0
+                                    truncate
                                     text-dark
                                     transition-colors
                                     hover:text-accent
                                 "
                             >
-                                Admin
+
+                                {{
+                                    breadcrumb.label
+                                }}
+
                             </RouterLink>
 
-                            <template
-                                v-for="
-                                    (
-                                        breadcrumb,
-                                        index
-                                    ) in pageHeader.breadcrumbs
+
+                            <span
+                                v-else
+                                class="
+                                    min-w-0
+                                    truncate
+                                    text-accent
                                 "
-                                :key="
-                                    `${breadcrumb.label}-${index}`
-                                "
+                                aria-current="page"
                             >
 
-                                <span
-                                    class="text-dark"
-                                    aria-hidden="true"
-                                >
-                                    /
-                                </span>
+                                {{
+                                    breadcrumb.label
+                                }}
 
-                                <RouterLink
-                                    v-if="
-                                        breadcrumb.to
-                                    "
-                                    :to="
-                                        breadcrumb.to
-                                    "
-                                    class="
-                                        min-w-0
-                                        max-w-[12rem]
-                                        truncate
-                                        text-dark
-                                        transition-colors
-                                        hover:text-accent
-                                        sm:max-w-none
-                                    "
-                                >
-                                    {{
-                                        breadcrumb.label
-                                    }}
-                                </RouterLink>
+                            </span>
 
-                                <span
-                                    v-else
-                                    class="
-                                        min-w-0
-                                        max-w-[12rem]
-                                        truncate
-                                        text-accent
-                                        sm:max-w-none
-                                    "
-                                    aria-current="page"
-                                >
-                                    {{
-                                        breadcrumb.label
-                                    }}
-                                </span>
-
-                            </template>
-
-                            <template
-                                v-if="
-                                    !pageHeader.breadcrumbs.length &&
-                                    pageHeader.eyebrow
-                                "
-                            >
-
-                                <span
-                                    class="text-dark"
-                                    aria-hidden="true"
-                                >
-                                    /
-                                </span>
-
-                                <span
-                                    class="text-accent"
-                                >
-                                    {{
-                                        pageHeader.eyebrow
-                                    }}
-                                </span>
-
-                            </template>
-
-                        </nav>
+                        </template>
 
 
-                        <!-- Title + actions -->
-
-                        <div
-                            class="
-                                flex
-                                flex-col
-                                gap-6
-                                md:flex-row
-                                md:items-end
-                                md:justify-between
+                        <template
+                            v-if="
+                                !pageHeader.breadcrumbs.length &&
+                                pageHeader.eyebrow
                             "
                         >
 
-                            <div>
-
-                                <h1
-                                    class="
-                                        h2
-                                        text-left
-                                    "
-                                >
-                                    {{
-                                        pageHeader.title
-                                    }}
-                                </h1>
-
-                            </div>
-
-                            <div
-                                id="admin-page-header-actions"
+                            <span
                                 class="
-                                    flex
-                                    flex-wrap
-                                    gap-x-7
-                                    gap-y-4
-                                    md:justify-end
+                                    shrink-0
+                                    text-dark/30
                                 "
-                            ></div>
+                                aria-hidden="true"
+                            >
+                                /
+                            </span>
 
-                        </div>
 
-                    </header>
+                            <span
+                                class="
+                                    text-accent
+                                "
+                            >
 
-                    <RouterView />
+                                {{
+                                    pageHeader.eyebrow
+                                }}
 
-                </main>
+                            </span>
+
+                        </template>
+
+                    </nav> -->
+
+
+                    <!-- ==================================================== -->
+                    <!-- CONTEXTUAL TABS -->
+                    <!-- ==================================================== -->
+
+
+                    <div
+                        v-if="
+                            contextualTabs.length
+                        "
+                        class="
+                            z-40
+                            shrink-0
+                            bg-light
+                        "
+                    >
+
+                        <Tabs
+                            :tabs="
+                                contextualTabs
+                            "
+                        />
+
+                    </div>
+                </div>
+
+
+                    <!-- ==================================================== -->
+                    <!-- SCROLLABLE CONTENT -->
+                    <!-- ==================================================== -->
+
+                    <main
+                        class="
+                            min-h-0
+                            min-w-0
+                            flex-1
+                            overflow-y-auto
+                            overscroll-contain
+                            p-10
+                            p-8
+                            pb-20
+                        "
+                    >
+
+                        <!-- Page -->
+
+                        <RouterView />
+
+                    </main>
+
+                </div>
 
             </div>
 
@@ -880,10 +1145,12 @@ function isActive(
         );
 }
 
+
 .nav-control:hover {
     transform:
         scale(1.08);
 }
+
 
 .nav-control:active {
     transform:
@@ -912,6 +1179,7 @@ function isActive(
             1
         );
 }
+
 
 .menu-line {
     position: absolute;
@@ -942,9 +1210,11 @@ function isActive(
         );
 }
 
+
 .menu-line-top {
     top: 2px;
 }
+
 
 .menu-line-bottom {
     top: 10px;
@@ -963,6 +1233,7 @@ function isActive(
     transform:
         rotate(45deg);
 }
+
 
 .menu-icon-open .menu-line-bottom {
     top: 6px;
@@ -985,8 +1256,11 @@ function isActive(
     .nav-control,
     .menu-icon,
     .menu-line {
+
         animation: none;
+
         transition: none;
+
     }
 
 }

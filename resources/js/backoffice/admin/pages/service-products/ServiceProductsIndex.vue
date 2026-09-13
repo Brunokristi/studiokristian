@@ -551,47 +551,7 @@ useAdminPageHeader({
                             row.name
                         }}
                     </p>
-
-
-                    <p
-                        v-if="
-                            row.description
-                        "
-                        class="
-                            p
-                            mt-1
-                            max-w-md
-                            truncate
-                            uppercase
-                            text-dark/40
-                        "
-                    >
-                        {{
-                            row.description
-                        }}
-                    </p>
                 </div>
-            </template>
-
-
-            <!-- Slug -->
-            <template
-                #cell-slug="{
-                    value
-                }"
-            >
-                <span
-                    class="
-                        p
-                        uppercase
-                        text-dark/60
-                    "
-                >
-                    {{
-                        value ||
-                        '—'
-                    }}
-                </span>
             </template>
 
 
