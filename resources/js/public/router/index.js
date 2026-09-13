@@ -12,8 +12,6 @@ import Workflow from '../pages/Workflow.vue';
 
 import Pricing from '../pages/Pricing.vue';
 
-import Contact from '../pages/Contact.vue';
-
 import Services from '../pages/Services.vue';
 
 import PrivacyPolicy from '../pages/PrivacyPolicy.vue';
@@ -87,16 +85,6 @@ const routes = [
         component: Services,
         meta: {
             theme: 'light',
-            footer: true,
-        },
-    },
-
-    {
-        path: '/contact',
-        name: 'contact',
-        component: Contact,
-        meta: {
-            theme: 'dark',
             footer: true,
         },
     },

@@ -9,8 +9,6 @@ import ClientContacts from './pages/clients/ClientContacts.vue'
 import ClientProjects from './pages/clients/ClientProjects.vue'
 import ClientDangerZone from './pages/clients/ClientDangerZone.vue'
 
-import ContactDetail from './pages/contacts/ContactDetail.vue'
-
 import ProjectDetail from './pages/projects/ProjectDetail.vue'
 import ProjectBilling from './pages/projects/ProjectBilling.vue'
 import ProjectsIndex from './pages/projects/ProjectsIndex.vue'
@@ -90,20 +88,6 @@ const router = createRouter({
             path: '/clients/:id/edit',
             name: 'clients.edit',
             component: ClientInformation,
-            props: true,
-        },
-
-        {
-            path: '/clients/:companyId/contacts/create',
-            name: 'contacts.create',
-            component: ContactDetail,
-            props: true,
-        },
-
-        {
-            path: '/clients/:companyId/contacts/:id/edit',
-            name: 'contacts.edit',
-            component: ContactDetail,
             props: true,
         },
 

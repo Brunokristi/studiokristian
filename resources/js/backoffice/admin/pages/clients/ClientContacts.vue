@@ -8,8 +8,7 @@ import {
 
 
 import {
-    useRoute,
-    useRouter
+    useRoute
 } from 'vue-router'
 
 
@@ -25,6 +24,9 @@ import Tag from '@shared/components/Tag.vue'
 import Toast from '@shared/components/Toast.vue'
 
 
+import ContactModal from './ContactModal.vue'
+
+
 import {
     useAdminPageHeader
 } from '../../composables/useAdminPageHeader'
@@ -34,14 +36,11 @@ const route =
     useRoute()
 
 
-const router =
-    useRouter()
-
-
 const clientId =
     computed(() =>
         String(
-            route.params.id || ''
+            route.params.id ||
+            ''
         )
     )
 
@@ -64,6 +63,14 @@ const requestError =
 
 const showErrorToast =
     ref(false)
+
+
+const showContactModal =
+    ref(false)
+
+
+const selectedContact =
+    ref(null)
 
 
 const columns = [
@@ -203,44 +210,24 @@ function contactName(
 }
 
 
-function editContact(
-    contact
-) {
+function openCreateContact() {
 
-    if (
-        !contact?.id ||
-        !clientId.value
-    ) {
-
-        return
-
-    }
+    selectedContact.value =
+        null
 
 
-    router.push({
-
-        name:
-            'contacts.edit',
-
-        params: {
-
-            companyId:
-                clientId.value,
-
-            id:
-                contact.id
-
-        }
-
-    })
+    showContactModal.value =
+        true
 
 }
 
 
-function createContact() {
+function openEditContact(
+    contact
+) {
 
     if (
-        !clientId.value
+        !contact?.id
     ) {
 
         return
@@ -248,19 +235,43 @@ function createContact() {
     }
 
 
-    router.push({
+    selectedContact.value =
+        contact
 
-        name:
-            'contacts.create',
 
-        params: {
+    showContactModal.value =
+        true
 
-            companyId:
-                clientId.value
+}
 
-        }
 
-    })
+function closeContactModal() {
+
+    showContactModal.value =
+        false
+
+    selectedContact.value =
+        null
+
+}
+
+
+async function handleContactSaved() {
+
+    closeContactModal()
+
+    await loadClient()
+
+}
+
+
+function handleContactError(
+    message
+) {
+
+    showError(
+        message
+    )
 
 }
 
@@ -313,35 +324,61 @@ onMounted(
         "
     >
 
+        <!-- ============================================================ -->
+        <!-- ERROR -->
+        <!-- ============================================================ -->
+
         <Toast
-            v-model="showErrorToast"
+            v-model="
+                showErrorToast
+            "
             heading="Something went wrong"
-            :text="requestError"
+            :text="
+                requestError
+            "
             :duration="5000"
         />
 
+
+        <!-- ============================================================ -->
+        <!-- CONTACTS -->
+        <!-- ============================================================ -->
 
         <Section
             title="Contacts"
         >
 
             <Loading
-                v-if="loading"
+                v-if="
+                    loading
+                "
             />
 
 
             <DataTable
                 v-else
                 search-placeholder="Search contacts"
-                :columns="columns"
-                :rows="contacts"
-                :loading="loading"
+                :columns="
+                    columns
+                "
+                :rows="
+                    contacts
+                "
+                :loading="
+                    loading
+                "
                 empty-title="No contacts yet."
                 empty-text="Add a contact to give this client a person to work with."
                 add-label=" "
-                @row-click="editContact"
-                @add="createContact"
+                @row-click="
+                    openEditContact
+                "
+                @add="
+                    openCreateContact
+                "
             >
+
+                <!-- Contact -->
 
                 <template
                     #cell-name="{
@@ -363,13 +400,17 @@ onMounted(
                 </template>
 
 
+                <!-- Email -->
+
                 <template
                     #cell-email="{
                         value
                     }"
                 >
 
-                    <span class="p">
+                    <span
+                        class="p"
+                    >
                         {{
                             value ||
                             '—'
@@ -378,6 +419,8 @@ onMounted(
 
                 </template>
 
+
+                <!-- Position -->
 
                 <template
                     #cell-position="{
@@ -385,7 +428,9 @@ onMounted(
                     }"
                 >
 
-                    <span class="p">
+                    <span
+                        class="p"
+                    >
                         {{
                             value ||
                             '—'
@@ -394,6 +439,8 @@ onMounted(
 
                 </template>
 
+
+                <!-- Status -->
 
                 <template
                     #cell-active="{
@@ -411,6 +458,8 @@ onMounted(
 
                 </template>
 
+
+                <!-- Portal -->
 
                 <template
                     #cell-can_access_portal="{
@@ -431,6 +480,32 @@ onMounted(
             </DataTable>
 
         </Section>
+
+
+        <!-- ============================================================ -->
+        <!-- CONTACT MODAL -->
+        <!-- ============================================================ -->
+
+        <ContactModal
+            :open="
+                showContactModal
+            "
+            :company-id="
+                clientId
+            "
+            :contact="
+                selectedContact
+            "
+            @close="
+                closeContactModal
+            "
+            @saved="
+                handleContactSaved
+            "
+            @error="
+                handleContactError
+            "
+        />
 
     </div>
 

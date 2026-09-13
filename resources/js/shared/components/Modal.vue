@@ -1,11 +1,12 @@
 <script setup>
+
 import {
     computed,
     useSlots
 } from 'vue'
 
-
 const props = defineProps({
+
     open: {
         type: Boolean,
         default: false
@@ -43,7 +44,7 @@ const props = defineProps({
 
     overlayClass: {
         type: String,
-        default: 'fixed inset-0 z-[110] flex items-center justify-center bg-dark/55 p-4 backdrop-blur-sm'
+        default: 'fixed inset-0 z-[110] flex items-center justify-center overflow-y-auto bg-dark/55 p-4 backdrop-blur-sm'
     },
 
     panelClass: {
@@ -69,54 +70,75 @@ const props = defineProps({
     bodyClass: {
         type: String,
         default: 'p-6'
-    }
-})
+    },
 
+    footerClass: {
+        type: String,
+        default: 'flex flex-col items-end gap-3 p-6'
+    }
+
+})
 
 const emit = defineEmits([
     'close'
 ])
 
+const slots = useSlots()
 
-const slots =
-    useSlots()
+const hasHeader = computed(() => {
 
+    return Boolean(
+        props.title ||
+        props.subtitle ||
+        props.showCloseButton ||
+        slots.header
+    )
 
-const hasHeader =
-    computed(() => {
-        return Boolean(
-            props.title ||
-            props.subtitle ||
-            props.showCloseButton ||
-            slots.header
-        )
-    })
+})
 
+const hasFooter = computed(() => {
+
+    return Boolean(
+        slots.footer
+    )
+
+})
 
 function requestClose() {
-    emit('close')
+
+    emit(
+        'close'
+    )
+
 }
 
-
 function handleBackdropClick() {
+
     if (!props.closeOnBackdrop) {
         return
     }
 
     requestClose()
+
 }
+
 </script>
 
-
 <template>
+
     <Teleport to="body">
+
         <div
             v-if="open"
             :class="overlayClass"
             @click.self="handleBackdropClick"
         >
+
             <section
-                class="w-full overflow-hidden"
+                class="
+                    w-full
+                    overflow-y-auto
+                "
                 :class="[
                     maxWidthClass,
                     maxHeightClass,
@@ -130,45 +152,111 @@ function handleBackdropClick() {
                     'Dialog'
                 "
             >
+
+                <!-- ==================================================== -->
+                <!-- HEADER -->
+                <!-- ==================================================== -->
+
                 <div
                     v-if="hasHeader"
                     :class="headerClass"
                 >
+
                     <slot name="header">
-                        <div>
+
+                        <div class="min-w-0">
+
                             <p
                                 v-if="title"
-                                class="h3 text-accent"
+                                class="
+                                    h3
+                                    text-accent
+                                "
                             >
-                                {{ title }}
+                                {{
+                                    title
+                                }}
                             </p>
 
                             <p
                                 v-if="subtitle"
-                                class="p mt-2 text-dark"
+                                class="
+                                    p
+                                    mt-2
+                                    text-dark
+                                "
                             >
-                                {{ subtitle }}
+                                {{
+                                    subtitle
+                                }}
                             </p>
+
                         </div>
+
                     </slot>
+
+                    <!-- Close button is the only sticky element -->
 
                     <button
                         v-if="showCloseButton"
                         type="button"
-                        class="shrink-0 p font-mono text-lg leading-none text-dark transition-colors hover:text-accent"
+                        class="
+                            sticky
+                            top-0
+                            shrink-0
+                            p
+                            font-mono
+                            text-lg
+                            leading-none
+                            text-dark
+                            transition-colors
+                            hover:text-accent
+                        "
                         :aria-label="closeLabel"
                         @click="requestClose"
                     >
-                        <i class="bi bi-x-lg p" />
+
+                        <i
+                            class="
+                                bi
+                                bi-x-lg
+                                p
+                            "
+                        ></i>
+
                     </button>
+
                 </div>
 
-                <div :class="bodyClass">
+                <!-- ==================================================== -->
+                <!-- BODY -->
+                <!-- ==================================================== -->
+
+                <div
+                    :class="bodyClass"
+                >
+
                     <slot />
+
                 </div>
 
-                <slot name="footer" />
+                <!-- ==================================================== -->
+                <!-- FOOTER -->
+                <!-- ==================================================== -->
+
+                <div
+                    v-if="hasFooter"
+                    :class="footerClass"
+                >
+
+                    <slot name="footer" />
+
+                </div>
+
             </section>
+
         </div>
+
     </Teleport>
+
 </template>
