@@ -9,7 +9,13 @@ import ClientContacts from './pages/clients/ClientContacts.vue'
 import ClientProjects from './pages/clients/ClientProjects.vue'
 import ClientDangerZone from './pages/clients/ClientDangerZone.vue'
 
-import ProjectDetail from './pages/projects/ProjectDetail.vue'
+import ProjectLayout from './pages/projects/ProjectLayout.vue'
+import ProjectCreate from './pages/projects/ProjectCreate.vue'
+import ProjectInformation from './pages/projects/ProjectInformation.vue'
+import ProjectPeople from './pages/projects/ProjectPeople.vue'
+import ProjectTickets from './pages/projects/ProjectTickets.vue'
+import ProjectFiles from './pages/projects/ProjectFiles.vue'
+import ProjectDangerZone from './pages/projects/ProjectDangerZone.vue'
 import ProjectBilling from './pages/projects/ProjectBilling.vue'
 import ProjectsIndex from './pages/projects/ProjectsIndex.vue'
 
@@ -100,28 +106,75 @@ const router = createRouter({
         {
             path: '/projects/create',
             name: 'projects.create',
-            component: ProjectDetail,
+            component: ProjectCreate,
         },
 
         {
             path: '/projects/:id',
-            name: 'projects.show',
-            component: ProjectDetail,
+            component: ProjectLayout,
             props: true,
-        },
-
-        {
-            path: '/projects/:id/edit',
-            name: 'projects.edit',
-            component: ProjectDetail,
-            props: true,
-        },
-
-        {
-            path: '/projects/:id/billing',
-            name: 'projects.billing',
-            component: ProjectBilling,
-            props: true,
+            children: [
+                {
+                    path: '',
+                    name: 'projects.show',
+                    component: ProjectInformation,
+                    props: true,
+                },
+                {
+                    path: 'edit',
+                    name: 'projects.edit',
+                    component: ProjectInformation,
+                    props: true,
+                },
+                {
+                    path: 'people',
+                    name: 'projects.people',
+                    component: ProjectPeople,
+                    props: true,
+                },
+                {
+                    path: 'tickets',
+                    name: 'projects.tickets',
+                    component: ProjectTickets,
+                    props: true,
+                },
+                {
+                    path: 'files',
+                    name: 'projects.files',
+                    component: ProjectFiles,
+                    props: true,
+                },
+                {
+                    path: 'billing',
+                    name: 'projects.billing',
+                    component: ProjectBilling,
+                    props: true,
+                },
+                {
+                    path: 'saas',
+                    name: 'projects.saas',
+                    component: SaasDetail,
+                    props: true,
+                },
+                {
+                    path: 'saas/customers/:companyId',
+                    name: 'projects.saas.customer',
+                    component: SaasCustomerDetail,
+                    props: true,
+                },
+                {
+                    path: 'portfolio',
+                    name: 'portfolio.edit',
+                    component: PortfolioDetail,
+                    props: true,
+                },
+                {
+                    path: 'danger-zone',
+                    name: 'projects.danger-zone',
+                    component: ProjectDangerZone,
+                    props: true,
+                },
+            ],
         },
 
         {
@@ -209,13 +262,6 @@ const router = createRouter({
             path: '/portfolio',
             name: 'portfolio.index',
             component: PortfolioIndex,
-        },
-
-        {
-            path: '/projects/:id/portfolio',
-            name: 'portfolio.edit',
-            component: PortfolioDetail,
-            props: true,
         },
 
     ],

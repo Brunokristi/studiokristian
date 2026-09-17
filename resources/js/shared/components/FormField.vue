@@ -49,6 +49,11 @@ const props =
             default: ''
         },
 
+        hint: {
+            type: String,
+            default: ''
+        },
+
         placeholder: {
             type: String,
             default: ''
@@ -141,12 +146,6 @@ const textareaRef =
 const tokenInput =
     ref('')
 
-
-/*
-|--------------------------------------------------------------------------
-| Autocomplete input
-|--------------------------------------------------------------------------
-*/
 
 const autocompleteInput =
     ref('')
@@ -261,10 +260,6 @@ function handleInput(
         event.target.value
 
 
-    /*
-     * Normal inputs work exactly as before.
-     */
-
     if (
         props.type !==
         'autocomplete'
@@ -288,8 +283,9 @@ function handleInput(
     /*
      * Multiple autocomplete.
      *
-     * The typed text is kept separately
-     * from modelValue.
+     * The actual selected values live in
+     * modelValue. The typed search value is
+     * kept separately.
      */
 
     if (
@@ -342,6 +338,7 @@ function handleInput(
     emit(
         'search',
         value
+
     )
 
 }
@@ -702,6 +699,13 @@ function isAutocompleteOptionSelected(
 ) {
 
     if (
+        option?.create
+    ) {
+        return false
+    }
+
+
+    if (
         !props.multiple ||
         !Array.isArray(
             props.modelValue
@@ -727,6 +731,30 @@ function isAutocompleteOptionSelected(
 function handleAutocompleteOption(
     option
 ) {
+
+    /*
+     * Special autocomplete options can
+     * perform an action instead of changing
+     * modelValue.
+     *
+     * This is used by the coworker
+     * "Create ..." option.
+     */
+
+    if (
+        option?.create
+    ) {
+
+        emit(
+            'select',
+            option
+        )
+
+
+        return
+
+    }
+
 
     /*
      * Multiple autocomplete.
@@ -800,8 +828,8 @@ function handleAutocompleteOption(
 
 
         /*
-         * Re-open the dropdown after Vue
-         * has updated the selection.
+         * Re-open the dropdown after
+         * Vue has updated the selection.
          */
 
         nextTick(() => {
@@ -1091,216 +1119,85 @@ onBeforeUnmount(() => {
     >
 
         <!-- ===================================================== -->
-        <!-- CHECKBOX -->
+        <!-- LABEL -->
+        <!-- ===================================================== -->
+
+        <label
+            v-if="
+                label
+            "
+            :for="id"
+            class="
+                mb-2
+                flex
+                items-center
+                justify-between
+                gap-4
+            "
+        >
+
+            <span
+                class="
+                    p
+                    uppercase
+                "
+            >
+
+                {{ label }}
+
+                <span
+                    v-if="required"
+                    class="text-accent"
+                    aria-hidden="true"
+                >
+                    *
+                </span>
+
+            </span>
+
+        </label>
+
+
+        <!-- ===================================================== -->
+        <!-- HINT -->
+        <!-- ===================================================== -->
+
+        <p
+            v-if="
+                hint
+            "
+            class="
+                p
+                mb-2
+                text-dark/50
+            "
+        >
+            {{ hint }}
+        </p>
+
+
+        <!-- ===================================================== -->
+        <!-- CHECKBOX / TOGGLE -->
         <!-- ===================================================== -->
 
         <div
             v-if="
-                type === 'checkbox'
-            "
-            class="
-                w-full
-            "
-        >
-
-            <label
-                :for="id"
-                class="
-                    flex
-                    cursor-pointer
-                    items-center
-                    gap-3
-                "
-                :class="{
-                    'cursor-not-allowed opacity-50':
-                        disabled
-                }"
-            >
-
-                <input
-                    :id="id"
-                    :name="name"
-                    type="checkbox"
-                    :checked="
-                        Boolean(
-                            modelValue
-                        )
-                    "
-                    :required="required"
-                    :autofocus="autofocus"
-                    :disabled="disabled"
-                    :readonly="readonly"
-                    class="
-                        h-4
-                        w-4
-                        border-accent
-                        text-accent
-                        focus:ring-accent
-                    "
-                    @change="
-                        handleBooleanChange
-                    "
-                >
-
-                <span
-                    v-if="label"
-                    class="p"
-                >
-                    {{ label }}
-
-                    <span
-                        v-if="required"
-                        class="text-accent"
-                        aria-hidden="true"
-                    >
-                        *
-                    </span>
-                </span>
-
-            </label>
-
-        </div>
-
-
-        <!-- ===================================================== -->
-        <!-- TOGGLE -->
-        <!-- ===================================================== -->
-
-        <div
-            v-else-if="
+                type === 'checkbox' ||
                 type === 'toggle'
             "
             class="
-                w-full
+                flex
+                items-center
+                justify-between
+                gap-4
             "
         >
 
-            <label
-                :for="id"
+            <span
                 class="
-                    flex
-                    cursor-pointer
-                    items-center
-                    justify-between
-                    gap-4
+                    p
+                    uppercase
                 "
-                :class="{
-                    'cursor-not-allowed opacity-50':
-                        disabled
-                }"
-            >
-
-                <span
-                    v-if="label"
-                    class="
-                        h3
-                    "
-                >
-                    {{ label }}
-
-                    <span
-                        v-if="required"
-                        class="text-accent"
-                        aria-hidden="true"
-                    >
-                        *
-                    </span>
-                </span>
-
-
-                <span
-                    class="
-                        relative
-                        inline-flex
-                        h-[22px]
-                        w-[42px]
-                        shrink-0
-                        items-center
-                    "
-                >
-
-                    <input
-                        :id="id"
-                        :name="name"
-                        type="checkbox"
-                        role="switch"
-                        :checked="
-                            Boolean(
-                                modelValue
-                            )
-                        "
-                        :required="required"
-                        :autofocus="autofocus"
-                        :disabled="disabled"
-                        :readonly="readonly"
-                        class="
-                            peer
-                            absolute
-                            inset-0
-                            h-full
-                            w-full
-                            cursor-pointer
-                            opacity-0
-                        "
-                        @change="
-                            handleBooleanChange
-                        "
-                    >
-
-                    <span
-                        class="
-                            pointer-events-none
-                            absolute
-                            inset-0
-                            border
-                            border-dark
-                            bg-transparent
-                            transition-colors
-                            duration-200
-                            peer-checked:border-accent
-                            peer-checked:bg-accent
-                        "
-                    ></span>
-
-                    <span
-                        class="
-                            pointer-events-none
-                            absolute
-                            left-[2px]
-                            h-[18px]
-                            w-[18px]
-                            rounded-full
-                            bg-dark
-                            transition-transform
-                            duration-200
-                            peer-checked:translate-x-[20px]
-                            peer-checked:bg-light
-                        "
-                    ></span>
-
-                </span>
-
-            </label>
-
-        </div>
-
-
-        <!-- ===================================================== -->
-        <!-- LABEL -->
-        <!-- ===================================================== -->
-
-        <div
-            v-else-if="
-                label
-            "
-            class="
-                mb-2
-            "
-        >
-
-            <label
-                :for="id"
-                class="h3 block"
             >
                 {{ label }}
 
@@ -1311,7 +1208,82 @@ onBeforeUnmount(() => {
                 >
                     *
                 </span>
-            </label>
+            </span>
+
+
+            <span
+                class="
+                    relative
+                    inline-flex
+                    h-[22px]
+                    w-[42px]
+                    shrink-0
+                    items-center
+                "
+            >
+
+                <input
+                    :id="id"
+                    :name="name"
+                    type="checkbox"
+                    role="switch"
+                    :checked="
+                        Boolean(
+                            modelValue
+                        )
+                    "
+                    :required="required"
+                    :autofocus="autofocus"
+                    :disabled="disabled"
+                    :readonly="readonly"
+                    class="
+                        peer
+                        absolute
+                        inset-0
+                        h-full
+                        w-full
+                        cursor-pointer
+                        opacity-0
+                    "
+                    @change="
+                        handleBooleanChange
+                    "
+                    @keydown="
+                        handleKeydown
+                    "
+                >
+
+
+                <span
+                    class="
+                        pointer-events-none
+                        absolute
+                        inset-0
+                        border
+                        border-dark
+                        transition-colors
+                        peer-checked:border-accent
+                        peer-checked:bg-accent
+                        peer-disabled:opacity-50
+                    "
+                ></span>
+
+
+                <span
+                    class="
+                        pointer-events-none
+                        absolute
+                        left-1
+                        h-3
+                        w-3
+                        bg-dark
+                        transition-transform
+                        peer-checked:translate-x-5
+                        peer-checked:bg-light
+                    "
+                ></span>
+
+            </span>
 
         </div>
 
@@ -1321,7 +1293,7 @@ onBeforeUnmount(() => {
         <!-- ===================================================== -->
 
         <div
-            v-if="
+            v-else-if="
                 type === 'select'
             "
             class="
@@ -1330,7 +1302,6 @@ onBeforeUnmount(() => {
         >
 
             <button
-                :id="id"
                 type="button"
                 :disabled="disabled"
                 class="
@@ -1349,7 +1320,6 @@ onBeforeUnmount(() => {
                     text-left
                     outline-none
                     transition-colors
-                    duration-200
                     hover:border-accent
                     focus:border-accent
                     focus:outline-none
@@ -1536,6 +1506,7 @@ onBeforeUnmount(() => {
 
                     {{ option.label }}
 
+
                     <button
                         type="button"
                         class="
@@ -1611,6 +1582,7 @@ onBeforeUnmount(() => {
 
                     {{ option.label }}
 
+
                     <button
                         type="button"
                         class="
@@ -1643,13 +1615,25 @@ onBeforeUnmount(() => {
                             modelValue
                         )
                 "
-                type="text"
-                :placeholder="placeholder"
-                :autocomplete="autocomplete"
-                :disabled="disabled"
-                :readonly="readonly"
-                :required="required"
-                :autofocus="autofocus"
+                :placeholder="
+                    placeholder
+                "
+                :autocomplete="
+                    autocomplete
+                "
+                :disabled="
+                    disabled
+                "
+                :readonly="
+                    readonly
+                "
+                :required="
+                    required &&
+                    !multiple
+                "
+                :autofocus="
+                    autofocus
+                "
                 class="
                     p
                     box-border
@@ -1706,6 +1690,7 @@ onBeforeUnmount(() => {
                     -translate-y-1/2
                 "
             >
+
                 <span
                     class="
                         font-mono
@@ -1714,6 +1699,7 @@ onBeforeUnmount(() => {
                 >
                     ...
                 </span>
+
             </div>
 
 
@@ -1775,9 +1761,21 @@ onBeforeUnmount(() => {
                     "
                 >
 
-                    <span>
-                        {{ option.label }}
+                    <span
+                        class="
+                            flex
+                            min-w-0
+                            items-center
+                            gap-2
+                        "
+                    >
+
+                        <span>
+                            {{ option.label }}
+                        </span>
+
                     </span>
+
 
                     <span
                         v-if="
@@ -1907,7 +1905,6 @@ onBeforeUnmount(() => {
                     text-dark
                     outline-none
                     transition-colors
-                    duration-200
                     hover:border-accent
                     focus:border-accent
                     focus:outline-none
@@ -2122,38 +2119,34 @@ onBeforeUnmount(() => {
                 :readonly="readonly"
                 :required="required"
                 :autofocus="autofocus"
-                :class="[
-                    'p',
-                    'box-border',
-                    'h-6',
-                    'w-full',
-                    'appearance-none',
-                    'border-0',
-                    'border-b',
-                    'border-dark',
-                    'bg-transparent',
-                    'px-0',
-                    'py-0',
-                    'leading-6',
-                    'text-dark',
-                    'outline-none',
-                    'transition-colors',
-                    'duration-200',
-                    'placeholder:text-dark/30',
-                    'focus:border-accent',
-                    'focus:outline-none',
-                    'focus:ring-0',
-                    'disabled:cursor-not-allowed',
-                    'disabled:opacity-50',
-                    {
-                        'pr-16':
-                            suffix
-                    },
-                    {
-                        'border-red-600':
-                            error
-                    }
-                ]"
+                class="
+                    p
+                    box-border
+                    h-6
+                    w-full
+                    appearance-none
+                    border-0
+                    border-b
+                    border-dark
+                    bg-transparent
+                    px-0
+                    py-0
+                    leading-6
+                    text-dark
+                    outline-none
+                    transition-colors
+                    duration-200
+                    placeholder:text-dark/30
+                    focus:border-accent
+                    focus:outline-none
+                    focus:ring-0
+                    disabled:cursor-not-allowed
+                    disabled:opacity-50
+                "
+                :class="{
+                    'border-red-600':
+                        error
+                }"
                 @input="
                     handleInput
                 "
@@ -2168,9 +2161,6 @@ onBeforeUnmount(() => {
                 "
             >
 
-
-            <!-- Suffix -->
-
             <span
                 v-if="
                     suffix
@@ -2178,11 +2168,10 @@ onBeforeUnmount(() => {
                 class="
                     pointer-events-none
                     absolute
-                    inset-y-0
                     right-0
-                    flex
-                    items-center
-                    p
+                    top-0
+                    font-mono
+                    text-xs
                     text-dark/50
                 "
             >
@@ -2193,7 +2182,7 @@ onBeforeUnmount(() => {
 
 
         <!-- ===================================================== -->
-        <!-- COMMON ERROR -->
+        <!-- ERROR -->
         <!-- ===================================================== -->
 
         <p

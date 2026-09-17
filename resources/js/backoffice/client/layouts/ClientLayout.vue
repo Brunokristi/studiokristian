@@ -5,14 +5,22 @@ import {
     ref
 } from 'vue'
 
-import LanguageToggle from '@shared/components/LanguageToggle.vue'
-import { useClientPageHeader } from '../composables/useClientPageHeader'
+import LanguageToggle
+    from '@shared/components/LanguageToggle.vue'
+
+import {
+    useClientPageHeader
+} from '../composables/useClientPageHeader'
+
 
 const {
     header: pageHeader
-} = useClientPageHeader()
+} =
+    useClientPageHeader()
+
 
 const props = defineProps({
+
     page: {
         type: Object,
         required: true
@@ -26,73 +34,30 @@ const props = defineProps({
     locale: {
         type: String,
         required: true
+    },
+
+    tabs: {
+        type: Array,
+        default: () => []
     }
+
 })
+
 
 const emit = defineEmits([
     'set-locale'
 ])
 
-/*
-|--------------------------------------------------------------------------
-| Navigation
-|--------------------------------------------------------------------------
-*/
-
-const navigation = [
-    {
-        key: 'projects',
-        href: 'dashboard',
-        pages: [
-            'dashboard',
-            'project'
-        ]
-    }
-]
-
-/*
-|--------------------------------------------------------------------------
-| Menu state
-|--------------------------------------------------------------------------
-|
-| Closed by default on small screens.
-| On desktop the sidebar is always visible through the lg: classes.
-|
-*/
 
 const menuOpen =
     ref(false)
 
-/*
-|--------------------------------------------------------------------------
-| Translations
-|--------------------------------------------------------------------------
-*/
 
 const copy = {
-    brand: {
-        en: 'backoffice',
-        sk: 'backoffice'
-    },
-
-    portal: {
-        en: 'client portal',
-        sk: 'klientsky portal'
-    },
 
     projects: {
         en: 'Projects',
         sk: 'Projekty'
-    },
-
-    invoices: {
-        en: 'Invoices',
-        sk: 'Faktúry'
-    },
-
-    language: {
-        en: 'Language',
-        sk: 'Jazyk'
     },
 
     logout: {
@@ -109,61 +74,76 @@ const copy = {
         en: 'Close',
         sk: 'Zavrieť'
     }
+
 }
+
 
 function t(
     key
 ) {
+
     return (
         copy[key]?.[props.locale] ||
         copy[key]?.en ||
         key
     )
+
 }
 
-/*
-|--------------------------------------------------------------------------
-| Computed state
-|--------------------------------------------------------------------------
-*/
 
 const currentPage =
     computed(() =>
         String(
-            props.page.page || ''
+            props.page.page ||
+            ''
         )
     )
 
-const menuIconOpen =
-    computed(() =>
-        menuOpen.value
-    )
 
-/*
-|--------------------------------------------------------------------------
-| Navigation helpers
-|--------------------------------------------------------------------------
-*/
+const navigation =
+    computed(() => [
+
+        {
+            key: 'projects',
+            href:
+                props.page.urls.dashboard,
+            pages: [
+                'dashboard',
+                'project'
+            ]
+        }
+
+    ])
+
 
 function isNavigationItemActive(
     item
 ) {
+
     return item.pages.includes(
         currentPage.value
     )
+
 }
+
 
 function closeMenu() {
+
     menuOpen.value =
         false
+
 }
 
+
 function toggleMenu() {
+
     menuOpen.value =
         !menuOpen.value
+
 }
 
 </script>
+
 
 <template>
 
@@ -179,10 +159,6 @@ function toggleMenu() {
         "
     >
 
-        <!-- =========================================================
-             Header
-        ========================================================== -->
-
         <header
             class="
                 z-50
@@ -197,8 +173,6 @@ function toggleMenu() {
                 px-5
             "
         >
-
-            <!-- Brand -->
 
             <a
                 :href="
@@ -226,6 +200,7 @@ function toggleMenu() {
                     "
                 >
 
+
                 <span
                     class="
                         hidden
@@ -236,57 +211,56 @@ function toggleMenu() {
                         sm:block
                     "
                 >
+
                     {{
-                        page.contact.company_name
+                        page.contact
+                            ?.company_name ||
+                        ''
                     }}
+
                 </span>
 
             </a>
 
-            <!-- Header actions -->
 
             <div
                 class="
                     flex
                     shrink-0
                     items-center
-                    gap-4
-                    sm:gap-6
+                    gap-5
                 "
             >
 
-                <!-- Language -->
-
                 <LanguageToggle
-                    :model-value="locale"
-                    :compact="true"
+                    :model-value="
+                        locale
+                    "
+                    :compact="
+                        true
+                    "
                     @update:model-value="
-                        emit('set-locale', $event)
+                        emit(
+                            'set-locale',
+                            $event
+                        )
                     "
                 />
 
-                <!-- Mobile menu -->
 
                 <button
                     type="button"
                     class="
-                        grid
-                        h-9
-                        w-9
-                        shrink-0
-                        place-items-center
-                        text-dark
-                        transition-colors
-                        duration-200
-                        hover:text-accent
+                        flex
+                        nav-control
                         lg:hidden
                     "
                     :aria-expanded="
-                        menuIconOpen
+                        menuOpen
                     "
                     aria-controls="client-navigation"
                     :aria-label="
-                        menuIconOpen
+                        menuOpen
                             ? t('close')
                             : t('menu')
                     "
@@ -298,16 +272,11 @@ function toggleMenu() {
                     <span
                         class="
                             menu-icon
-                            relative
-                            block
-                            h-4
-                            w-5
                         "
                         :class="{
-                            'is-open':
-                                menuIconOpen
+                            'menu-icon-open':
+                                menuOpen
                         }"
-                        aria-hidden="true"
                     >
 
                         <span
@@ -316,6 +285,7 @@ function toggleMenu() {
                                 menu-line-top
                             "
                         ></span>
+
 
                         <span
                             class="
@@ -332,9 +302,6 @@ function toggleMenu() {
 
         </header>
 
-        <!-- =========================================================
-             Application shell
-        ========================================================== -->
 
         <div
             class="
@@ -344,8 +311,6 @@ function toggleMenu() {
                 overflow-hidden
             "
         >
-
-            <!-- Mobile overlay -->
 
             <button
                 v-if="
@@ -366,7 +331,6 @@ function toggleMenu() {
                 "
             ></button>
 
-            <!-- Main grid -->
 
             <div
                 class="
@@ -377,10 +341,6 @@ function toggleMenu() {
                     lg:grid-cols-[250px_minmax(0,1fr)]
                 "
             >
-
-                <!-- =================================================
-                     Sidebar
-                ================================================== -->
 
                 <aside
                     id="client-navigation"
@@ -412,8 +372,6 @@ function toggleMenu() {
                     "
                 >
 
-                    <!-- Navigation -->
-
                     <nav
                         class="
                             min-h-0
@@ -424,58 +382,53 @@ function toggleMenu() {
                         aria-label="Main navigation"
                     >
 
-                        <template
+                        <a
                             v-for="
                                 item in navigation
                             "
                             :key="
                                 item.key
                             "
+                            :href="
+                                item.href
+                            "
+                            class="
+                                block
+                                border-b
+                                border-accent
+                                px-5
+                                py-4
+                                font-mono
+                                text-xs
+                                font-bold
+                                uppercase
+                                text-accent
+                                transition-colors
+                                duration-200
+                                hover:bg-accent
+                                hover:text-light
+                            "
+                            :class="{
+                                'bg-accent text-light':
+                                    isNavigationItemActive(
+                                        item
+                                    )
+                            }"
+                            @click="
+                                closeMenu
+                            "
                         >
 
-                            <a
-                                :href="
-                                    page.urls[item.href] ||
-                                    page.urls.dashboard
-                                "
-                                class="
-                                    block
-                                    border-b
-                                    border-accent
-                                    px-5
-                                    py-4
-                                    font-mono
-                                    text-xs
-                                    font-bold
-                                    uppercase
-                                    text-dark
-                                    transition-colors
-                                    duration-200
-                                    hover:bg-accent
-                                    hover:text-light
-                                "
-                                :class="{
-                                    'text-accent':
-                                        isNavigationItemActive(
-                                            item
-                                        )
-                                }"
-                                @click="
-                                    closeMenu
-                                "
-                            >
-                                {{
-                                    t(
-                                        item.key
-                                    )
-                                }}
-                            </a>
+                            {{
+                                t(
+                                    item.key
+                                )
+                            }}
 
-                        </template>
+                        </a>
 
                     </nav>
 
-                    <!-- Logout -->
 
                     <form
                         method="POST"
@@ -497,275 +450,193 @@ function toggleMenu() {
                             "
                         >
 
+
                         <button
                             type="submit"
                             class="
-                                block
+                                flex
+                                h-12
                                 w-full
+                                items-center
                                 border-b
                                 border-accent
                                 bg-light
                                 px-5
-                                py-4
                                 text-left
                                 font-mono
                                 text-xs
                                 font-bold
                                 uppercase
-                                text-dark
+                                text-accent
                                 transition-colors
                                 duration-200
                                 hover:bg-accent
                                 hover:text-light
                             "
                         >
+
                             {{
                                 t('logout')
                             }}
+
                         </button>
 
                     </form>
 
                 </aside>
 
-                <!-- =================================================
-                     Main content
-                ================================================== -->
 
-                <main
+                <div
                     class="
                         min-h-0
                         min-w-0
-                        overflow-y-auto
-                        overscroll-contain
-                        px-5
-                        py-8
-                        pb-20
-                        sm:px-8
-                        sm:py-10
-                        lg:px-10
+                        flex
+                        flex-col
+                        overflow-hidden
                     "
                 >
 
-                    <!-- Status -->
-
                     <div
                         v-if="
-                            page.status
+                            pageHeader.title ||
+                            tabs.length
                         "
                         class="
-                            mb-6
-                            border-l-2
+                            flex
+                            shrink-0
+                            items-stretch
+                            justify-between
+                            border-b
                             border-accent
-                            bg-white
-                            px-5
-                            py-4
-                            text-sm
+                            bg-light
                         "
-                        role="status"
-                    >
-                        {{
-                            page.status
-                        }}
-                    </div>
-
-                    <!-- Error -->
-
-                    <div
-                        v-if="
-                            page.error
-                        "
-                        class="
-                            mb-6
-                            border-l-2
-                            border-red-700
-                            bg-red-50
-                            px-5
-                            py-4
-                            text-sm
-                            text-red-800
-                        "
-                        role="alert"
-                    >
-                        {{
-                            page.error
-                        }}
-                    </div>
-
-                    <!-- Page header -->
-
-                    <header
-                        v-if="pageHeader.title"
-                        class="pb-10"
                     >
 
-                        <nav
-                            v-if="
-                                pageHeader.breadcrumbs.length ||
-                                pageHeader.eyebrow
-                            "
-                            aria-label="Breadcrumb"
+                        <h2
                             class="
-                                mb-2
+                                h3
                                 flex
+                                h-12
                                 min-w-0
-                                flex-wrap
                                 items-center
-                                gap-x-2
-                                gap-y-1
-                                p
+                                truncate
+                                pl-5
+                                pr-5
                                 uppercase
+                                text-accent
                             "
                         >
 
-                            <a
-                                :href="
-                                    pageHeader.homeUrl
-                                "
-                                class="
-                                    text-dark
-                                    transition-colors
-                                    hover:text-accent
-                                "
-                            >
-                                Client
-                            </a>
+                            {{
+                                pageHeader.title
+                            }}
 
-                            <template
-                                v-for="
-                                    (
-                                        breadcrumb,
-                                        index
-                                    ) in pageHeader.breadcrumbs
-                                "
-                                :key="
-                                    `${breadcrumb.label}-${index}`
-                                "
-                            >
+                        </h2>
 
-                                <span
-                                    class="
-                                        text-dark
-                                    "
-                                    aria-hidden="true"
-                                >
-                                    /
-                                </span>
-
-                                <a
-                                    v-if="
-                                        breadcrumb.href
-                                    "
-                                    :href="
-                                        breadcrumb.href
-                                    "
-                                    class="
-                                        min-w-0
-                                        max-w-[12rem]
-                                        truncate
-                                        text-dark
-                                        transition-colors
-                                        hover:text-accent
-                                        sm:max-w-none
-                                    "
-                                >
-                                    {{
-                                        breadcrumb.label
-                                    }}
-                                </a>
-
-                                <span
-                                    v-else
-                                    class="
-                                        min-w-0
-                                        max-w-[12rem]
-                                        truncate
-                                        text-accent
-                                        sm:max-w-none
-                                    "
-                                    aria-current="page"
-                                >
-                                    {{
-                                        breadcrumb.label
-                                    }}
-                                </span>
-
-                            </template>
-
-                            <template
-                                v-if="
-                                    !pageHeader.breadcrumbs.length &&
-                                    pageHeader.eyebrow
-                                "
-                            >
-
-                                <span
-                                    class="
-                                        text-dark
-                                    "
-                                    aria-hidden="true"
-                                >
-                                    /
-                                </span>
-
-                                <span
-                                    class="
-                                        text-accent
-                                    "
-                                >
-                                    {{
-                                        pageHeader.eyebrow
-                                    }}
-                                </span>
-
-                            </template>
-
-                        </nav>
 
                         <div
+                            v-if="
+                                tabs.length
+                            "
                             class="
-                                flex
-                                flex-col
-                                gap-6
-                                md:flex-row
-                                md:items-end
-                                md:justify-between
+                                z-40
+                                min-w-0
+                                shrink
+                                overflow-x-auto
+                                bg-light
                             "
                         >
 
-                            <div>
-
-                                <h1
-                                    class="
-                                        h2
-                                        text-left
-                                    "
+                            <nav
+                                aria-label="Project navigation"
+                                class="flex w-fit overflow-x-auto overscroll-contain"
+                            >
+                                <a
+                                    v-for="(tab, index) in tabs"
+                                    :key="tab.label"
+                                    :href="tab.href"
+                                    class="relative flex h-12 shrink-0 items-center px-5 font-mono text-xs font-bold uppercase text-accent transition-colors duration-200 hover:bg-accent hover:text-white"
+                                    :class="{
+                                        'border-r border-accent': index < tabs.length - 1,
+                                        'bg-accent text-white': tab.active,
+                                        'z-10': tab.active
+                                    }"
                                 >
-                                    {{
-                                        pageHeader.title
-                                    }}
-                                </h1>
-
-                            </div>
-
-                            <div
-                                id="client-page-header-actions"
-                                class="
-                                    flex
-                                    flex-wrap
-                                    gap-x-4
-                                    gap-y-3
-                                    md:justify-end
-                                "
-                            ></div>
+                                    {{ tab.label }}
+                                </a>
+                            </nav>
 
                         </div>
 
-                    </header>
+                    </div>
 
-                    <slot />
 
-                </main>
+                    <main
+                        class="
+                            min-h-0
+                            min-w-0
+                            flex-1
+                            overflow-y-auto
+                            overscroll-contain
+                            p-8
+                            pb-20
+                            lg:p-10
+                            lg:pb-20
+                        "
+                    >
+
+                        <div
+                            v-if="
+                                page.status
+                            "
+                            class="
+                                mb-6
+                                border-l-2
+                                border-accent
+                                bg-white
+                                px-5
+                                py-4
+                                p
+                            "
+                            role="status"
+                        >
+
+                            {{
+                                page.status
+                            }}
+
+                        </div>
+
+
+                        <div
+                            v-if="
+                                page.error
+                            "
+                            class="
+                                mb-6
+                                border-l-2
+                                border-red-700
+                                bg-red-50
+                                px-5
+                                py-4
+                                p
+                                text-red-800
+                            "
+                            role="alert"
+                        >
+
+                            {{
+                                page.error
+                            }}
+
+                        </div>
+
+
+                        <slot />
+
+                    </main>
+
+                </div>
 
             </div>
 
@@ -775,52 +646,119 @@ function toggleMenu() {
 
 </template>
 
+
 <style scoped>
 
-/*
-|--------------------------------------------------------------------------
-| Menu icon
-|--------------------------------------------------------------------------
-*/
+.nav-control {
+    position: relative;
+    width: 24px;
+    height: 24px;
+    padding: 0;
+    margin: 0;
+    align-items: center;
+    justify-content: center;
+    color: inherit;
+    background: transparent;
+    border: 0;
+    cursor: pointer;
+    transition:
+        transform 220ms
+        cubic-bezier(
+            0.16,
+            1,
+            0.3,
+            1
+        );
+}
+
+
+.nav-control:hover {
+    transform:
+        scale(1.08);
+}
+
+
+.nav-control:active {
+    transform:
+        scale(0.94);
+}
+
 
 .menu-icon {
-    display: block;
+    position: relative;
+    width: 18px;
+    height: 14px;
+    transition:
+        transform 350ms
+        cubic-bezier(
+            0.16,
+            1,
+            0.3,
+            1
+        );
 }
+
 
 .menu-line {
     position: absolute;
     left: 0;
-    width: 15px;
+    width: 18px;
     height: 1px;
     background: currentColor;
     transform-origin: center;
     transition:
-        top 0.25s ease,
-        transform 0.25s ease;
+        transform 350ms
+        cubic-bezier(
+            0.16,
+            1,
+            0.3,
+            1
+        ),
+        top 350ms
+        cubic-bezier(
+            0.16,
+            1,
+            0.3,
+            1
+        );
 }
+
 
 .menu-line-top {
-    top: 4px;
+    top: 2px;
 }
+
 
 .menu-line-bottom {
-    top: 11px;
+    top: 10px;
 }
 
-/*
-|--------------------------------------------------------------------------
-| Open state
-|--------------------------------------------------------------------------
-*/
 
-.menu-icon.is-open .menu-line-top {
-    top: 7.5px;
-    transform: rotate(45deg);
+.menu-icon-open .menu-line-top {
+    top: 6px;
+    transform:
+        rotate(45deg);
 }
 
-.menu-icon.is-open .menu-line-bottom {
-    top: 7.5px;
-    transform: rotate(-45deg);
+
+.menu-icon-open .menu-line-bottom {
+    top: 6px;
+    transform:
+        rotate(-45deg);
+}
+
+
+@media (
+    prefers-reduced-motion: reduce
+) {
+
+    .nav-control,
+    .menu-icon,
+    .menu-line {
+        animation: none;
+        transition: none;
+    }
+
 }
 
 </style>

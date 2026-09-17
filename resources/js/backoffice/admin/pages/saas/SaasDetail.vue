@@ -10,6 +10,7 @@ import {
 } from 'vue'
 
 import {
+    useRoute,
     useRouter
 } from 'vue-router'
 
@@ -43,6 +44,7 @@ const props = defineProps({
 
 
 const router = useRouter()
+const route = useRoute()
 
 const {
     enabled: autosaveEnabled,
@@ -311,7 +313,9 @@ const pageTitle = computed(() =>
 
 function openCustomerBilling(customer) {
     router.push({
-        name: 'saas.projects.customer',
+        name: String(route.name || '').startsWith('projects.saas')
+            ? 'projects.saas.customer'
+            : 'saas.projects.customer',
         params: {
             id: props.id,
             companyId: customer.id

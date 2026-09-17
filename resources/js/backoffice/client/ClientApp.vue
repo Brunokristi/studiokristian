@@ -21,10 +21,21 @@ const pages = {
     project: ProjectPage,
 }
 const currentPage = computed(() => pages[props.page.page] || DashboardPage)
+const isProjectPage = computed(() => props.page.page === 'project')
 </script>
 
 <template>
+    <ProjectPage
+        v-if="isProjectPage"
+        :page="page"
+        :data="page"
+        :csrf-token="csrfToken"
+        :locale="locale"
+        @set-locale="setLocale"
+    />
+
     <ClientLayout
+        v-else
         :page="page"
         :csrf-token="csrfToken"
         :locale="locale"
@@ -32,6 +43,7 @@ const currentPage = computed(() => pages[props.page.page] || DashboardPage)
     >
         <component
             :is="currentPage"
+            :page="page"
             :data="page"
             :csrf-token="csrfToken"
             :locale="locale"

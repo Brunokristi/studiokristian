@@ -1,0 +1,12 @@
+{
+    "inter": {
+        "normal": "\/Users\/brunokristian\/Documents\/studiokristian\/studiokristian\/storage\/fonts\/inter_normal_3288c2660e0bd3d422793a5d057ef147",
+        "500": "\/Users\/brunokristian\/Documents\/studiokristian\/studiokristian\/storage\/fonts\/inter_500_5a2f509ebe9bd38e2353f90081f50989",
+        "600": "\/Users\/brunokristian\/Documents\/studiokristian\/studiokristian\/storage\/fonts\/inter_600_734f1069c1f168714dfe1bbc1d61a385",
+        "bold": "inter_bold_dcb5dc8872e0060e84d00d212d6b399e"
+    },
+    "space mono": {
+        "normal": "\/Users\/brunokristian\/Documents\/studiokristian\/studiokristian\/storage\/fonts\/space_mono_normal_f08c22936dd9f445f0603c1736c08d8e",
+        "bold": "space_mono_bold_a2a8004293dec7cc5e49f3ea6bb275b2"
+    }
+}

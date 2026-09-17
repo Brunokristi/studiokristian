@@ -49,9 +49,16 @@ import FormField
 import Toast
     from '@shared/components/Toast.vue'
 
+import CoworkerModal
+    from '../coworkers/CoworkerModal.vue'
+
 import {
     useAdminPageHeader
 } from '../../composables/useAdminPageHeader'
+
+import {
+    useOptionalProjectContext
+} from '../../composables/useProjectContext'
 
 
 const props =
@@ -59,6 +66,11 @@ const props =
         id: {
             type: String,
             default: ''
+        },
+
+        section: {
+            type: String,
+            default: 'information'
         }
     })
 
@@ -69,6 +81,10 @@ const route =
 
 const router =
     useRouter()
+
+
+const projectContext =
+    useOptionalProjectContext()
 
 
 const {
@@ -221,6 +237,18 @@ const coworker =
         name: '',
         email: ''
     })
+
+
+const coworkerSearch =
+    ref('')
+
+
+const coworkerModalOpen =
+    ref(false)
+
+
+const coworkerCreateName =
+    ref('')
 
 
 const ticketForm =
@@ -1347,6 +1375,212 @@ const coworkerAssignmentOptions =
         return options
 
     })
+
+
+const coworkerAutocompleteOptions =
+    computed(() => {
+
+        const query =
+            String(
+                coworkerSearch.value ||
+                ''
+            )
+                .trim()
+                .toLowerCase()
+
+
+        const selected =
+            new Set(
+                projectForm.coworker_ids.map(
+                    value => String(value)
+                )
+            )
+
+
+        const options =
+            coworkerAssignmentOptions.value.filter(
+                option => {
+
+                    if (
+                        selected.has(
+                            String(option.value)
+                        )
+                    ) {
+
+                        return true
+
+                    }
+
+
+                    if (!query) {
+                        return true
+                    }
+
+
+                    const user =
+                        coworkers.value.find(
+                            coworker =>
+                                String(coworker.id) ===
+                                String(option.value)
+                        )
+
+
+                    return [
+                        option.label,
+                        user?.email
+                    ].some(
+                        value =>
+                            String(value || '')
+                                .toLowerCase()
+                                .includes(query)
+                    )
+
+                }
+            )
+
+
+        const exactMatch =
+            coworkers.value.some(
+                user =>
+                    [
+                        user.name,
+                        user.email
+                    ].some(
+                        value =>
+                            String(value || '')
+                                .trim()
+                                .toLowerCase() ===
+                            query
+                    )
+            )
+
+
+        if (
+            query &&
+            !exactMatch &&
+            canManageProjectSettings.value
+        ) {
+
+            options.push({
+                label: `Create "${coworkerSearch.value.trim()}"`,
+                value: '__create_coworker__',
+                create: true
+            })
+
+        }
+
+
+        return options
+
+    })
+
+
+const selectedCoworkers =
+    computed(() =>
+        coworkers.value.filter(
+            user =>
+                projectForm.coworker_ids.some(
+                    value =>
+                        String(value) ===
+                        String(user.id)
+                )
+        )
+    )
+
+
+const selectedContacts =
+    computed(() =>
+        contactOptions.value.filter(
+            contact =>
+                projectForm.contact_ids.some(
+                    value =>
+                        String(value) ===
+                        String(contact.id)
+                )
+        )
+    )
+
+
+function searchCoworkers(value) {
+    coworkerSearch.value =
+        String(
+            value ||
+            ''
+        )
+}
+
+
+function selectCoworkerOption(option) {
+    if (!option?.create) {
+        return
+    }
+
+
+    projectForm.coworker_ids =
+        projectForm.coworker_ids.filter(
+            value =>
+                value !==
+                '__create_coworker__'
+        )
+
+    coworkerCreateName.value =
+        coworkerSearch.value.trim()
+
+    coworkerModalOpen.value =
+        true
+}
+
+
+function handleCoworkerCreated(created) {
+    const id =
+        Number(
+            created?.id ||
+            0
+        )
+
+
+    if (!id) {
+        return
+    }
+
+
+    if (
+        !coworkers.value.some(
+            item =>
+                Number(item.id) ===
+                id
+        )
+    ) {
+
+        coworkers.value.push(
+            created
+        )
+
+    }
+
+
+    if (
+        !projectForm.coworker_ids.some(
+            value =>
+                Number(value) ===
+                id
+        )
+    ) {
+
+        projectForm.coworker_ids = [
+            ...projectForm.coworker_ids,
+            id
+        ]
+
+    }
+
+
+    coworkerModalOpen.value =
+        false
+
+    coworkerSearch.value =
+        ''
+}
 
 
 const ticketPriorityOptions = [
@@ -2566,14 +2800,16 @@ async function loadProjectDetails(
     id
 ) {
 
-    const response =
-        await api.get(
-            `/projects/${id}`
-        )
-
-
     const projectData =
-        response.data.data
+        projectContext?.project.value &&
+        String(projectContext.project.value.id) ===
+            String(id)
+            ? projectContext.project.value
+            : (
+                await api.get(
+                    `/projects/${id}`
+                )
+            ).data.data
 
 
     applyProjectToForm(
@@ -2593,19 +2829,38 @@ async function loadProjectDetails(
     resetProjectFilesCache()
 
 
-    await Promise.all([
-        reloadTickets(),
-        loadTicketTags()
-    ])
+    if (
+        props.section ===
+        'tickets'
+    ) {
+        await Promise.all([
+            reloadTickets(),
+            loadTicketTags()
+        ])
+    }
 
 
-    await loadContacts(
-        projectData.company_id,
-        true
-    )
+    if (
+        [
+            'information',
+            'people'
+        ].includes(
+            props.section
+        )
+    ) {
+        await loadContacts(
+            projectData.company_id,
+            true
+        )
+    }
 
 
-    void loadProjectFilesFolder()
+    if (
+        props.section ===
+        'files'
+    ) {
+        void loadProjectFilesFolder()
+    }
 
 }
 
@@ -2622,7 +2877,21 @@ async function load() {
 
     try {
 
-        await loadLookupsAndCoworkers()
+        if (
+            [
+                'information',
+                'people',
+                'tickets'
+            ].includes(
+                props.section
+            )
+        ) {
+            await loadLookupsAndCoworkers()
+        } else {
+            currentUser.value =
+                shellUser ||
+                null
+        }
 
 
         const projectRouteId =
@@ -2896,6 +3165,11 @@ async function saveProjectForm() {
             project.value =
                 response.data.data ||
                 project.value
+
+
+            projectContext?.setProject(
+                project.value
+            )
 
 
             await loadProjectDetails(
@@ -5956,6 +6230,17 @@ useAdminPageHeader({
             />
 
 
+            <CoworkerModal
+                v-if="section === 'people'"
+                :open="coworkerModalOpen"
+                :project-id="projectId"
+                :initial-name="coworkerCreateName"
+                @close="coworkerModalOpen = false"
+                @created="handleCoworkerCreated"
+                @error="showError"
+            />
+
+
             <div
                 v-if="
                     loading
@@ -5983,7 +6268,8 @@ useAdminPageHeader({
 
                 <section
                     v-if="
-                        canManageProjectSettings
+                        canManageProjectSettings &&
+                        section === 'information'
                     "
                     class="
                         space-y-14
@@ -6248,6 +6534,7 @@ useAdminPageHeader({
                 <section
                     v-if="
                         canManageProjectSettings &&
+                        section === 'information' &&
                         project?.todo_signatures?.length
                     "
                     class="
@@ -6384,7 +6671,8 @@ useAdminPageHeader({
 
                     <section
                         v-if="
-                            canManageProjectSettings
+                            canManageProjectSettings &&
+                            section === 'people'
                         "
                         class="
                             space-y-8
@@ -6457,7 +6745,7 @@ useAdminPageHeader({
 
                                 name="coworker_ids"
 
-                                type="select"
+                                type="autocomplete"
 
                                 label="Coworkers"
 
@@ -6466,7 +6754,7 @@ useAdminPageHeader({
                                 multiple
 
                                 :options="
-                                    coworkerAssignmentOptions
+                                    coworkerAutocompleteOptions
                                 "
 
                                 :disabled="
@@ -6477,8 +6765,100 @@ useAdminPageHeader({
                                     errors.coworker_ids?.[0] ||
                                     ''
                                 "
+
+                                @search="
+                                    searchCoworkers
+                                "
+
+                                @select="
+                                    selectCoworkerOption
+                                "
                             />
 
+                        </div>
+
+
+                        <div
+                            class="
+                                grid
+                                grid-cols-1
+                                gap-8
+                                md:grid-cols-2
+                            "
+                        >
+                            <section class="space-y-3">
+                                <h4 class="font-mono text-xs font-bold uppercase text-dark/60">
+                                    Assigned client contacts
+                                </h4>
+
+                                <p
+                                    v-if="!selectedContacts.length"
+                                    class="p text-dark/40"
+                                >
+                                    No client contacts assigned.
+                                </p>
+
+                                <div
+                                    v-for="contact in selectedContacts"
+                                    :key="contact.id"
+                                    class="flex items-center justify-between gap-4 border-b border-accent py-3"
+                                >
+                                    <div class="min-w-0">
+                                        <p class="p truncate font-medium">
+                                            {{ `${contact.first_name || ''} ${contact.last_name || ''}`.trim() || contact.email }}
+                                        </p>
+                                        <p class="truncate text-xs text-dark/50">
+                                            {{ contact.email }}
+                                        </p>
+                                    </div>
+
+                                    <button
+                                        type="button"
+                                        class="shrink-0 font-mono text-[10px] font-bold uppercase text-accent hover:text-dark"
+                                        :disabled="resendingContactId === contact.id"
+                                        @click="resendContactInvitation(contact.id)"
+                                    >
+                                        {{ resendingContactId === contact.id ? 'Sending...' : 'Resend invite' }}
+                                    </button>
+                                </div>
+                            </section>
+
+                            <section class="space-y-3">
+                                <h4 class="font-mono text-xs font-bold uppercase text-dark/60">
+                                    Assigned coworkers
+                                </h4>
+
+                                <p
+                                    v-if="!selectedCoworkers.length"
+                                    class="p text-dark/40"
+                                >
+                                    No coworkers assigned.
+                                </p>
+
+                                <div
+                                    v-for="user in selectedCoworkers"
+                                    :key="user.id"
+                                    class="flex items-center justify-between gap-4 border-b border-accent py-3"
+                                >
+                                    <div class="min-w-0">
+                                        <p class="p truncate font-medium">
+                                            {{ user.name }}
+                                        </p>
+                                        <p class="truncate text-xs text-dark/50">
+                                            {{ user.email }}
+                                        </p>
+                                    </div>
+
+                                    <button
+                                        type="button"
+                                        class="shrink-0 font-mono text-[10px] font-bold uppercase text-accent hover:text-dark"
+                                        :disabled="resendingCoworkerId === user.id"
+                                        @click="resendCoworkerInvitation(user.id)"
+                                    >
+                                        {{ resendingCoworkerId === user.id ? 'Sending...' : 'Resend invite' }}
+                                    </button>
+                                </div>
+                            </section>
                         </div>
 
                     </section>
@@ -6487,6 +6867,7 @@ useAdminPageHeader({
                     <!-- Tickets -->
 
                     <section
+                        v-if="section === 'tickets'"
                         class="
                             space-y-8
                         "
@@ -7017,6 +7398,7 @@ useAdminPageHeader({
                     <!-- Files -->
 
                     <section
+                        v-if="section === 'files'"
                         class="
                             space-y-8
                         "
@@ -7109,7 +7491,8 @@ useAdminPageHeader({
 
                     <section
                         v-if="
-                            canManageProjectSettings
+                            canManageProjectSettings &&
+                            section === 'danger'
                         "
                         class="
                             space-y-8

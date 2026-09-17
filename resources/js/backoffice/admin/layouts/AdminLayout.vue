@@ -26,6 +26,10 @@ import {
     useAdminPageHeader
 } from '../composables/useAdminPageHeader'
 
+import {
+    activeProjectContext
+} from '../composables/useProjectContext'
+
 
 const {
     header: pageHeader
@@ -215,16 +219,6 @@ const adminNavigation = [
     },
 
     {
-        label: 'SaaS',
-
-        route: {
-            name: 'saas.projects.index'
-        },
-
-        match: 'saas'
-    },
-
-    {
         label: 'Projects',
 
         route: {
@@ -406,6 +400,122 @@ const clientTabs =
     })
 
 
+const projectTabs =
+    computed(() => {
+
+        if (
+            !route.params.id ||
+            (
+                !currentRouteName.value.startsWith(
+                    'projects.'
+                ) &&
+                currentRouteName.value !==
+                    'portfolio.edit'
+            ) ||
+            currentRouteName.value ===
+                'projects.index' ||
+            currentRouteName.value ===
+                'projects.create'
+        ) {
+
+            return []
+
+        }
+
+
+        return [
+            {
+                label: 'Overview',
+                route: {
+                    name: 'projects.show',
+                    params: {
+                        id: route.params.id
+                    }
+                },
+                active: [
+                    'projects.show',
+                    'projects.edit'
+                ].includes(
+                    currentRouteName.value
+                )
+            },
+            {
+                label: 'People',
+                route: {
+                    name: 'projects.people',
+                    params: {
+                        id: route.params.id
+                    }
+                }
+            },
+            {
+                label: 'Tickets',
+                route: {
+                    name: 'projects.tickets',
+                    params: {
+                        id: route.params.id
+                    }
+                }
+            },
+            {
+                label: 'Files',
+                route: {
+                    name: 'projects.files',
+                    params: {
+                        id: route.params.id
+                    }
+                }
+            },
+            {
+                label: 'Billing',
+                route: {
+                    name: 'projects.billing',
+                    params: {
+                        id: route.params.id
+                    }
+                }
+            },
+            {
+                label: 'Portfolio',
+                route: {
+                    name: 'portfolio.edit',
+                    params: {
+                        id: route.params.id
+                    }
+                }
+            },
+            {
+                label: 'Danger zone',
+                route: {
+                    name: 'projects.danger-zone',
+                    params: {
+                        id: route.params.id
+                    }
+                }
+            }
+        ].toSpliced(
+            5,
+            0,
+            ...(
+                activeProjectContext.project?.is_saas ||
+                currentRouteName.value.startsWith('projects.saas')
+                    ? [{
+                        label: 'SaaS',
+                        route: {
+                            name: 'projects.saas',
+                            params: {
+                                id: route.params.id
+                            }
+                        },
+                        active: currentRouteName.value.startsWith('projects.saas')
+                    }]
+                    : []
+            )
+        )
+
+    })
+
+
 const contextualTabs =
     computed(() => {
 
@@ -414,6 +524,15 @@ const contextualTabs =
         ) {
 
             return clientTabs.value
+
+        }
+
+
+        if (
+            projectTabs.value.length
+        ) {
+
+            return projectTabs.value
 
         }
 
