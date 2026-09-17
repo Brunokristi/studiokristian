@@ -220,7 +220,7 @@ class ProjectInvoicePdfService
                 ->dataUri(
                     $invoice,
                     500,
-                    20
+                    0
                 );
         } catch (Throwable $exception) {
             report(
