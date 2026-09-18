@@ -14,6 +14,9 @@ import Button
 import Tag
     from '@shared/components/Tag.vue'
 
+import Section
+    from '../../components/Section.vue'
+
 
 const props = defineProps({
 
@@ -72,6 +75,8 @@ const copy =
             return {
                 support:
                     'Podpora',
+                requests:
+                    'Požiadavky',
                 noTickets:
                     'Zatiaľ ste nevytvorili žiadne požiadavky.',
                 describeRequest:
@@ -92,6 +97,8 @@ const copy =
         return {
             support:
                 'Support',
+            requests:
+                'Requests',
             noTickets:
                 'You have not created any requests yet.',
             describeRequest:
@@ -262,242 +269,196 @@ async function submitTicket() {
 
 <template>
 
-    <section
+    <div
         class="
-            flex
-            flex-col
-            gap-6
+            w-full
+            space-y-24
         "
     >
 
-        <h2
-            class="
-                h2
-                text-left
-                text-accent
-            "
-        >
-
-            {{
+        <Section
+            :title="
                 copy.support
-            }}
-
-        </h2>
-
-
-        <form
-            @submit.prevent="
-                submitTicket
             "
         >
 
-            <input
-                type="hidden"
-                name="_token"
-                :value="
-                    csrfToken
+            <form
+                @submit.prevent="
+                    submitTicket
                 "
             >
 
-
-            <strong
-                class="
-                    h3
-                    uppercase
-                "
-            >
-
-                {{
-                    copy.describeRequest
-                }}
-
-            </strong>
+                <input
+                    type="hidden"
+                    name="_token"
+                    :value="
+                        csrfToken
+                    "
+                >
 
 
-            <p
-                class="
-                    p
-                    text-dark
-                "
-            >
-
-                {{
-                    copy.supportHint
-                }}
-
-            </p>
-
-
-            <FormField
-                v-model="
-                    supportDescription
-                "
-                class="
-                    mt-5
-                "
-                type="textarea"
-                name="description"
-                :placeholder="
-                    copy.descriptionPlaceholder
-                "
-                :required="
-                    true
-                "
-                :disabled="
-                    ticketCreateInFlight
-                "
-            />
+                <FormField
+                    id="support-description"
+                    v-model="
+                        supportDescription
+                    "
+                    name="description"
+                    type="textarea"
+                    :label="
+                        copy.describeRequest
+                    "
+                    :placeholder="
+                        copy.descriptionPlaceholder
+                    "
+                    :error="
+                        ticketCreateError
+                    "
+                    :required="
+                        true
+                    "
+                    :disabled="
+                        ticketCreateInFlight
+                    "
+                />
 
 
-            <p
-                v-if="
-                    ticketCreateError
-                "
-                class="
-                    mt-3
-                    p
-                    text-red-600
-                "
-            >
+                <Button
+                    class="
+                        mt-6
+                    "
+                    type="submit"
+                    variant="dark"
+                    :text="
+                        copy.sendRequest
+                    "
+                    :loading="
+                        ticketCreateInFlight
+                    "
+                    :loading-text="
+                        copy.sending
+                    "
+                    align="right"
+                />
 
-                {{
-                    ticketCreateError
-                }}
+            </form>
 
-            </p>
-
-
-            <Button
-                class="
-                    mt-4
-                "
-                type="submit"
-                variant="dark"
-                :text="
-                    copy.sendRequest
-                "
-                :loading="
-                    ticketCreateInFlight
-                "
-                :loading-text="
-                    copy.sending
-                "
-                align="left"
-            />
-
-        </form>
+        </Section>
 
 
-        <div
-            class="
-                mt-6
-                grid
-                gap-3
+        <Section
+            :title="
+                copy.requests
             "
         >
 
-            <article
-                v-for="
-                    ticket
-                    in tickets
-                "
-                :key="
-                    ticket.id
-                "
+            <div
                 class="
-                    border
-                    border-accent
-                    bg-light
-                    p-4
-                    transition-all
-                    duration-200
-                    hover:bg-accent/[0.04]
+                    grid
+                    gap-3
                 "
             >
 
-                <p
+                <article
+                    v-for="
+                        ticket
+                        in tickets
+                    "
+                    :key="
+                        ticket.id
+                    "
                     class="
-                        p
-                        min-w-0
-                        flex-1
-                        font-medium
+                        border
+                        border-accent
+                        bg-light
+                        p-4
+                        transition-all
+                        duration-200
+                        hover:bg-accent/[0.04]
                     "
                 >
 
-                    {{
-                        ticket.title
-                    }}
-
-                </p>
-
-
-                <div
-                    class="
-                        mt-2
-                        flex
-                        flex-wrap
-                        gap-2
-                    "
-                >
-
-                    <Tag
-                        :text="
-                            statusLabel(
-                                ticket.status
-                            )
+                    <p
+                        class="
+                            p
+                            min-w-0
+                            flex-1
+                            font-medium
                         "
-                    />
+                    >
+                        {{
+                            ticket.title
+                        }}
+                    </p>
 
 
-                    <Tag
-                        v-if="
-                            ticket.priority
+                    <div
+                        class="
+                            mt-2
+                            flex
+                            flex-wrap
+                            gap-2
                         "
-                        :text="
-                            statusLabel(
+                    >
+
+                        <Tag
+                            :text="
+                                statusLabel(
+                                    ticket.status
+                                )
+                            "
+                        />
+
+
+                        <Tag
+                            v-if="
                                 ticket.priority
-                            )
-                        "
-                    />
+                            "
+                            :text="
+                                statusLabel(
+                                    ticket.priority
+                                )
+                            "
+                        />
 
-                </div>
+                    </div>
+
+
+                    <p
+                        v-if="
+                            ticket.description
+                        "
+                        class="
+                            mt-3
+                            p
+                            text-dark/60
+                        "
+                    >
+                        {{
+                            ticket.description
+                        }}
+                    </p>
+
+                </article>
 
 
                 <p
+                    v-if="
+                        !tickets.length
+                    "
                     class="
-                        mt-3
                         p
-                        text-dark/60
+                        text-dark/45
                     "
                 >
-
                     {{
-                        ticket.description
+                        copy.noTickets
                     }}
-
                 </p>
 
-            </article>
+            </div>
 
+        </Section>
 
-            <p
-                v-if="
-                    !tickets.length
-                "
-                class="
-                    p
-                    text-dark/45
-                "
-            >
-
-                {{
-                    copy.noTickets
-                }}
-
-            </p>
-
-        </div>
-
-    </section>
+    </div>
 
 </template>

@@ -55,6 +55,11 @@ const menuOpen =
 
 const copy = {
 
+    project: {
+        en: 'Project',
+        sk: 'Projekt'
+    },
+
     projects: {
         en: 'Projects',
         sk: 'Projekty'
@@ -498,76 +503,91 @@ function toggleMenu() {
 
                     <div
                         v-if="
-                            pageHeader.title ||
-                            tabs.length
+                            tabs.length ||
+                            pageHeader.title
                         "
                         class="
                             flex
+                            h-12
                             shrink-0
                             items-stretch
-                            justify-between
                             border-b
                             border-accent
                             bg-light
                         "
                     >
-
-                        <h2
+                        <!-- Project name -->
+                        <div
+                            v-if="pageHeader.title"
                             class="
-                                h3
                                 flex
                                 h-12
                                 min-w-0
+                                flex-1
                                 items-center
-                                truncate
-                                pl-5
-                                pr-5
-                                uppercase
-                                text-accent
+                                px-5
                             "
                         >
-
-                            {{
-                                pageHeader.title
-                            }}
-
-                        </h2>
-
-
-                        <div
-                            v-if="
-                                tabs.length
-                            "
-                            class="
-                                z-40
-                                min-w-0
-                                shrink
-                                overflow-x-auto
-                                bg-light
-                            "
-                        >
-
-                            <nav
-                                aria-label="Project navigation"
-                                class="flex w-fit overflow-x-auto overscroll-contain"
+                            <span
+                                class="
+                                    truncate
+                                    font-mono
+                                    text-xs
+                                    font-bold
+                                    uppercase
+                                    text-accent
+                                "
                             >
-                                <a
-                                    v-for="(tab, index) in tabs"
-                                    :key="tab.label"
-                                    :href="tab.href"
-                                    class="relative flex h-12 shrink-0 items-center px-5 font-mono text-xs font-bold uppercase text-accent transition-colors duration-200 hover:bg-accent hover:text-white"
-                                    :class="{
-                                        'border-r border-accent': index < tabs.length - 1,
-                                        'bg-accent text-white': tab.active,
-                                        'z-10': tab.active
-                                    }"
-                                >
-                                    {{ tab.label }}
-                                </a>
-                            </nav>
-
+                                {{ copy.project[locale] }} {{ pageHeader.title }}
+                            </span>
                         </div>
 
+                        <!-- Tabs -->
+                        <nav
+                            v-if="tabs.length"
+                            aria-label="Project navigation"
+                            class="
+                                ml-auto
+                                flex
+                                h-full
+                                shrink-0
+                                border-l
+                                border-accent
+                            "
+                        >
+                            <a
+                                v-for="(tab, index) in tabs"
+                                :key="tab.label"
+                                :href="tab.href"
+                                class="
+                                    relative
+                                    flex
+                                    h-12
+                                    shrink-0
+                                    items-center
+                                    px-5
+                                    font-mono
+                                    text-xs
+                                    font-bold
+                                    uppercase
+                                    text-accent
+                                    transition-colors
+                                    duration-200
+                                    hover:bg-accent
+                                    hover:text-white
+                                "
+                                :class="{
+                                    'border-r border-accent':
+                                        index < tabs.length - 1,
+                                    'bg-accent text-white':
+                                        tab.active,
+                                    'z-10':
+                                        tab.active
+                                }"
+                            >
+                                {{ tab.label }}
+                            </a>
+                        </nav>
                     </div>
 
 

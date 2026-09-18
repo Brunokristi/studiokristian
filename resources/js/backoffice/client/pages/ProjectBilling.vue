@@ -7,6 +7,9 @@ import {
 import ProjectInvoicesTable
     from '../components/ProjectInvoicesTable.vue'
 
+import Section
+    from '../../components/Section.vue'
+
 
 const props = defineProps({
 
@@ -55,17 +58,21 @@ const copy =
 
 <template>
 
-
-    <ProjectInvoicesTable
-        :invoices="
-            data.project
-                .invoices ||
-            []
+    <div
+        class="
+            w-full
         "
-        :locale="
-            locale
-        "
-    />
-
+    >
+        <ProjectInvoicesTable
+            :invoices="
+                data.project
+                    .invoices ||
+                []
+            "
+            :locale="
+                locale
+            "
+        />
+    </div>
 
 </template>

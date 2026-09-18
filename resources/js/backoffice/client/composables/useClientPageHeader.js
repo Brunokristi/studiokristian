@@ -24,23 +24,28 @@ function resetHeader() {
 
 
 export function useClientPageHeader(
-    values = {}
+    values = null
 ) {
-    watchEffect(() => {
-        header.title =
-            toValue(values.title) || ''
+    if (values) {
+        watchEffect(() => {
+            header.title =
+                toValue(values.title) || ''
 
-        header.eyebrow =
-            toValue(values.eyebrow) || ''
+            header.eyebrow =
+                toValue(values.eyebrow) || ''
 
-        header.breadcrumbs =
-            toValue(values.breadcrumbs) || []
+            header.breadcrumbs =
+                toValue(values.breadcrumbs) || []
 
-        header.homeUrl =
-            toValue(values.homeUrl) || '/client'
-    })
+            header.homeUrl =
+                toValue(values.homeUrl) ||
+                '/client'
+        })
 
-    onBeforeUnmount(resetHeader)
+        onBeforeUnmount(
+            resetHeader
+        )
+    }
 
     return {
         header

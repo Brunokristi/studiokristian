@@ -15,6 +15,12 @@ import FileStructure
 import DocumentEditor
     from '../../components/DocumentEditor.vue'
 
+import Section
+    from '../../components/Section.vue'
+
+import Loading
+    from '@shared/components/Loading.vue'
+
 
 const props = defineProps({
 
@@ -1356,60 +1362,24 @@ onUnmounted(
         </Teleport>
 
 
-        <section
-            id="
-                client-project-documents
+        <Section
+            id="client-project-documents"
+            :title="
+                copy.documents
             "
         >
 
-            <h2
-                class="
-                    h2
-                    text-left
-                    text-accent
-                "
-            >
-
-                {{
-                    copy.documents
-                }}
-
-            </h2>
-
-
             <div
                 class="
-                    mt-6
                     space-y-5
                 "
             >
 
-                <div
+                <Loading
                     v-if="
                         projectFilesLoading
                     "
-                    class="
-                        border-t
-                        border-accent
-                        pt-4
-                    "
-                >
-
-                    <p
-                        class="
-                            p
-                            uppercase
-                            text-dark/40
-                        "
-                    >
-
-                        {{
-                            copy.loadingFiles
-                        }}
-
-                    </p>
-
-                </div>
+                />
 
 
                 <p
@@ -1464,7 +1434,7 @@ onUnmounted(
 
             </div>
 
-        </section>
+        </Section>
 
     </div>
 

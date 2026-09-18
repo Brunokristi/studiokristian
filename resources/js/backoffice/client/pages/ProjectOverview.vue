@@ -7,6 +7,9 @@ import {
 import Info
     from '@shared/components/Info.vue'
 
+import Section
+    from '../../components/Section.vue'
+
 
 const props = defineProps({
 
@@ -191,26 +194,14 @@ const projectDetails =
         "
     >
 
-        <section>
-
-            <h2
-                class="
-                    h2
-                    text-left
-                    text-accent
-                "
-            >
-
-                {{
-                    copy.projectDetails
-                }}
-
-            </h2>
-
+        <Section
+            :title="
+                copy.projectDetails
+            "
+        >
 
             <div
                 class="
-                    mt-6
                     grid
                     gap-0
                 "
@@ -239,49 +230,17 @@ const projectDetails =
 
             </div>
 
-        </section>
+        </Section>
 
 
-        <section
-            v-if="
-                data.project
-                    .todo_signatures
-                    ?.length
+        <Section
+            :title="
+                copy.toDoNow
             "
         >
 
-            <h2
-                class="
-                    h2
-                    text-left
-                    text-accent
-                "
-            >
-
-                {{
-                    copy.toDoNow
-                }}
-
-            </h2>
-
-
-            <p
-                class="
-                    p
-                    uppercase
-                "
-            >
-
-                {{
-                    copy.reviewAndSign
-                }}
-
-            </p>
-
-
             <ul
                 class="
-                    mt-6
                     grid
                     gap-2
                 "
@@ -371,7 +330,7 @@ const projectDetails =
 
             </ul>
 
-        </section>
+        </Section>
 
     </div>
 
