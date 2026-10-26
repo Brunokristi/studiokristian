@@ -1017,27 +1017,17 @@ const contextualTabs =
                                 space-y-1
                                 px-5
                                 py-4
+                                bg-accent
                             "
                         >
                             <p
                                 class="
-                                    font-mono
-                                    text-[10px]
-                                    font-bold
-                                    uppercase
-                                    text-accent
-                                "
-                            >
-                                Signed in as
-                                {{ isAdminUser ? 'admin' : 'coworker' }}
-                            </p>
-
-                            <p
-                                class="
                                     truncate
-                                    text-xs
+                                    font-mono
                                     font-bold
-                                    text-dark
+                                    text-white
+                                    uppercase
+                                    text-xs
                                 "
                                 :title="currentUserPayload.name"
                             >
@@ -1048,7 +1038,8 @@ const contextualTabs =
                                 class="
                                     truncate
                                     text-xs
-                                    text-dark
+                                    text-white
+                                    font-light
                                 "
                                 :title="currentUserPayload.email"
                             >
