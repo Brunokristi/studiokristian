@@ -423,7 +423,7 @@ const projectTabs =
         }
 
 
-        return [
+        const tabs = [
             {
                 label: 'Overview',
                 route: {
@@ -493,7 +493,9 @@ const projectTabs =
                     }
                 }
             }
-        ].toSpliced(
+        ]
+
+        const adminTabs = tabs.toSpliced(
             5,
             0,
             ...(
@@ -512,6 +514,12 @@ const projectTabs =
                     : []
             )
         )
+
+        return isAdminUser
+            ? adminTabs
+            : tabs.filter(tab =>
+                ['Tickets', 'Files'].includes(tab.label)
+            )
 
     })
 
@@ -886,6 +894,7 @@ const contextualTabs =
                         <!-- Portfolio -->
 
                         <RouterLink
+                            v-if="isAdminUser"
                             :to="{
                                 name: 'portfolio.index'
                             }"
@@ -951,7 +960,7 @@ const contextualTabs =
                             }"
                             @click="closeMenu"
                         >
-                            Internal storage
+                            Personal storage
                         </RouterLink>
 
 
@@ -998,6 +1007,54 @@ const contextualTabs =
                             </button>
 
                         </form>
+
+
+                        <!-- Signed-in user -->
+
+                        <div
+                            v-if="currentUserPayload?.name || currentUserPayload?.email"
+                            class="
+                                space-y-1
+                                px-5
+                                py-4
+                            "
+                        >
+                            <p
+                                class="
+                                    font-mono
+                                    text-[10px]
+                                    font-bold
+                                    uppercase
+                                    text-accent
+                                "
+                            >
+                                Signed in as
+                                {{ isAdminUser ? 'admin' : 'coworker' }}
+                            </p>
+
+                            <p
+                                class="
+                                    truncate
+                                    text-xs
+                                    font-bold
+                                    text-dark
+                                "
+                                :title="currentUserPayload.name"
+                            >
+                                {{ currentUserPayload.name }}
+                            </p>
+
+                            <p
+                                class="
+                                    truncate
+                                    text-xs
+                                    text-dark
+                                "
+                                :title="currentUserPayload.email"
+                            >
+                                {{ currentUserPayload.email }}
+                            </p>
+                        </div>
 
                     </div>
 

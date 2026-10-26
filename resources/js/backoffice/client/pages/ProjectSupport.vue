@@ -7,6 +7,8 @@ import {
 
 import FormField
     from '@shared/components/FormField.vue'
+import MarkdownContent
+    from '@shared/components/MarkdownContent.vue'
 
 import Button
     from '@shared/components/Button.vue'
@@ -377,23 +379,17 @@ async function submitTicket() {
                     "
                 >
 
-                    <p
-                        class="
-                            p
-                            min-w-0
-                            flex-1
-                            font-medium
-                        "
-                    >
-                        {{
+                    <MarkdownContent
+                        :source="
+                            ticket.description ||
                             ticket.title
-                        }}
-                    </p>
+                        "
+                    />
 
 
                     <div
                         class="
-                            mt-2
+                            mt-3
                             flex
                             flex-wrap
                             gap-2
@@ -422,21 +418,6 @@ async function submitTicket() {
 
                     </div>
 
-
-                    <p
-                        v-if="
-                            ticket.description
-                        "
-                        class="
-                            mt-3
-                            p
-                            text-dark/60
-                        "
-                    >
-                        {{
-                            ticket.description
-                        }}
-                    </p>
 
                 </article>
 

@@ -415,6 +415,11 @@ Route::prefix('admin/client-portal')
                     [CoworkerController::class, 'update']
                 )->name('coworkers.update');
 
+                Route::post(
+                    '/coworkers/{coworker}/resend-invitation',
+                    [CoworkerController::class, 'resendInvitation']
+                )->name('coworkers.resend-invitation');
+
                 Route::delete(
                     '/coworkers/{coworker}',
                     [CoworkerController::class, 'destroy']
@@ -775,25 +780,9 @@ Route::prefix('admin/client-portal')
         )->name('index');
 
         Route::get(
-            '/projects',
-            ShellController::class
-        );
-
-        Route::get(
             '/projects/create',
             ShellController::class
         );
-
-        Route::get(
-            '/projects/{project}',
-            ShellController::class
-        );
-
-        Route::get(
-            '/projects/{project}/edit',
-            ShellController::class
-        );
-
 
         /*
         |--------------------------------------------------------------------------
@@ -807,13 +796,43 @@ Route::prefix('admin/client-portal')
         )->where(
             'path',
             'clients(?:/.*)?'
-            . '|projects(?:/.*)?'
             . '|saas(?:/.*)?'
             . '|service-products(?:/.*)?'
             . '|coworkers(?:/.*)?'
-            . '|internal-storage(?:/.*)?'
             . '|portfolio(?:/.*)?'
         )->name('app');
+    });
+
+/*
+|--------------------------------------------------------------------------
+| Coworker Project SPA
+|--------------------------------------------------------------------------
+|
+| Coworkers share the project and personal internal storage SPA shell, while
+| the API uses its restricted coworker-api routes.
+|
+*/
+
+Route::prefix('admin/client-portal')
+    ->middleware([
+        'auth',
+        'verified',
+        'admin_or_coworker',
+    ])
+    ->group(function () {
+        Route::get(
+            '/projects',
+            ShellController::class
+        );
+
+        Route::get(
+            '/{path}',
+            ShellController::class
+        )->where(
+            'path',
+            'projects(?:/.*)?'
+            . '|internal-storage(?:/.*)?'
+        );
     });
 
 
@@ -898,6 +917,37 @@ Route::prefix('admin/client-portal')
     ->group(function () {
 
         Route::prefix('coworker-api')->group(function () {
+
+            /*
+            |--------------------------------------------------------------------------
+            | Personal Internal Storage
+            |--------------------------------------------------------------------------
+            */
+
+            Route::get(
+                '/internal-storage',
+                [InternalStorageController::class, 'index']
+            )->name('admin.client-portal.coworker-api.internal-storage.index');
+
+            Route::put(
+                '/internal-storage/structure',
+                [InternalStorageController::class, 'updateStructure']
+            )->name('admin.client-portal.coworker-api.internal-storage.structure.update');
+
+            Route::post(
+                '/internal-storage/files',
+                [InternalStorageController::class, 'upload']
+            )->name('admin.client-portal.coworker-api.internal-storage.files.upload');
+
+            Route::get(
+                '/internal-storage/files/{folder}/open',
+                [InternalStorageController::class, 'open']
+            )->name('admin.client-portal.coworker-api.internal-storage.files.open');
+
+            Route::get(
+                '/internal-storage/files/{folder}/download',
+                [InternalStorageController::class, 'download']
+            )->name('admin.client-portal.coworker-api.internal-storage.files.download');
 
             /*
             |--------------------------------------------------------------------------

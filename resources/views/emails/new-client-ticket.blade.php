@@ -94,7 +94,7 @@
                                 line-height: 1.6;
                             "
                         >
-                            {{ $ticketDescription }}
+                            {!! \Illuminate\Support\Str::markdown((string) $ticketDescription, ['html_input' => 'escape', 'allow_unsafe_links' => false]) !!}
                         </td>
                     </tr>
                 </table>

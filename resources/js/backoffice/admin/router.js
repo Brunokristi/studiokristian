@@ -272,4 +272,34 @@ const router = createRouter({
 
 })
 
+function isAdminShellUser() {
+    try {
+        const raw = document.querySelector('#client-portal-admin-user')?.textContent || '{}'
+        return Boolean(JSON.parse(raw)?.is_admin)
+    } catch {
+        return false
+    }
+}
+
+const coworkerRouteNames = [
+    'projects.index',
+    'projects.tickets',
+    'projects.files',
+    'internal-storage.index',
+]
+
+// Coworkers only have API access to their assigned projects.
+router.beforeEach(to => {
+    if (isAdminShellUser() || coworkerRouteNames.includes(to.name)) {
+        return true
+    }
+
+    // Coworkers have no project overview; send them to the project's tickets.
+    if (['projects.show', 'projects.edit'].includes(to.name)) {
+        return { name: 'projects.tickets', params: to.params }
+    }
+
+    return { name: 'projects.index' }
+})
+
 export default router

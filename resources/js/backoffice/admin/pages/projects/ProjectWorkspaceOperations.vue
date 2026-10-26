@@ -45,6 +45,8 @@ import Button
 
 import FormField
     from '@shared/components/FormField.vue'
+import MarkdownField
+    from '@shared/components/MarkdownField.vue'
 
 import Toast
     from '@shared/components/Toast.vue'
@@ -253,7 +255,6 @@ const coworkerCreateName =
 
 const ticketForm =
     reactive({
-        title: '',
         description: '',
         priority: 'normal',
         deadline: '',
@@ -3006,9 +3007,6 @@ async function load() {
                 ticketForm,
                 {
 
-                    title:
-                        '',
-
                     description:
                         '',
 
@@ -3897,7 +3895,6 @@ function normalizeTicketTagIds(
 async function createTicket() {
 
     if (
-        !ticketForm.title.trim() ||
         !ticketForm.description.trim()
     ) {
 
@@ -3913,9 +3910,6 @@ async function createTicket() {
             `/projects/${projectId.value}/tickets`,
 
             {
-
-                title:
-                    ticketForm.title.trim(),
 
                 description:
                     ticketForm.description.trim(),
@@ -3945,9 +3939,6 @@ async function createTicket() {
         Object.assign(
             ticketForm,
             {
-
-                title:
-                    '',
 
                 description:
                     '',
@@ -4023,9 +4014,6 @@ async function saveTicket({
             `/projects/${projectId.value}/tickets/${ticket.id}`,
 
             {
-
-                title:
-                    data.title,
 
                 description:
                     data.description,
@@ -4611,7 +4599,7 @@ function createProjectTicket() {
 
             document
                 .getElementById(
-                    'ticket-title'
+                    'ticket-description'
                 )
                 ?.focus()
 
@@ -6908,35 +6896,19 @@ useAdminPageHeader({
                             "
                         >
 
-                            <FormField
-                                id="ticket-title"
-
-                                v-model="
-                                    ticketForm.title
-                                "
-
-                                name="title"
-
-                                type="text"
-
-                                label="Title"
-
-                                placeholder="Ticket title"
-
-                                required
-                            />
-
-
-                            <FormField
+                            <MarkdownField
                                 id="ticket-description"
+
+                                class="
+                                    md:col-span-2
+                                    lg:col-span-4
+                                "
 
                                 v-model="
                                     ticketForm.description
                                 "
 
                                 name="description"
-
-                                type="textarea"
 
                                 label="Description"
 

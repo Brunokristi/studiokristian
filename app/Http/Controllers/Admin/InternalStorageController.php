@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\CompanyStorageFolder;
 use App\Services\ProjectUploadPathService;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Http\Request;
@@ -26,8 +27,7 @@ class InternalStorageController extends Controller
             ]);
         }
 
-        $folders = CompanyStorageFolder::query()
-            ->whereNull('company_id')
+        $folders = $this->ownedQuery($request)
             ->orderBy('sort_order')
             ->orderBy('id')
             ->get()
@@ -64,7 +64,7 @@ class InternalStorageController extends Controller
         ]);
 
         DB::transaction(function () use ($data, $request) {
-            $existing = CompanyStorageFolder::query()->whereNull('company_id')->get()->keyBy('id');
+            $existing = $this->ownedQuery($request)->get()->keyBy('id');
             $processedIds = [];
             $map = [];
             $pending = collect($data['folders'] ?? [])->values();
@@ -80,7 +80,7 @@ class InternalStorageController extends Controller
 
                     $folder = null;
                     if (! empty($input['id'])) {
-                        $folder = CompanyStorageFolder::query()->whereNull('company_id')->whereKey((int) $input['id'])->firstOrFail();
+                        $folder = $this->ownedQuery($request)->whereKey((int) $input['id'])->firstOrFail();
                     }
 
                     if (! $folder) {
@@ -95,6 +95,7 @@ class InternalStorageController extends Controller
 
                     $folder->fill([
                         'company_id' => null,
+                        'user_id' => $request->user()->id,
                         'parent_id' => $parentClientKey ? $map[$parentClientKey] : null,
                         'type' => $input['type'] ?? 'folder',
                         'name' => $input['name'],
@@ -126,15 +127,14 @@ class InternalStorageController extends Controller
             }
 
             if (! empty($processedIds)) {
-                CompanyStorageFolder::query()->whereNull('company_id')->whereNotIn('id', $processedIds)->delete();
+                $this->ownedQuery($request)->whereNotIn('id', $processedIds)->delete();
             } else {
-                CompanyStorageFolder::query()->whereNull('company_id')->delete();
+                $this->ownedQuery($request)->delete();
             }
         });
 
         return response()->json([
-            'folders' => CompanyStorageFolder::query()
-                ->whereNull('company_id')
+            'folders' => $this->ownedQuery($request)
                 ->orderBy('sort_order')
                 ->orderBy('id')
                 ->get()
@@ -157,6 +157,8 @@ class InternalStorageController extends Controller
                 'integer',
                 Rule::exists('company_storage_folders', 'id')->where(fn ($query) => $query
                     ->whereNull('company_id')
+                    ->where('user_id', $request->user()->id)
+                    ->whereNull('deleted_at')
                     ->where('type', 'folder')),
             ],
             'file' => ['nullable', 'file', 'required_without:files'],
@@ -168,7 +170,7 @@ class InternalStorageController extends Controller
         ]);
 
         $base = isset($data['folder_id'])
-            ? CompanyStorageFolder::query()->whereNull('company_id')->whereKey((int) $data['folder_id'])->first()
+            ? $this->ownedQuery($request)->whereKey((int) $data['folder_id'])->first()
             : null;
 
         $uploads = $this->normalizedUploads($request);
@@ -226,6 +228,7 @@ class InternalStorageController extends Controller
                         $parent = CompanyStorageFolder::query()->firstOrCreate(
                             [
                                 'company_id' => null,
+                                'user_id' => $request->user()->id,
                                 'parent_id' => $parent?->id,
                                 'type' => 'folder',
                                 'name' => $segment,
@@ -244,16 +247,16 @@ class InternalStorageController extends Controller
                         );
                     }
 
-                    $storedPath = 'client-portal/internal-storage/files/' . (string) Str::uuid();
+                    $storedPath = 'client-portal/internal-storage/' . $request->user()->id . '/files/' . (string) Str::uuid();
                     Storage::disk($disk)->putFileAs(dirname($storedPath), $upload, basename($storedPath));
 
-                    $sortOrder = (int) CompanyStorageFolder::query()
-                        ->whereNull('company_id')
+                    $sortOrder = (int) $this->ownedQuery($request)
                         ->where('parent_id', $parent?->id)
                         ->max('sort_order') + 1;
 
                     return CompanyStorageFolder::query()->create([
                         'company_id' => null,
+                        'user_id' => $request->user()->id,
                         'parent_id' => $parent?->id,
                         'type' => 'file',
                         'name' => $filename,
@@ -294,9 +297,9 @@ class InternalStorageController extends Controller
         ], 201);
     }
 
-    public function open(CompanyStorageFolder $folder): StreamedResponse
+    public function open(Request $request, CompanyStorageFolder $folder): StreamedResponse
     {
-        $this->assertOpenableFile($folder);
+        $this->assertOpenableFile($request, $folder);
 
         $disk = $folder->disk ?: 'local';
         abort_unless(Storage::disk($disk)->exists($folder->storage_path), 404);
@@ -317,9 +320,9 @@ class InternalStorageController extends Controller
         ], 'inline');
     }
 
-    public function download(CompanyStorageFolder $folder): StreamedResponse
+    public function download(Request $request, CompanyStorageFolder $folder): StreamedResponse
     {
-        $this->assertOpenableFile($folder);
+        $this->assertOpenableFile($request, $folder);
 
         $disk = $folder->disk ?: 'local';
         abort_unless(Storage::disk($disk)->exists($folder->storage_path), 404);
@@ -345,16 +348,28 @@ class InternalStorageController extends Controller
         $payload = $folder->toArray();
 
         if ($folder->type === 'file' && $folder->resource_type === 'file' && $folder->storage_path) {
-            $payload['open_url'] = route('admin.client-portal.api.internal-storage.files.open', $folder);
-            $payload['download_url'] = route('admin.client-portal.api.internal-storage.files.download', $folder);
+            $routePrefix = request()->user()?->is_admin
+                ? 'admin.client-portal.api.internal-storage.files.'
+                : 'admin.client-portal.coworker-api.internal-storage.files.';
+
+            $payload['open_url'] = route($routePrefix . 'open', $folder);
+            $payload['download_url'] = route($routePrefix . 'download', $folder);
         }
 
         return $payload;
     }
 
-    private function assertOpenableFile(CompanyStorageFolder $folder): void
+    private function ownedQuery(Request $request): Builder
+    {
+        return CompanyStorageFolder::query()
+            ->whereNull('company_id')
+            ->where('user_id', $request->user()->id);
+    }
+
+    private function assertOpenableFile(Request $request, CompanyStorageFolder $folder): void
     {
         abort_unless($folder->company_id === null, 404);
+        abort_unless((int) $folder->user_id === (int) $request->user()->id, 404);
         abort_unless($folder->type === 'file', 404);
         abort_unless($folder->resource_type === 'file', 404);
         abort_unless($folder->storage_path, 404);

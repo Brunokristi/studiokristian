@@ -9,7 +9,6 @@ use App\Notifications\NewClientTicketNotification;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Str;
 use App\Http\Requests\Client\StoreProjectTicketRequest;
 
@@ -31,7 +30,16 @@ class ProjectTicketController extends Controller
         ]);
 
         $recipients = User::query()->where('is_admin', true)->get()->merge($project->coworkers);
-        Notification::send($recipients->unique('id'), new NewClientTicketNotification($ticket->load('project')));
+        $notification = new NewClientTicketNotification($ticket->load('project'));
+
+        // The ticket is already saved; a bad recipient address must not fail the request.
+        foreach ($recipients->unique('id') as $recipient) {
+            try {
+                $recipient->notify($notification);
+            } catch (\Throwable $exception) {
+                report($exception);
+            }
+        }
 
         if ($request->expectsJson()) {
             return response()->json([

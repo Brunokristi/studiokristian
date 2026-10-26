@@ -23,7 +23,7 @@ require __DIR__ . '/admin.php';
 |
 | Client users are handled separately by bootstrap/app.php.
 | Admins go to the admin application.
-| Other authenticated users go to the staff workspace.
+| Coworkers go to their assigned projects.
 |
 */
 
@@ -38,9 +38,7 @@ Route::get(
             );
         }
 
-        return redirect()->route(
-            'staff.workspace'
-        );
+        return redirect('/admin/client-portal/projects');
     }
 )
     ->middleware([

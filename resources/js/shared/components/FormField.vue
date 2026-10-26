@@ -1538,10 +1538,204 @@ onBeforeUnmount(() => {
             v-else-if="
                 type === 'autocomplete'
             "
-            class="
-                relative
-            "
         >
+
+            <div
+                class="
+                    relative
+                "
+            >
+
+                <input
+                    :id="id"
+                    :name="name"
+                    :value="
+                        multiple
+                            ? autocompleteInput
+                            : (
+                                autocompleteInput ||
+                                modelValue
+                            )
+                    "
+                    :placeholder="
+                        placeholder
+                    "
+                    :autocomplete="
+                        autocomplete
+                    "
+                    :disabled="
+                        disabled
+                    "
+                    :readonly="
+                        readonly
+                    "
+                    :required="
+                        required &&
+                        !multiple
+                    "
+                    :autofocus="
+                        autofocus
+                    "
+                    class="
+                        p
+                        box-border
+                        h-6
+                        w-full
+                        appearance-none
+                        border-0
+                        border-b
+                        border-dark
+                        bg-transparent
+                        px-0
+                        py-0
+                        leading-6
+                        text-dark
+                        outline-none
+                        transition-colors
+                        duration-200
+                        placeholder:text-dark/30
+                        focus:border-accent
+                        focus:outline-none
+                        focus:ring-0
+                        disabled:cursor-not-allowed
+                        disabled:opacity-50
+                    "
+                    :class="{
+                        'border-red-600':
+                            error
+                    }"
+                    @input="
+                        handleInput
+                    "
+                    @keydown="
+                        handleKeydown
+                    "
+                    @focus="
+                        handleFocus
+                    "
+                    @blur="
+                        handleBlur
+                    "
+                >
+
+
+                <!-- Loading -->
+
+                <div
+                    v-if="
+                        loading
+                    "
+                    class="
+                        absolute
+                        right-0
+                        top-1/2
+                        -translate-y-1/2
+                    "
+                >
+
+                    <span
+                        class="
+                            font-mono
+                            text-xs
+                        "
+                    >
+                        ...
+                    </span>
+
+                </div>
+
+
+                <!-- Suggestions -->
+
+                <div
+                    v-if="
+                        isAutocompleteOpen &&
+                        options.length &&
+                        !loading
+                    "
+                    class="
+                        absolute
+                        left-0
+                        right-0
+                        top-full
+                        z-50
+                        mt-2
+                        max-h-60
+                        overflow-y-auto
+                        border
+                        border-accent
+                        bg-light
+                        shadow-lg
+                    "
+                >
+
+                    <button
+                        v-for="
+                            option in options
+                        "
+                        :key="
+                            option.value
+                        "
+                        type="button"
+                        class="
+                            p
+                            flex
+                            w-full
+                            items-center
+                            justify-between
+                            px-3
+                            py-2
+                            text-left
+                            transition-colors
+                            hover:bg-accent
+                            hover:text-light
+                        "
+                        :class="{
+                            'bg-accent text-light':
+                                isAutocompleteOptionSelected(
+                                    option
+                                )
+                        }"
+                        @click="
+                            handleAutocompleteOption(
+                                option
+                            )
+                        "
+                    >
+
+                        <span
+                            class="
+                                flex
+                                min-w-0
+                                items-center
+                                gap-2
+                            "
+                        >
+
+                            <span>
+                                {{ option.label }}
+                            </span>
+
+                        </span>
+
+
+                        <span
+                            v-if="
+                                isAutocompleteOptionSelected(
+                                    option
+                                )
+                            "
+                            class="font-mono"
+                        >
+                            ✓
+                        </span>
+
+                    </button>
+
+                </div>
+
+            </div>
+
 
             <!-- Multiple selected values -->
 
@@ -1551,7 +1745,7 @@ onBeforeUnmount(() => {
                     selectedOptions.length
                 "
                 class="
-                    mb-3
+                    mt-3
                     flex
                     flex-wrap
                     gap-2
@@ -1600,195 +1794,6 @@ onBeforeUnmount(() => {
                     </button>
 
                 </span>
-
-            </div>
-
-
-            <input
-                :id="id"
-                :name="name"
-                :value="
-                    multiple
-                        ? autocompleteInput
-                        : (
-                            autocompleteInput ||
-                            modelValue
-                        )
-                "
-                :placeholder="
-                    placeholder
-                "
-                :autocomplete="
-                    autocomplete
-                "
-                :disabled="
-                    disabled
-                "
-                :readonly="
-                    readonly
-                "
-                :required="
-                    required &&
-                    !multiple
-                "
-                :autofocus="
-                    autofocus
-                "
-                class="
-                    p
-                    box-border
-                    h-6
-                    w-full
-                    appearance-none
-                    border-0
-                    border-b
-                    border-dark
-                    bg-transparent
-                    px-0
-                    py-0
-                    leading-6
-                    text-dark
-                    outline-none
-                    transition-colors
-                    duration-200
-                    placeholder:text-dark/30
-                    focus:border-accent
-                    focus:outline-none
-                    focus:ring-0
-                    disabled:cursor-not-allowed
-                    disabled:opacity-50
-                "
-                :class="{
-                    'border-red-600':
-                        error
-                }"
-                @input="
-                    handleInput
-                "
-                @keydown="
-                    handleKeydown
-                "
-                @focus="
-                    handleFocus
-                "
-                @blur="
-                    handleBlur
-                "
-            >
-
-
-            <!-- Loading -->
-
-            <div
-                v-if="
-                    loading
-                "
-                class="
-                    absolute
-                    right-0
-                    top-1/2
-                    -translate-y-1/2
-                "
-            >
-
-                <span
-                    class="
-                        font-mono
-                        text-xs
-                    "
-                >
-                    ...
-                </span>
-
-            </div>
-
-
-            <!-- Suggestions -->
-
-            <div
-                v-if="
-                    isAutocompleteOpen &&
-                    options.length &&
-                    !loading
-                "
-                class="
-                    absolute
-                    left-0
-                    right-0
-                    top-full
-                    z-50
-                    mt-2
-                    max-h-60
-                    overflow-y-auto
-                    border
-                    border-accent
-                    bg-light
-                    shadow-lg
-                "
-            >
-
-                <button
-                    v-for="
-                        option in options
-                    "
-                    :key="
-                        option.value
-                    "
-                    type="button"
-                    class="
-                        p
-                        flex
-                        w-full
-                        items-center
-                        justify-between
-                        px-3
-                        py-2
-                        text-left
-                        transition-colors
-                        hover:bg-accent
-                        hover:text-light
-                    "
-                    :class="{
-                        'bg-accent text-light':
-                            isAutocompleteOptionSelected(
-                                option
-                            )
-                    }"
-                    @click="
-                        handleAutocompleteOption(
-                            option
-                        )
-                    "
-                >
-
-                    <span
-                        class="
-                            flex
-                            min-w-0
-                            items-center
-                            gap-2
-                        "
-                    >
-
-                        <span>
-                            {{ option.label }}
-                        </span>
-
-                    </span>
-
-
-                    <span
-                        v-if="
-                            isAutocompleteOptionSelected(
-                                option
-                            )
-                        "
-                        class="font-mono"
-                    >
-                        ✓
-                    </span>
-
-                </button>
 
             </div>
 

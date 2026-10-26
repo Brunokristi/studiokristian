@@ -15,6 +15,12 @@ import Button
 
 import FormField
     from '@shared/components/FormField.vue'
+import MarkdownContent
+    from '@shared/components/MarkdownContent.vue'
+import MarkdownField
+    from '@shared/components/MarkdownField.vue'
+import { markdownSummary }
+    from '@shared/utils/markdown.js'
 
 import Tag
     from '@shared/components/Tag.vue'
@@ -69,10 +75,6 @@ const creatingTag = ref(false)
 
 function buildForm() {
     return {
-        title:
-            props.ticket.title ||
-            '',
-
         description:
             props.ticket.description ||
             '',
@@ -131,9 +133,19 @@ function buildForm() {
 const form = ref(buildForm())
 
 
+const ticketSummary = computed(
+    () =>
+        markdownSummary(
+            props.ticket.description
+        ) ||
+        props.ticket.title ||
+        'Ticket'
+)
+
+
 const deleteConfirmText = computed(
     () =>
-        `Are you sure you want to delete "${props.ticket.title}"?`
+        `Are you sure you want to delete "${ticketSummary.value}"?`
 )
 
 
@@ -606,9 +618,6 @@ function saveTicket() {
                 props.ticket,
 
             data: {
-                title:
-                    form.value.title,
-
                 description:
                     form.value.description,
 
@@ -914,17 +923,22 @@ function getDeadlineState() {
                 gap-3
             "
         >
-            <p
+            <div
                 class="
+                    relative
+                    max-h-28
                     min-w-0
                     flex-1
-                    font-medium
+                    overflow-hidden
                 "
             >
-                {{
-                    ticket.title
-                }}
-            </p>
+                <MarkdownContent
+                    :source="
+                        ticket.description ||
+                        ticket.title
+                    "
+                />
+            </div>
 
             <span
                 v-if="
@@ -943,23 +957,6 @@ function getDeadlineState() {
                 Urgent
             </span>
         </div>
-
-
-        <p
-            v-if="
-                ticket.description
-            "
-            class="
-                mt-2
-                line-clamp-2
-                text-dark
-                p
-            "
-        >
-            {{
-                ticket.description
-            }}
-        </p>
 
 
         <div
@@ -1068,7 +1065,7 @@ function getDeadlineState() {
             `Created by ${getCreatorName()}`
         "
         :aria-label="
-            `Edit ticket ${ticket.title}`
+            `Edit ticket ${ticketSummary}`
         "
         close-label="Close ticket"
         panel-class="
@@ -1095,21 +1092,7 @@ function getDeadlineState() {
                 saveTicket
             "
         >
-            <FormField
-                :id="
-                    `ticket-title-${ticket.id}`
-                "
-                v-model="
-                    form.title
-                "
-                name="title"
-                type="text"
-                label="Title"
-                required
-            />
-
-
-            <FormField
+            <MarkdownField
                 :id="
                     `ticket-description-${ticket.id}`
                 "
@@ -1117,7 +1100,6 @@ function getDeadlineState() {
                     form.description
                 "
                 name="description"
-                type="textarea"
                 label="Description"
                 placeholder="What needs to be done?"
                 required
@@ -1178,135 +1160,138 @@ function getDeadlineState() {
             />
 
 
-            <!--
-                Selected ticket tags.
-
-                These intentionally appear ABOVE
-                the autocomplete, like Services.
-            -->
-
-            <div
-                v-if="
-                    selectedTags.length
-                "
-                class="
-                    flex
-                    flex-wrap
-                    gap-2
-                "
-            >
-                <div
-                    v-for="
-                        tag in selectedTags
+            <div>
+                <FormField
+                    :id="
+                        `ticket-tags-${ticket.id}`
                     "
-                    :key="
-                        `selected-tag-${tag.value}`
+                    :model-value="
+                        tagSearch
+                    "
+                    name="tag_search"
+                    type="autocomplete"
+                    label="Tags"
+                    placeholder="Start typing a tag"
+                    :options="
+                        availableTagOptions
+                    "
+                    :loading="
+                        creatingTag
+                    "
+                    :disabled="
+                        creatingTag ||
+                        saving ||
+                        deleting
+                    "
+                    @search="
+                        searchTags
+                    "
+                    @select="
+                        selectTag
+                    "
+                    @update:model-value="
+                        value => {
+                            /*
+                             * The autocomplete is only the
+                             * search control. Selected values
+                             * live in form.tag_ids.
+                             */
+
+                            if (
+                                typeof value ===
+                                'string'
+                            ) {
+                                tagSearch =
+                                    value
+                            }
+                        }
+                    "
+                />
+
+
+                <!--
+                    Selected ticket tags.
+
+                    They appear below the autocomplete,
+                    like the assignee field.
+                -->
+
+                <div
+                    v-if="
+                        selectedTags.length
                     "
                     class="
-                        inline-flex
-                        items-center
+                        mt-3
+                        flex
+                        flex-wrap
                         gap-2
-                        border
-                        border-accent
-                        bg-accent
-                        px-3
-                        py-1.5
-                        font-mono
-                        text-[10px]
-                        font-bold
-                        uppercase
-                        text-light
                     "
                 >
-                    <span>
-                        {{
-                            tag.label
-                        }}
-                    </span>
-
-
-                    <button
-                        type="button"
+                    <div
+                        v-for="
+                            tag in selectedTags
+                        "
+                        :key="
+                            `selected-tag-${tag.value}`
+                        "
                         class="
-                            flex
-                            h-4
-                            w-4
+                            inline-flex
                             items-center
-                            justify-center
-                            rounded-full
+                            gap-2
+                            border
+                            border-accent
+                            bg-accent
+                            px-3
+                            py-1.5
+                            font-mono
+                            text-[10px]
+                            font-bold
+                            uppercase
                             text-light
-                            transition
-                            hover:bg-light/20
-                        "
-                        :disabled="
-                            saving ||
-                            deleting ||
-                            creatingTag
-                        "
-                        @click.stop="
-                            removeTag(
-                                tag.value
-                            )
                         "
                     >
-                        <i
+                        <span>
+                            {{
+                                tag.label
+                            }}
+                        </span>
+
+
+                        <button
+                            type="button"
                             class="
-                                bi
-                                bi-x
-                                text-[11px]
+                                flex
+                                h-4
+                                w-4
+                                items-center
+                                justify-center
+                                rounded-full
+                                text-light
+                                transition
+                                hover:bg-light/20
                             "
-                        ></i>
-                    </button>
+                            :disabled="
+                                saving ||
+                                deleting ||
+                                creatingTag
+                            "
+                            @click.stop="
+                                removeTag(
+                                    tag.value
+                                )
+                            "
+                        >
+                            <i
+                                class="
+                                    bi
+                                    bi-x
+                                    text-[11px]
+                                "
+                            ></i>
+                        </button>
+                    </div>
                 </div>
             </div>
-
-
-            <FormField
-                :id="
-                    `ticket-tags-${ticket.id}`
-                "
-                :model-value="
-                    tagSearch
-                "
-                name="tag_search"
-                type="autocomplete"
-                label="Tags"
-                placeholder="Start typing a tag"
-                :options="
-                    availableTagOptions
-                "
-                :loading="
-                    creatingTag
-                "
-                :disabled="
-                    creatingTag ||
-                    saving ||
-                    deleting
-                "
-                @search="
-                    searchTags
-                "
-                @select="
-                    selectTag
-                "
-                @update:model-value="
-                    value => {
-                        /*
-                         * The autocomplete is only the
-                         * search control. Selected values
-                         * live in form.tag_ids.
-                         */
-
-                        if (
-                            typeof value ===
-                            'string'
-                        ) {
-                            tagSearch =
-                                value
-                        }
-                    }
-                "
-            />
 
 
             <FormField

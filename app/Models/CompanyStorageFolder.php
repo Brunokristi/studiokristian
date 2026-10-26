@@ -12,6 +12,7 @@ class CompanyStorageFolder extends Model
 
     protected $fillable = [
         'company_id',
+        'user_id',
         'parent_id',
         'type',
         'name',
@@ -45,6 +46,11 @@ class CompanyStorageFolder extends Model
     public function company(): BelongsTo
     {
         return $this->belongsTo(Company::class);
+    }
+
+    public function owner(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'user_id');
     }
 
     public function parent(): BelongsTo

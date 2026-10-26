@@ -188,6 +188,30 @@ class CoworkerController extends Controller
         return response()->json(['status' => 'deleted']);
     }
 
+    public function resendInvitation(User $coworker): JsonResponse
+    {
+        abort_if($coworker->is_admin || ! $coworker->isCoworker(), 404);
+
+        $projects = $coworker->coworkerProjects()->get();
+
+        abort_if(
+            $projects->isEmpty(),
+            422,
+            'This coworker has no assigned projects to invite them to.'
+        );
+
+        foreach ($projects as $project) {
+            $coworker->notify(
+                new ProjectInvitationNotification($project, route('login'))
+            );
+        }
+
+        return response()->json([
+            'status' => 'resent',
+            'project_count' => $projects->count(),
+        ]);
+    }
+
     private function payload(User $user): array
     {
         $data = [

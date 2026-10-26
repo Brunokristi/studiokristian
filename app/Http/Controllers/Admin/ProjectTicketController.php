@@ -10,6 +10,7 @@ use App\Models\TicketTag;
 use App\Models\User;
 use App\Notifications\NewCoworkerTicketNotification;
 use App\Notifications\TicketAssignedNotification;
+use Illuminate\Notifications\Notification;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -156,12 +157,6 @@ class ProjectTicketController extends Controller
         );
 
         $data = $request->validate([
-            'title' => [
-                'required',
-                'string',
-                'max:255',
-            ],
-
             'description' => [
                 'required',
                 'string',
@@ -224,6 +219,11 @@ class ProjectTicketController extends Controller
             $data['tag_ids']
         );
 
+        $data['title'] =
+            ProjectTicket::titleFromDescription(
+                $data['description']
+            );
+
         $ticket =
             $project->tickets()->create(
                 $data + [
@@ -249,7 +249,8 @@ class ProjectTicketController extends Controller
                     fn (
                         User $admin
                     ) =>
-                        $admin->notify(
+                        $this->notifySafely(
+                            $admin,
                             new NewCoworkerTicketNotification(
                                 $ticket->load('project')
                             )
@@ -291,12 +292,6 @@ class ProjectTicketController extends Controller
         );
 
         $data = $request->validate([
-            'title' => [
-                'sometimes',
-                'string',
-                'max:255',
-            ],
-
             'description' => [
                 'sometimes',
                 'string',
@@ -378,6 +373,18 @@ class ProjectTicketController extends Controller
             unset(
                 $data['tag_ids']
             );
+        }
+
+        if (
+            array_key_exists(
+                'description',
+                $data
+            )
+        ) {
+            $data['title'] =
+                ProjectTicket::titleFromDescription(
+                    $data['description']
+                );
         }
 
         $previousAssignedToValue =
@@ -710,12 +717,29 @@ class ProjectTicketController extends Controller
             return;
         }
 
-        $assignee->notify(
+        $this->notifySafely(
+            $assignee,
             new TicketAssignedNotification(
                 $ticket->fresh(
                     'project'
                 )
             )
         );
+    }
+
+    // The ticket is already saved; a bad recipient address must not fail the request.
+    private function notifySafely(
+        User $user,
+        Notification $notification
+    ): void {
+        try {
+            $user->notify(
+                $notification
+            );
+        } catch (\Throwable $exception) {
+            report(
+                $exception
+            );
+        }
     }
 }
