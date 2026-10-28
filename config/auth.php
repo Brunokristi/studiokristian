@@ -39,13 +39,17 @@ return [
     */
 
     'guards' => [
+        // "remember" is the lifetime (in minutes) of the remember-me cookie,
+        // which keeps users signed in on a device after the session expires.
         'web' => [
             'driver' => 'session',
             'provider' => 'users',
+            'remember' => (int) env('AUTH_REMEMBER_MINUTES', 60 * 24 * 365),
         ],
         'client' => [
             'driver' => 'session',
             'provider' => 'client_contacts',
+            'remember' => (int) env('AUTH_REMEMBER_MINUTES', 60 * 24 * 365),
         ],
     ],
 

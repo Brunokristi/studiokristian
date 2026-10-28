@@ -41,7 +41,7 @@ class MagicLinkController extends \App\Http\Controllers\Controller
         });
         if (! $user) return redirect()->route('login')->withErrors(['email' => 'This sign-in link is invalid or expired.']);
         if (! $user->hasVerifiedEmail()) $user->markEmailAsVerified();
-        Auth::login($user); $request->session()->regenerate();
+        Auth::login($user, remember: true); $request->session()->regenerate();
         return redirect()->intended($user->is_admin ? route('admin.client-portal.index') : '/admin/client-portal/projects');
     }
 }

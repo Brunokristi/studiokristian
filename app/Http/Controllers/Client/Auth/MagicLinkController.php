@@ -85,7 +85,7 @@ class MagicLinkController extends Controller
             ]);
         }
 
-        Auth::guard('client')->login($contact);
+        Auth::guard('client')->login($contact, remember: true);
         $request->session()->regenerate();
         $audit->record('portal.login', $contact, $contact, $contact->company_id, request: $request);
 
